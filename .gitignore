@@ -1,0 +1,29 @@
+# Rust
+target/
+**/*.rs.bk
+Cargo.lock
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+*.egg-info/
+
+# Node
+node_modules/
+dist/
+build/
+*.log
+
+# IDEs
+.vscode/
+.idea/
+.DS_Store
+
+# Environment
+.env
+.env.local
+
+# Backup directories
+original_*/
+CLEANUP_BACKUP_*/

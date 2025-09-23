@@ -1,0 +1,39 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'betanet'
+
+# Alertmanager configuration (optional)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets: ['alertmanager:9093']
+
+scrape_configs:
+  # Betanet mixnode metrics
+  - job_name: 'betanet-mixnode-1'
+    static_configs:
+      - targets: ['betanet-mixnode-1:9001']
+        labels:
+          node_type: 'entry'
+          node_id: '1'
+
+  - job_name: 'betanet-mixnode-2'
+    static_configs:
+      - targets: ['betanet-mixnode-2:9002']
+        labels:
+          node_type: 'middle'
+          node_id: '2'
+
+  - job_name: 'betanet-mixnode-3'
+    static_configs:
+      - targets: ['betanet-mixnode-3:9003']
+        labels:
+          node_type: 'exit'
+          node_id: '3'
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

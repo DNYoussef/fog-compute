@@ -1,0 +1,278 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2025-09-23",
+  "description": "Performance budgets and targets for Fog-Compute system",
+
+  "budgets": {
+    "betanet": {
+      "throughput": {
+        "packets_per_sec": {
+          "budget": 25000,
+          "warning_threshold": 22500,
+          "critical_threshold": 20000
+        }
+      },
+      "latency": {
+        "p95_us": {
+          "budget": 100,
+          "warning_threshold": 90,
+          "critical_threshold": 120
+        },
+        "p99_us": {
+          "budget": 200,
+          "warning_threshold": 180,
+          "critical_threshold": 240
+        }
+      },
+      "concurrent_streams": {
+        "total_throughput_pps": {
+          "budget": 100000,
+          "warning_threshold": 90000,
+          "critical_threshold": 80000
+        }
+      }
+    },
+
+    "bitchat": {
+      "local_p2p": {
+        "p50_ms": {
+          "budget": 20,
+          "warning_threshold": 18,
+          "critical_threshold": 25
+        },
+        "p99_ms": {
+          "budget": 50,
+          "warning_threshold": 45,
+          "critical_threshold": 60
+        }
+      },
+      "global_p2p": {
+        "p50_ms": {
+          "budget": 100,
+          "warning_threshold": 90,
+          "critical_threshold": 120
+        },
+        "p99_ms": {
+          "budget": 200,
+          "warning_threshold": 180,
+          "critical_threshold": 240
+        }
+      },
+      "message_broadcasting": {
+        "100_peers_p95_ms": {
+          "budget": 100,
+          "warning_threshold": 90,
+          "critical_threshold": 120
+        }
+      },
+      "direct_messaging": {
+        "p99_ms": {
+          "budget": 50,
+          "warning_threshold": 45,
+          "critical_threshold": 60
+        }
+      }
+    },
+
+    "control_panel": {
+      "rendering": {
+        "target_fps": {
+          "budget": 60,
+          "warning_threshold": 55,
+          "critical_threshold": 50
+        },
+        "frame_budget_ms": {
+          "budget": 16.67,
+          "warning_threshold": 18,
+          "critical_threshold": 20
+        },
+        "dropped_frames_percent": {
+          "budget": 1,
+          "warning_threshold": 2,
+          "critical_threshold": 5
+        }
+      },
+      "component_mount": {
+        "avg_ms": {
+          "budget": 10,
+          "warning_threshold": 12,
+          "critical_threshold": 15
+        },
+        "p95_ms": {
+          "budget": 16.67,
+          "warning_threshold": 18,
+          "critical_threshold": 20
+        }
+      },
+      "user_interactions": {
+        "p95_ms": {
+          "budget": 80,
+          "warning_threshold": 90,
+          "critical_threshold": 100
+        },
+        "p99_ms": {
+          "budget": 100,
+          "warning_threshold": 110,
+          "critical_threshold": 120
+        }
+      },
+      "state_updates": {
+        "p95_ms": {
+          "budget": 16.67,
+          "warning_threshold": 18,
+          "critical_threshold": 20
+        }
+      },
+      "list_rendering": {
+        "10k_items_fps": {
+          "budget": 60,
+          "warning_threshold": 55,
+          "critical_threshold": 50
+        }
+      }
+    },
+
+    "system_integration": {
+      "end_to_end": {
+        "throughput_ops_per_sec": {
+          "budget": 100,
+          "warning_threshold": 90,
+          "critical_threshold": 80
+        },
+        "success_rate_percent": {
+          "budget": 99,
+          "warning_threshold": 98,
+          "critical_threshold": 95
+        }
+      },
+      "concurrent_operations": {
+        "throughput_ops_per_sec": {
+          "budget": 1000,
+          "warning_threshold": 900,
+          "critical_threshold": 800
+        }
+      },
+      "stress_test": {
+        "throughput_ops_per_sec": {
+          "budget": 500,
+          "warning_threshold": 450,
+          "critical_threshold": 400
+        },
+        "error_rate_percent": {
+          "budget": 1,
+          "warning_threshold": 2,
+          "critical_threshold": 5
+        }
+      },
+      "fault_tolerance": {
+        "recovery_rate_percent": {
+          "budget": 95,
+          "warning_threshold": 90,
+          "critical_threshold": 85
+        }
+      }
+    }
+  },
+
+  "regression_thresholds": {
+    "throughput_decrease_percent": {
+      "warning": 10,
+      "critical": 20
+    },
+    "latency_increase_percent": {
+      "warning": 15,
+      "critical": 25
+    },
+    "fps_decrease_percent": {
+      "warning": 5,
+      "critical": 10
+    },
+    "success_rate_decrease_percent": {
+      "warning": 1,
+      "critical": 5
+    }
+  },
+
+  "performance_targets": {
+    "betanet": {
+      "description": "25k pps supports 100 simultaneous peers @ 250 packets/sec each",
+      "rationale": "Leaves 10% headroom for traffic bursts"
+    },
+    "bitchat": {
+      "local": {
+        "description": "<50ms P99 for LAN latency expectations",
+        "rationale": "Interactive messaging experience"
+      },
+      "global": {
+        "description": "<200ms P99 for typical WAN round-trip",
+        "rationale": "Acceptable for global P2P communication"
+      }
+    },
+    "control_panel": {
+      "description": "60fps matches display refresh rate",
+      "rationale": "Smooth, responsive user experience"
+    },
+    "system_integration": {
+      "description": ">99% success rate for production reliability",
+      "rationale": "High availability requirement"
+    }
+  },
+
+  "ci_cd_gates": {
+    "block_merge_on": [
+      "critical_threshold_exceeded",
+      "betanet_throughput_below_20k_pps",
+      "control_panel_fps_below_50",
+      "success_rate_below_95_percent"
+    ],
+    "warn_on": [
+      "warning_threshold_exceeded",
+      "regression_detected",
+      "fps_below_55"
+    ],
+    "require_manual_approval_on": [
+      "multiple_critical_regressions",
+      "system_integration_failures"
+    ]
+  },
+
+  "monitoring": {
+    "baseline_update_frequency": "weekly",
+    "benchmark_schedule": "daily_2am_utc",
+    "alert_channels": [
+      "github_pr_comment",
+      "slack_performance_channel",
+      "pagerduty_critical"
+    ],
+    "metrics_retention_days": 90,
+    "trend_analysis_window_days": 30,
+    "real_time_monitoring": {
+      "enabled": true,
+      "sample_interval_sec": 60,
+      "alert_on_degradation": true
+    }
+  },
+
+  "optimization_priorities": [
+    {
+      "priority": 1,
+      "component": "betanet",
+      "focus": "Throughput optimization to maintain 25k+ pps"
+    },
+    {
+      "priority": 2,
+      "component": "control_panel",
+      "focus": "Maintain 60fps for smooth UX"
+    },
+    {
+      "priority": 3,
+      "component": "bitchat",
+      "focus": "Local P2P latency <50ms"
+    },
+    {
+      "priority": 4,
+      "component": "system_integration",
+      "focus": "99%+ success rate"
+    }
+  ]
+}

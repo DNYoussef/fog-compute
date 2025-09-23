@@ -1,0 +1,170 @@
+global:
+  resolve_timeout: 5m
+  smtp_smarthost: '${SMTP_HOST:-smtp.gmail.com:587}'
+  smtp_from: '${SMTP_FROM:-alerts@fogcompute.dev}'
+  smtp_auth_username: '${SMTP_USER}'
+  smtp_auth_password: '${SMTP_PASSWORD}'
+  smtp_require_tls: true
+
+  slack_api_url: '${SLACK_WEBHOOK_URL}'
+  pagerduty_url: 'https://events.pagerduty.com/v2/enqueue'
+
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+route:
+  receiver: 'default-receiver'
+  group_by: ['alertname', 'cluster', 'service', 'severity']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 12h
+
+  routes:
+    # Critical alerts to PagerDuty and Slack
+    - match:
+        severity: critical
+      receiver: 'pagerduty-critical'
+      continue: true
+      group_wait: 10s
+      repeat_interval: 5m
+
+    - match:
+        severity: critical
+      receiver: 'slack-critical'
+      continue: false
+
+    # Warnings to Slack
+    - match:
+        severity: warning
+      receiver: 'slack-warnings'
+      group_wait: 30s
+      repeat_interval: 4h
+
+    # Betanet-specific alerts
+    - match:
+        component: betanet
+      receiver: 'betanet-team'
+      group_wait: 30s
+      repeat_interval: 2h
+
+    # BitChat-specific alerts
+    - match:
+        component: bitchat
+      receiver: 'bitchat-team'
+      group_wait: 30s
+      repeat_interval: 2h
+
+    # Control Panel alerts
+    - match:
+        component: control-panel
+      receiver: 'frontend-team'
+      group_wait: 1m
+      repeat_interval: 3h
+
+    # Network alerts
+    - match:
+        component: network
+      receiver: 'network-team'
+      group_wait: 1m
+      repeat_interval: 2h
+
+inhibit_rules:
+  # Inhibit warning if critical is firing
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'cluster', 'service']
+
+  # Inhibit component alerts if service is down
+  - source_match:
+      alertname: 'BetanetNodeDown'
+    target_match:
+      component: 'betanet'
+    equal: ['instance']
+
+  - source_match:
+      alertname: 'BitChatServiceDown'
+    target_match:
+      component: 'bitchat'
+    equal: ['instance']
+
+receivers:
+  - name: 'default-receiver'
+    email_configs:
+      - to: '${ALERT_EMAIL:-ops@fogcompute.dev}'
+        headers:
+          Subject: '[Fog Compute] {{ .GroupLabels.alertname }}'
+        html: |
+          {{ range .Alerts }}
+          <h3>Alert: {{ .Labels.alertname }}</h3>
+          <p><b>Severity:</b> {{ .Labels.severity }}</p>
+          <p><b>Component:</b> {{ .Labels.component }}</p>
+          <p><b>Summary:</b> {{ .Annotations.summary }}</p>
+          <p><b>Description:</b> {{ .Annotations.description }}</p>
+          <p><b>Started:</b> {{ .StartsAt }}</p>
+          {{ end }}
+
+  - name: 'pagerduty-critical'
+    pagerduty_configs:
+      - service_key: '${PAGERDUTY_SERVICE_KEY}'
+        description: '{{ .GroupLabels.alertname }}: {{ .Annotations.summary }}'
+        severity: 'critical'
+
+  - name: 'slack-critical'
+    slack_configs:
+      - channel: '#fog-compute-critical'
+        username: 'Fog Compute Alerts'
+        icon_emoji: ':rotating_light:'
+        title: ':fire: CRITICAL: {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Labels.alertname }}
+          *Severity:* {{ .Labels.severity }}
+          *Component:* {{ .Labels.component }}
+          *Summary:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          {{ end }}
+        send_resolved: true
+
+  - name: 'slack-warnings'
+    slack_configs:
+      - channel: '#fog-compute-alerts'
+        username: 'Fog Compute Alerts'
+        icon_emoji: ':warning:'
+        title: ':warning: WARNING: {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Labels.alertname }}
+          *Component:* {{ .Labels.component }}
+          *Summary:* {{ .Annotations.summary }}
+          {{ end }}
+        send_resolved: true
+
+  - name: 'betanet-team'
+    slack_configs:
+      - channel: '#betanet-alerts'
+        username: 'Betanet Monitor'
+        icon_emoji: ':satellite:'
+        title: 'Betanet Alert: {{ .GroupLabels.alertname }}'
+
+  - name: 'bitchat-team'
+    slack_configs:
+      - channel: '#bitchat-alerts'
+        username: 'BitChat Monitor'
+        icon_emoji: ':speech_balloon:'
+        title: 'BitChat Alert: {{ .GroupLabels.alertname }}'
+
+  - name: 'frontend-team'
+    slack_configs:
+      - channel: '#frontend-alerts'
+        username: 'Control Panel Monitor'
+        icon_emoji: ':desktop_computer:'
+        title: 'Control Panel Alert: {{ .GroupLabels.alertname }}'
+
+  - name: 'network-team'
+    slack_configs:
+      - channel: '#network-alerts'
+        username: 'Network Monitor'
+        icon_emoji: ':globe_with_meridians:'
+        title: 'Network Alert: {{ .GroupLabels.alertname }}'

@@ -1,0 +1,32 @@
+[package]
+name = "betanet-tests"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+betanet = { path = "../../src/betanet" }
+tokio = { version = "1.35", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+async-trait = "0.1"
+thiserror = "1.0"
+
+[dev-dependencies]
+tokio-test = "0.4"
+criterion = "0.5"
+proptest = "1.4"
+
+[[test]]
+name = "betanet_unit_tests"
+path = "betanet_unit_tests.rs"
+
+[[test]]
+name = "betanet_integration_tests"
+path = "betanet_integration_tests.rs"
+harness = true
+
+[profile.test]
+opt-level = 2
+
+[profile.bench]
+opt-level = 3

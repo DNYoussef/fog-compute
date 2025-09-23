@@ -1,0 +1,38 @@
+FROM rust:1.75-slim as builder
+
+WORKDIR /app
+
+# Copy Cargo files
+COPY Cargo.toml ./
+
+# Create a dummy main.rs to cache dependencies
+RUN mkdir src && \
+    echo "fn main() {}" > src/main.rs && \
+    cargo build --release && \
+    rm -rf src
+
+# Copy actual source
+COPY betanet_exporter.rs src/main.rs
+
+# Build the exporter
+RUN cargo build --release
+
+# Runtime stage
+FROM debian:bookworm-slim
+
+WORKDIR /app
+
+# Install required runtime dependencies
+RUN apt-get update && \
+    apt-get install -y ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy binary from builder
+COPY --from=builder /app/target/release/betanet_exporter /usr/local/bin/
+
+EXPOSE 9200
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:9200/health || exit 1
+
+CMD ["betanet_exporter"]

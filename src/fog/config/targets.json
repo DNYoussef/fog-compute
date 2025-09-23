@@ -1,0 +1,61 @@
+{
+  "performance_targets": {
+    "fog_coordinator_improvement": {
+      "value": 70.0,
+      "range": "60-80%",
+      "description": "Overall fog coordinator performance improvement"
+    },
+    "onion_coordinator_improvement": {
+      "value": 40.0,
+      "range": "30-50%",
+      "description": "Privacy coordinator optimization target"
+    },
+    "graph_fixer_improvement": {
+      "value": 50.0,
+      "range": "40-60%",
+      "description": "Graph processing algorithm improvement"
+    },
+    "system_startup_time": {
+      "value": 30.0,
+      "unit": "seconds",
+      "description": "Maximum acceptable system startup time"
+    },
+    "device_registration_time": {
+      "value": 2.0,
+      "unit": "seconds",
+      "description": "Maximum device registration latency"
+    },
+    "privacy_task_routing_time": {
+      "value": 3.0,
+      "unit": "seconds",
+      "description": "Maximum privacy task routing time"
+    },
+    "graph_gap_detection_time": {
+      "value": 30.0,
+      "unit": "seconds",
+      "description": "Maximum gap detection time for 1000 nodes"
+    },
+    "memory_reduction_percent": {
+      "value": 30.0,
+      "range": "20-40%",
+      "description": "Memory usage reduction target"
+    },
+    "coupling_reduction_percent": {
+      "value": 70.0,
+      "description": "Minimum coupling reduction target"
+    }
+  },
+  "quality_gates": {
+    "min_pass_rate": 75.0,
+    "critical_benchmarks": [
+      "fog_coordinator_optimization",
+      "onion_coordinator_optimization",
+      "graph_gap_detection_optimization"
+    ],
+    "deployment_criteria": {
+      "overall_grade": ["A", "B", "C"],
+      "no_critical_regressions": true,
+      "core_benchmarks_passed": true
+    }
+  }
+}

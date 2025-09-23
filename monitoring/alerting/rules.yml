@@ -1,0 +1,217 @@
+groups:
+  - name: fog_compute_critical
+    interval: 30s
+    rules:
+      # Betanet Network Alerts
+      - alert: BetanetNodeDown
+        expr: up{job="betanet"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: betanet
+        annotations:
+          summary: "Betanet node is down"
+          description: "Betanet node {{ $labels.instance }} has been down for more than 2 minutes"
+
+      - alert: BetanetHighPacketLoss
+        expr: rate(fogcompute_betanet_packets_dropped_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: betanet
+        annotations:
+          summary: "High packet loss in Betanet"
+          description: "Packet loss rate is {{ $value | humanizePercentage }} on {{ $labels.peer_id }}"
+
+      - alert: BetanetLowPeerCount
+        expr: fogcompute_betanet_connected_peers < 3
+        for: 10m
+        labels:
+          severity: warning
+          component: betanet
+        annotations:
+          summary: "Low peer count in Betanet"
+          description: "Only {{ $value }} peers connected (threshold: 3)"
+
+      - alert: BetanetHighLatency
+        expr: histogram_quantile(0.95, rate(fogcompute_betanet_message_latency_seconds_bucket[5m])) > 1
+        for: 10m
+        labels:
+          severity: warning
+          component: betanet
+        annotations:
+          summary: "High message latency in Betanet"
+          description: "95th percentile latency is {{ $value | humanizeDuration }}"
+
+      # BitChat Alerts
+      - alert: BitChatServiceDown
+        expr: up{job="bitchat"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: bitchat
+        annotations:
+          summary: "BitChat service is down"
+          description: "BitChat service {{ $labels.instance }} has been down for more than 2 minutes"
+
+      - alert: BitChatHighConnectionDrops
+        expr: rate(fogcompute_bitchat_connections_dropped_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: bitchat
+        annotations:
+          summary: "High connection drop rate in BitChat"
+          description: "Connection drop rate is {{ $value | humanize }} drops/sec"
+
+      - alert: BitChatMessageQueueBacklog
+        expr: fogcompute_bitchat_message_queue_size > 1000
+        for: 10m
+        labels:
+          severity: warning
+          component: bitchat
+        annotations:
+          summary: "BitChat message queue backlog"
+          description: "Message queue has {{ $value }} pending messages"
+
+      # Control Panel Alerts
+      - alert: ControlPanelDown
+        expr: up{job="control-panel"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: control-panel
+        annotations:
+          summary: "Control Panel is down"
+          description: "Control Panel has been down for more than 2 minutes"
+
+      - alert: ControlPanelHighErrorRate
+        expr: rate(http_requests_total{job="control-panel",status=~"5.."}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          component: control-panel
+        annotations:
+          summary: "High error rate in Control Panel"
+          description: "Error rate is {{ $value | humanizePercentage }}"
+
+      # System Resource Alerts
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value | humanizePercentage }} on {{ $labels.instance }}"
+
+      - alert: HighCPUUsage
+        expr: (100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)) > 80
+        for: 10m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value | humanize }}% on {{ $labels.instance }}"
+
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.lxcfs"} / node_filesystem_size_bytes) < 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "Disk space running low"
+          description: "Only {{ $value | humanizePercentage }} disk space remaining on {{ $labels.mountpoint }}"
+
+  - name: fog_compute_performance
+    interval: 60s
+    rules:
+      # Performance Degradation
+      - alert: SlowBetanetThroughput
+        expr: rate(fogcompute_betanet_bytes_transmitted_total[5m]) < 1000000
+        for: 10m
+        labels:
+          severity: warning
+          component: betanet
+        annotations:
+          summary: "Low Betanet throughput"
+          description: "Throughput is {{ $value | humanize }}B/s (threshold: 1MB/s)"
+
+      - alert: HighBitChatMessageLatency
+        expr: histogram_quantile(0.95, rate(fogcompute_bitchat_message_latency_seconds_bucket[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          component: bitchat
+        annotations:
+          summary: "High BitChat message latency"
+          description: "95th percentile message latency is {{ $value | humanizeDuration }}"
+
+      - alert: SlowControlPanelResponse
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="control-panel"}[5m])) > 2
+        for: 10m
+        labels:
+          severity: warning
+          component: control-panel
+        annotations:
+          summary: "Slow Control Panel response times"
+          description: "95th percentile response time is {{ $value | humanizeDuration }}"
+
+  - name: fog_compute_availability
+    interval: 60s
+    rules:
+      # Uptime & Availability
+      - alert: ServiceFlapping
+        expr: changes(up[10m]) > 3
+        labels:
+          severity: warning
+          component: availability
+        annotations:
+          summary: "Service is flapping"
+          description: "{{ $labels.job }} has restarted {{ $value }} times in the last 10 minutes"
+
+      - alert: LowServiceAvailability
+        expr: avg_over_time(up[1h]) < 0.99
+        labels:
+          severity: critical
+          component: availability
+        annotations:
+          summary: "Low service availability"
+          description: "{{ $labels.job }} availability is {{ $value | humanizePercentage }} over the last hour (SLA: 99%)"
+
+  - name: fog_compute_network
+    interval: 60s
+    rules:
+      # Network Health
+      - alert: BetanetMixnodeFailure
+        expr: fogcompute_betanet_mixnode_failures_total > 5
+        for: 5m
+        labels:
+          severity: critical
+          component: betanet
+        annotations:
+          summary: "Betanet mixnode failures detected"
+          description: "{{ $value }} mixnode failures in the last 5 minutes"
+
+      - alert: BetanetRoutingFailure
+        expr: rate(fogcompute_betanet_routing_failures_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: betanet
+        annotations:
+          summary: "High routing failure rate"
+          description: "Routing failure rate is {{ $value | humanize }} failures/sec"
+
+      - alert: BitChatRoomOverload
+        expr: fogcompute_bitchat_active_rooms > 100
+        for: 10m
+        labels:
+          severity: warning
+          component: bitchat
+        annotations:
+          summary: "BitChat room overload"
+          description: "{{ $value }} active rooms (threshold: 100)"

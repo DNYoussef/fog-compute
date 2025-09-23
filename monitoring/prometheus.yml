@@ -1,0 +1,114 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'fog-compute-prod'
+    environment: 'production'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+# Load rules
+rule_files:
+  - '/etc/prometheus/rules.yml'
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Betanet Network metrics
+  - job_name: 'betanet'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['betanet:8080']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'betanet-node'
+
+  # Betanet custom exporter
+  - job_name: 'betanet-exporter'
+    static_configs:
+      - targets: ['betanet-exporter:9200']
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'betanet_(.+)'
+        target_label: __name__
+        replacement: 'fogcompute_betanet_${1}'
+
+  # BitChat P2P metrics
+  - job_name: 'bitchat'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['bitchat:3001']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'bitchat-node'
+
+  # BitChat custom exporter
+  - job_name: 'bitchat-exporter'
+    static_configs:
+      - targets: ['bitchat-exporter:9201']
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'bitchat_(.+)'
+        target_label: __name__
+        replacement: 'fogcompute_bitchat_${1}'
+
+  # Control Panel (Next.js)
+  - job_name: 'control-panel'
+    metrics_path: '/api/metrics'
+    static_configs:
+      - targets: ['control-panel:3000']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'control-panel'
+
+  # Node Exporter - System metrics
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'fog-compute-host'
+
+  # cAdvisor - Container metrics
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    metric_relabel_configs:
+      - source_labels: [container_label_com_docker_compose_service]
+        target_label: service
+      - source_labels: [container_label_com_docker_compose_project]
+        target_label: project
+
+  # Loki metrics
+  - job_name: 'loki'
+    static_configs:
+      - targets: ['loki:3100']
+
+  # Tempo metrics
+  - job_name: 'tempo'
+    static_configs:
+      - targets: ['tempo:3200']
+
+  # Grafana metrics
+  - job_name: 'grafana'
+    static_configs:
+      - targets: ['grafana:3000']
+
+# Remote write for long-term storage (optional)
+# remote_write:
+#   - url: "https://prometheus.example.com/api/v1/write"
+#     basic_auth:
+#       username: ${REMOTE_WRITE_USER}
+#       password: ${REMOTE_WRITE_PASSWORD}

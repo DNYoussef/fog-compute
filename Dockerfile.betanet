@@ -1,0 +1,48 @@
+# Multi-stage Dockerfile for Betanet Mixnode
+FROM rust:1.75 as builder
+
+WORKDIR /usr/src/betanet
+
+# Copy Cargo files
+COPY Cargo.toml Cargo.lock ./
+
+# Copy source code
+COPY src/betanet ./src/betanet
+
+# Build with optimizations
+RUN cargo build --release --features "sphinx,vrf,cover-traffic" \
+    && strip target/release/betanet-mixnode
+
+# Runtime stage
+FROM debian:bookworm-slim
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app user
+RUN useradd -m -u 1000 betanet
+
+# Copy binary from builder
+COPY --from=builder /usr/src/betanet/target/release/betanet-mixnode /usr/local/bin/
+
+# Create directories
+RUN mkdir -p /config /data && chown -R betanet:betanet /config /data
+
+# Switch to app user
+USER betanet
+
+WORKDIR /app
+
+# Expose default port (can be overridden)
+EXPOSE 9001
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:${NODE_PORT:-9001}/health || exit 1
+
+# Run the mixnode
+ENTRYPOINT ["/usr/local/bin/betanet-mixnode"]
+CMD ["--config", "/config/mixnode.toml"]

@@ -1,0 +1,216 @@
+name: E2E Tests - Fog Compute
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+jobs:
+  test:
+    timeout-minutes: 60
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        browser: [chromium, firefox, webkit]
+        shard: [1, 2, 3, 4]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+
+      - name: Run E2E tests (shard ${{ matrix.shard }}/4)
+        run: npx playwright test --project=${{ matrix.browser }} --shard=${{ matrix.shard }}/4
+        env:
+          CI: true
+
+      - name: Upload blob report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: blob-report-${{ matrix.os }}-${{ matrix.browser }}-${{ matrix.shard }}
+          path: blob-report/
+          retention-days: 1
+
+  mobile-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        device: ['iPhone 12', 'Pixel 5', 'iPad Pro']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright
+        run: npx playwright install --with-deps
+
+      - name: Run mobile tests
+        run: npx playwright test --project="Mobile ${{ matrix.device }}"
+
+      - name: Upload mobile test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-results-${{ matrix.device }}
+          path: test-results/
+
+  cross-browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright
+        run: npx playwright install --with-deps
+
+      - name: Run cross-browser tests
+        run: npx playwright test tests/e2e/cross-platform.spec.ts
+
+      - name: Upload cross-browser report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cross-browser-report
+          path: test-results/
+
+  merge-reports:
+    if: always()
+    needs: [test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download blob reports
+        uses: actions/download-artifact@v4
+        with:
+          path: all-blob-reports
+          pattern: blob-report-*
+          merge-multiple: true
+
+      - name: Merge reports
+        run: npx playwright merge-reports --reporter html ./all-blob-reports
+
+      - name: Upload combined HTML report
+        uses: actions/upload-artifact@v4
+        with:
+          name: combined-html-report
+          path: playwright-report/
+          retention-days: 14
+
+      - name: Deploy to GitHub Pages
+        if: github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./playwright-report
+
+  visual-regression:
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.40.0-jammy
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run visual regression tests
+        run: npx playwright test --grep @visual --update-snapshots
+
+      - name: Upload updated snapshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: updated-snapshots
+          path: tests/**/*.png
+
+  betanet-monitoring:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Run betanet monitoring tests
+        run: npx playwright test tests/e2e/betanet-monitoring.spec.ts
+
+  bitchat-p2p:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Bitchat P2P tests
+        run: npx playwright test tests/e2e/bitchat-messaging.spec.ts
+
+  benchmark-visualization:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Run benchmark visualization tests
+        run: npx playwright test tests/e2e/benchmarks-visualization.spec.ts
