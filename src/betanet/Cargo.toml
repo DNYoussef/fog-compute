@@ -6,6 +6,7 @@ authors = ["Betanet Team"]
 description = "High-performance privacy network mixnode implementation"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/fog-compute/betanet"
+autoexamples = false  # Disable auto-discovery of examples (they can't resolve crate imports)
 
 [features]
 default = ["sphinx", "dep:vrf"]
