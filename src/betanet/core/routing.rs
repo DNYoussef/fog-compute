@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::net::SocketAddr;
 
-use crate::packet::Packet;
+use crate::utils::packet::Packet;
 
 /// Routing table for mixnode
 pub struct RoutingTable {

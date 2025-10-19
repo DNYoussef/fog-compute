@@ -6,6 +6,6 @@ pub mod mixnode;
 pub mod config;
 pub mod routing;
 
-pub use mixnode::{Mixnode, MixnodeImpl};
+pub use mixnode::StandardMixnode;
 pub use config::MixnodeConfig;
 pub use routing::RoutingTable;

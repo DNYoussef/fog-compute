@@ -15,7 +15,7 @@ path = "lib.rs"
 [features]
 default = ["sphinx", "vrf"]
 sphinx = []
-vrf = ["dep:vrf"]  # Feature that enables the optional vrf dependency
+vrf = ["dep:vrf", "dep:schnorrkel"]  # Feature that enables the optional vrf dependency
 cover-traffic = []
 all = ["sphinx", "vrf", "cover-traffic"]
 
@@ -44,6 +44,7 @@ rand_core = "0.6"
 
 # VRF (using 0.2.x - version 0.3 doesn't exist on crates.io)
 vrf = { version = "0.2", optional = true }
+schnorrkel = { version = "0.11", optional = true }
 
 # Networking
 bytes = "1.5"

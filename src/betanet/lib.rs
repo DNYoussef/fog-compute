@@ -81,7 +81,7 @@ pub mod utils {
 pub mod pipeline;
 
 // Re-exports for convenience
-pub use core::mixnode::{Mixnode, MixnodeImpl};
+pub use core::mixnode::StandardMixnode;
 pub use core::config::MixnodeConfig;
 pub use crypto::sphinx::{SphinxPacket, SphinxProcessor};
 pub use pipeline::{PacketPipeline, PipelinePacket, PipelineBenchmark};
