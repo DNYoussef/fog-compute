@@ -20,15 +20,15 @@ jobs:
         profile: minimal
         override: true
 
-    - name: Build
-      run: cargo build --verbose
-      if: hashFiles('Cargo.toml') != ''
+    - name: Build Betanet
+      run: cargo build --verbose --manifest-path src/betanet/Cargo.toml
+      if: hashFiles('src/betanet/Cargo.toml') != ''
 
-    - name: Run tests
-      run: cargo test --verbose
-      if: hashFiles('Cargo.toml') != ''
+    - name: Run Betanet tests
+      run: cargo test --verbose --manifest-path src/betanet/Cargo.toml
+      if: hashFiles('src/betanet/Cargo.toml') != ''
 
-    - name: Run clippy
-      run: cargo clippy -- -D warnings
-      if: hashFiles('Cargo.toml') != ''
+    - name: Run clippy on Betanet
+      run: cargo clippy --manifest-path src/betanet/Cargo.toml -- -D warnings
+      if: hashFiles('src/betanet/Cargo.toml') != ''
       continue-on-error: true

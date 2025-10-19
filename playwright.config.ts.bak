@@ -130,14 +130,12 @@ export default defineConfig({
     },
   ],
 
-  // Run local dev server before starting tests  
+  // Run local dev server before starting tests
   webServer: {
-    command: 'cd apps/control-panel && npm run dev',
+    command: 'npm run dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
-    stdout: 'pipe',
-    stderr: 'pipe',
   },
 
   // Output folder for test artifacts

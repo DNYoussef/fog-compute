@@ -6,7 +6,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "test": "jest --passWithNoTests",
+    "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:rust": "cd tests/rust && cargo test",
@@ -23,7 +23,6 @@
     "lint": "eslint src/**/*.{ts,tsx}",
     "typecheck": "tsc --noEmit",
     "dev": "tsc --watch",
-    "dev:control-panel": "cd apps/control-panel && npm run dev",
     "benchmark": "cd src/fog && python benchmarks/run_benchmarks.py",
     "docker:up": "docker-compose -f docker-compose.betanet.yml up -d",
     "docker:down": "docker-compose -f docker-compose.betanet.yml down",
