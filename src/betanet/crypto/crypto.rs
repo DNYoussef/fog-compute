@@ -5,12 +5,12 @@ use chacha20poly1305::{
     ChaCha20Poly1305, Key, Nonce,
 };
 use ed25519_dalek::{
-    Keypair, PublicKey as Ed25519PublicKey, SecretKey, Signature, Signer, Verifier,
+    SigningKey, VerifyingKey as Ed25519PublicKey, Signature, Signer, Verifier,
 };
 use hkdf::Hkdf;
 use rand::rngs::OsRng;
 use sha2::Sha256;
-use x25519_dalek::{PublicKey, StaticSecret};
+use x25519_dalek::{PublicKey, EphemeralSecret};
 
 use crate::{MixnodeError, Result};
 
@@ -70,7 +70,7 @@ impl ChaChaEncryption {
 
 /// Ed25519 digital signatures
 pub struct Ed25519Signer {
-    keypair: Keypair,
+    keypair: SigningKey,
 }
 
 impl Ed25519Signer {
@@ -80,24 +80,19 @@ impl Ed25519Signer {
         let mut rng = OsRng;
         let mut secret_bytes = [0u8; 32];
         rng.fill_bytes(&mut secret_bytes);
-        let secret = SecretKey::from_bytes(&secret_bytes).unwrap();
-        let public = Ed25519PublicKey::from(&secret);
-        let keypair = Keypair { secret, public };
+        let keypair = SigningKey::from_bytes(&secret_bytes);
         Self { keypair }
     }
 
     /// Create signer from private key bytes
     pub fn from_bytes(bytes: &[u8; 32]) -> Result<Self> {
-        let secret = SecretKey::from_bytes(bytes)
-            .map_err(|e| MixnodeError::Crypto(format!("Invalid secret key: {}", e)))?;
-        let public = Ed25519PublicKey::from(&secret);
-        let keypair = Keypair { secret, public };
+        let keypair = SigningKey::from_bytes(bytes);
         Ok(Self { keypair })
     }
 
     /// Get public key
-    pub fn public_key(&self) -> &Ed25519PublicKey {
-        &self.keypair.public
+    pub fn public_key(&self) -> Ed25519PublicKey {
+        self.keypair.verifying_key()
     }
 
     /// Sign data
@@ -107,16 +102,13 @@ impl Ed25519Signer {
 
     /// Verify signature
     pub fn verify(public_key: &Ed25519PublicKey, data: &[u8], signature: &[u8; 64]) -> bool {
-        if let Ok(sig) = Signature::from_bytes(signature) {
-            public_key.verify(data, &sig).is_ok()
-        } else {
-            false
-        }
+        let sig = Signature::from_bytes(signature);
+        public_key.verify(data, &sig).is_ok()
     }
 
     /// Export private key
     pub fn export_private_key(&self) -> [u8; 32] {
-        self.keypair.secret.to_bytes()
+        self.keypair.to_bytes()
     }
 }
 
@@ -128,7 +120,7 @@ impl Default for Ed25519Signer {
 
 /// X25519 key exchange
 pub struct X25519KeyExchange {
-    secret: StaticSecret,
+    secret: EphemeralSecret,
 }
 
 impl X25519KeyExchange {
@@ -138,13 +130,13 @@ impl X25519KeyExchange {
         let mut rng = OsRng;
         let mut secret_bytes = [0u8; 32];
         rng.fill_bytes(&mut secret_bytes);
-        let secret = StaticSecret::from(secret_bytes);
+        let secret = EphemeralSecret::from(secret_bytes);
         Self { secret }
     }
 
     /// Create from private key bytes
     pub fn from_bytes(bytes: &[u8; 32]) -> Self {
-        let secret = StaticSecret::from(*bytes);
+        let secret = EphemeralSecret::from(*bytes);
         Self { secret }
     }
 
