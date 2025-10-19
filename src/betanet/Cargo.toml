@@ -8,11 +8,11 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/fog-compute/betanet"
 
 [features]
-default = ["sphinx", "vrf"]
+default = ["sphinx", "dep:vrf"]
 sphinx = []
-vrf = []
+# vrf feature removed - use dep:vrf instead
 cover-traffic = []
-all = ["sphinx", "vrf", "cover-traffic"]
+all = ["sphinx", "dep:vrf", "cover-traffic"]
 
 [dependencies]
 # Async runtime
