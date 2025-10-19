@@ -14,7 +14,7 @@ use hkdf::Hkdf;
 use rand::rngs::OsRng;
 use rand::RngCore;
 use sha2::{Digest, Sha256};
-use x25519_dalek::{PublicKey, EphemeralSecret};
+use x25519_dalek::{PublicKey, StaticSecret};
 
 use crate::{
     crypto::crypto::{ChaChaEncryption, CryptoUtils, KeyDerivation},
@@ -315,7 +315,7 @@ impl RoutingInfo {
 /// High-performance Sphinx processor
 pub struct SphinxProcessor {
     /// Private key for this node
-    private_key: EphemeralSecret,
+    private_key: StaticSecret,
     /// Public key for this node
     public_key: PublicKey,
     /// Replay protection
@@ -347,7 +347,7 @@ impl SphinxProcessor {
         let mut rng = OsRng;
         let mut private_key_bytes = [0u8; 32];
         rng.fill_bytes(&mut private_key_bytes);
-        let private_key = EphemeralSecret::from(private_key_bytes);
+        let private_key = StaticSecret::from(private_key_bytes);
         let public_key = PublicKey::from(&private_key);
 
         Self {
@@ -360,7 +360,7 @@ impl SphinxProcessor {
 
     /// Create processor with existing key
     pub fn with_key(private_key_bytes: [u8; 32]) -> Self {
-        let private_key = EphemeralSecret::from(private_key_bytes);
+        let private_key = StaticSecret::from(private_key_bytes);
         let public_key = PublicKey::from(&private_key);
 
         Self {

@@ -10,7 +10,7 @@ use ed25519_dalek::{
 use hkdf::Hkdf;
 use rand::rngs::OsRng;
 use sha2::Sha256;
-use x25519_dalek::{PublicKey, EphemeralSecret};
+use x25519_dalek::{PublicKey, StaticSecret};
 
 use crate::{MixnodeError, Result};
 
@@ -120,7 +120,7 @@ impl Default for Ed25519Signer {
 
 /// X25519 key exchange
 pub struct X25519KeyExchange {
-    secret: EphemeralSecret,
+    secret: StaticSecret,
 }
 
 impl X25519KeyExchange {
@@ -130,13 +130,13 @@ impl X25519KeyExchange {
         let mut rng = OsRng;
         let mut secret_bytes = [0u8; 32];
         rng.fill_bytes(&mut secret_bytes);
-        let secret = EphemeralSecret::from(secret_bytes);
+        let secret = StaticSecret::from(secret_bytes);
         Self { secret }
     }
 
     /// Create from private key bytes
     pub fn from_bytes(bytes: &[u8; 32]) -> Self {
-        let secret = EphemeralSecret::from(*bytes);
+        let secret = StaticSecret::from(*bytes);
         Self { secret }
     }
 
