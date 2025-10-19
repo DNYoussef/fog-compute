@@ -13,11 +13,11 @@ name = "betanet"
 path = "lib.rs"
 
 [features]
-default = ["sphinx", "dep:vrf"]
+default = ["sphinx", "vrf"]
 sphinx = []
-# vrf feature removed - use dep:vrf instead
+vrf = ["dep:vrf"]  # Feature that enables the optional vrf dependency
 cover-traffic = []
-all = ["sphinx", "dep:vrf", "cover-traffic"]
+all = ["sphinx", "vrf", "cover-traffic"]
 
 [dependencies]
 # Async runtime
