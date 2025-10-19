@@ -39,7 +39,7 @@ dashmap = "5.5"
 indexmap = "2.1"
 
 # Networking
-libp2p = { version = "0.53", optional = true }
+libp2p = { version = "0.53" }
 
 [profile.release]
 opt-level = 3
