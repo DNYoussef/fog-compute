@@ -21,13 +21,13 @@ use crate::{MixnodeError, Result};
 #[cfg(feature = "cover-traffic")]
 use crate::cover::{AdvancedCoverTrafficGenerator, CoverTrafficConfig};
 
-use crate::rate::{RateLimitedTrafficShaper, RateLimitingConfig};
+use crate::utils::rate::{RateLimitedTrafficShaper, RateLimitingConfig};
 
 #[cfg(feature = "sphinx")]
-use crate::packet::Packet;
+use crate::utils::packet::Packet;
 
 #[cfg(feature = "sphinx")]
-use crate::sphinx::{SphinxPacket, SphinxProcessor};
+use crate::crypto::sphinx::{SphinxPacket, SphinxProcessor};
 
 /// Batch size for high-throughput processing (increased for 25k pkt/s target)
 pub const BATCH_SIZE: usize = 128;

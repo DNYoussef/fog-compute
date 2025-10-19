@@ -17,8 +17,8 @@ use sha2::{Digest, Sha256};
 use x25519_dalek::{PublicKey, StaticSecret};
 
 use crate::{
-    crypto::{ChaChaEncryption, CryptoUtils, KeyDerivation},
-    packet::Packet,
+    crypto::crypto::{ChaChaEncryption, CryptoUtils, KeyDerivation},
+    utils::packet::Packet,
     MixnodeError, Result,
 };
 

@@ -10,11 +10,11 @@ use tokio::sync::{broadcast, RwLock};
 use tracing::{debug, error, info, warn};
 
 use crate::{
-    config::MixnodeConfig,
-    delay::DelayQueue,
-    packet::{Packet, PacketType},
-    routing::RoutingTable,
-    Mixnode,
+    core::config::MixnodeConfig,
+    utils::delay::DelayQueue,
+    utils::packet::{Packet, PacketType},
+    core::routing::RoutingTable,
+    MixnodeTrait,
     MixnodeError,
     MixnodeStats,
     Result,
@@ -110,7 +110,7 @@ impl StandardMixnode {
         {
             // Use VRF-based delay calculation
             if self.config.enable_vrf {
-                return crate::vrf_delay::calculate_vrf_delay(
+                return crate::vrf::vrf_delay::calculate_vrf_delay(
                     &self.config.min_delay,
                     &self.config.max_delay,
                 )
@@ -200,7 +200,7 @@ impl StandardMixnode {
 }
 
 #[async_trait::async_trait]
-impl Mixnode for StandardMixnode {
+impl MixnodeTrait for StandardMixnode {
     async fn start(&mut self) -> Result<()> {
         info!("Starting mixnode on {}", self.config.listen_addr);
 
@@ -283,7 +283,7 @@ impl Mixnode for StandardMixnode {
 
         #[cfg(feature = "sphinx")]
         if self.config.enable_sphinx {
-            return crate::sphinx::process_sphinx_packet(&_parsed_packet).await;
+            return crate::crypto::sphinx::process_sphinx_packet(&_parsed_packet).await;
         }
 
         // Fallback to simple forwarding

@@ -13,10 +13,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::{crypto::CryptoUtils, MixnodeError, Result};
+use crate::{crypto::crypto::CryptoUtils, MixnodeError, Result};
 
 #[cfg(feature = "vrf")]
-use crate::vrf_delay::VrfProof;
+use crate::vrf::vrf_delay::VrfProof;
 
 /// AS (Autonomous System) number
 pub type AsNumber = u32;
