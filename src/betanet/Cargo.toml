@@ -68,10 +68,13 @@ proptest = "1.4"
 # name = "pipeline_benchmark"
 # harness = false
 
-[[example]]
-name = "simple_mixnode"
-path = "examples/simple_mixnode.rs"
+# DISABLED: Examples can't resolve betanet crate import from src/betanet/examples/ location
+# Examples are in wrong directory (should be at package root in examples/)
+# Re-enable later by moving to proper location or using path-based imports
+# [[example]]
+# name = "simple_mixnode"
+# path = "examples/simple_mixnode.rs"
 
-[[example]]
-name = "pipeline_benchmark"
-path = "examples/pipeline_benchmark.rs"
+# [[example]]
+# name = "pipeline_benchmark"
+# path = "examples/pipeline_benchmark.rs"
