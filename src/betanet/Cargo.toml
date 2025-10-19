@@ -8,6 +8,10 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/fog-compute/betanet"
 autoexamples = false  # Disable auto-discovery of examples (they can't resolve crate imports)
 
+[lib]
+name = "betanet"
+path = "lib.rs"
+
 [features]
 default = ["sphinx", "dep:vrf"]
 sphinx = []
