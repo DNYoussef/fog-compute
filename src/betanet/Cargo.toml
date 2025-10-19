@@ -63,9 +63,10 @@ base64 = "0.21"
 criterion = { version = "0.5", features = ["async_tokio"] }
 proptest = "1.4"
 
-[[bench]]
-name = "pipeline_benchmark"
-harness = false
+# Note: pipeline_benchmark is defined as an example below, not a bench
+# [[bench]]
+# name = "pipeline_benchmark"
+# harness = false
 
 [[example]]
 name = "simple_mixnode"
