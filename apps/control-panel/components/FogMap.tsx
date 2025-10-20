@@ -33,7 +33,7 @@ export function FogMap() {
   };
 
   return (
-    <div className="glass rounded-xl p-6 h-full">
+    <div className="glass rounded-xl p-6 h-full" data-testid="fog-map">
       <h2 className="text-xl font-semibold mb-4">Global Fog Node Distribution</h2>
 
       <div className="relative h-[400px] bg-gradient-to-br from-fog-dark to-black rounded-lg overflow-hidden">
@@ -102,6 +102,23 @@ export function FogMap() {
             );
           })}
         </svg>
+      </div>
+
+
+      {/* Zoom Controls */}
+      <div className="absolute top-4 right-4 flex flex-col gap-2">
+        <button
+          aria-label="Zoom in"
+          className="w-8 h-8 bg-white/10 rounded hover:bg-white/20 flex items-center justify-center"
+        >
+          +
+        </button>
+        <button
+          aria-label="Zoom out"
+          className="w-8 h-8 bg-white/10 rounded hover:bg-white/20 flex items-center justify-center"
+        >
+          −
+        </button>
       </div>
 
       {/* Legend */}

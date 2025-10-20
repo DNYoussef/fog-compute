@@ -6,7 +6,7 @@ interface SystemMetricsProps {
 
 export function SystemMetrics({ stats }: SystemMetricsProps) {
   return (
-    <div className="glass rounded-xl p-6 h-full">
+    <div className="glass rounded-xl p-6 h-full" data-testid="system-metrics">
       <h2 className="text-xl font-semibold mb-4">System Metrics</h2>
 
       <div className="space-y-4">

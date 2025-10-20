@@ -22,7 +22,7 @@ export function BenchmarkCharts({ data }: BenchmarkChartsProps) {
   }));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="benchmark-charts">
       {/* Latency and Throughput */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div>

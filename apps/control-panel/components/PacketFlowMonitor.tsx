@@ -45,7 +45,7 @@ export function PacketFlowMonitor({ mixnodes }: { mixnodes: MixnodeInfo[] }) {
   }, [mixnodes]);
 
   return (
-    <div className="h-[300px] overflow-y-auto space-y-2">
+    <div className="h-[300px] overflow-y-auto space-y-2" data-testid="packet-flow-monitor">
       {flows.length === 0 ? (
         <div className="text-center text-gray-400 py-8">
           Waiting for packet flows...

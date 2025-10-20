@@ -9,7 +9,7 @@ interface BenchmarkControlsProps {
 
 export function BenchmarkControls({ isRunning, testType, onStart, onStop }: BenchmarkControlsProps) {
   return (
-    <div className="glass rounded-xl p-6">
+    <div className="glass rounded-xl p-6" data-testid="benchmark-controls">
       <h2 className="text-xl font-semibold mb-4">Benchmark Controls</h2>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

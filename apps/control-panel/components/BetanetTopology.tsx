@@ -99,7 +99,8 @@ interface BetanetTopologyProps {
 
 export function BetanetTopology({ mixnodes, selectedNode, onNodeSelect }: BetanetTopologyProps) {
   return (
-    <Canvas camera={{ position: [0, 0, 15], fov: 60 }}>
+    <div className="w-full h-full" data-testid="betanet-topology">
+      <Canvas camera={{ position: [0, 0, 15], fov: 60 }}>
       <ambientLight intensity={0.5} />
       <pointLight position={[10, 10, 10]} intensity={1} />
       <pointLight position={[-10, -10, -10]} intensity={0.5} />
@@ -123,5 +124,6 @@ export function BetanetTopology({ mixnodes, selectedNode, onNodeSelect }: Betane
         autoRotateSpeed={0.5}
       />
     </Canvas>
+      </div>
   );
 }

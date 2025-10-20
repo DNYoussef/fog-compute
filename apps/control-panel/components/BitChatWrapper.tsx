@@ -55,7 +55,7 @@ export default function BitChatWrapper({ userId }: { userId: string }) {
   };
 
   return (
-    <div className="h-full flex">
+    <div className="h-full flex" data-testid="bitchat-wrapper">
       {/* Peer List Sidebar */}
       <div className="w-64 border-r border-white/10 p-4">
         <div className="mb-4">

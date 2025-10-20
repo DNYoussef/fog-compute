@@ -52,7 +52,7 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="flex items-center justify-center min-h-[60vh]" data-testid="loading">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-fog-cyan mx-auto mb-4"></div>
           <p className="text-gray-400">Loading dashboard...</p>
@@ -66,7 +66,7 @@ export default function Dashboard() {
       {/* Header */}
       <div className="glass rounded-xl p-6">
         <h1 className="text-3xl font-bold bg-gradient-to-r from-fog-cyan to-fog-purple bg-clip-text text-transparent">
-          Fog Compute Control Panel
+          Fog Compute Dashboard
         </h1>
         <p className="text-gray-400 mt-2">
           Unified monitoring and control for privacy networking, P2P messaging, and performance benchmarks
@@ -143,7 +143,7 @@ export default function Dashboard() {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Throughput</span>
-                <span className="font-semibold">{stats?.benchmarks.throughput?.toFixed(2) || 0} MB/s</span>
+                <span className="font-semibold" data-testid="throughput-value">{stats?.benchmarks.throughput?.toFixed(2) || 0} MB/s</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">CPU Usage</span>

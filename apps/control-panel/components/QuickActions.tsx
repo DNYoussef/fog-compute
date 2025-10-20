@@ -3,7 +3,7 @@
 export function QuickActions() {
   const actions = [
     {
-      title: 'Deploy Mixnode',
+      title: 'Deploy Node',
       description: 'Add a new mixnode to the Betanet network',
       icon: '🚀',
       color: 'from-fog-cyan to-blue-500',
@@ -33,7 +33,7 @@ export function QuickActions() {
   ];
 
   return (
-    <div className="glass rounded-xl p-6">
+    <div className="glass rounded-xl p-6" data-testid="quick-actions">
       <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {actions.map((action, index) => (
