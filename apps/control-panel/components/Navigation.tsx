@@ -35,7 +35,11 @@ export function Navigation() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={}
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                    isActive
+                      ? 'bg-fog-cyan/20 text-fog-cyan'
+                      : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  }`}
                 >
                   <span>{link.icon}</span>
                   <span className="hidden sm:inline">{link.label}</span>
@@ -82,7 +86,9 @@ export function Navigation() {
 
       {/* Mobile Menu Drawer */}
       <div
-        className={}
+        className={`md:hidden fixed top-16 right-0 bottom-0 w-64 glass-dark border-l border-white/10 z-50 transform transition-transform duration-300 ${
+          isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}
       >
         <div className="p-4 space-y-2">
           {links.map((link) => {
@@ -92,7 +98,11 @@ export function Navigation() {
                 key={link.href}
                 href={link.href}
                 onClick={() => setIsMobileMenuOpen(false)}
-                className={}
+                className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+                  isActive
+                    ? 'bg-fog-cyan/20 text-fog-cyan'
+                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                }`}
               >
                 <span className="text-xl">{link.icon}</span>
                 <span>{link.label}</span>
