@@ -40,6 +40,7 @@ export function QuickActions() {
           <button
             key={index}
             onClick={action.action}
+            data-testid={index === 0 ? "add-node-button" : undefined}
             className="glass glass-hover rounded-lg p-4 text-left transition-all duration-300 hover:scale-105"
           >
             <div className={`text-3xl mb-2 bg-gradient-to-r ${action.color} w-12 h-12 rounded-lg flex items-center justify-center`}>

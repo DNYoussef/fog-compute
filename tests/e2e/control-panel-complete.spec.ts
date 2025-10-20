@@ -291,7 +291,7 @@ test.describe('Complete Control Panel Workflow', () => {
       await page.fill('[data-testid="policy-name-input"]', 'E2E-Test-Policy');
       await page.selectOption('[data-testid="policy-type-select"]', 'ingress');
       await page.fill('[data-testid="allowed-ips-input"]', '10.0.0.0/8');
-      await page.fill('[data-testid="allowed-ports-input']', '80,443');
+      await page.fill('[data-testid="allowed-ports-input"]', '80,443');
 
       await page.click('[data-testid="create-policy-button"]');
 
