@@ -31,7 +31,9 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm ci
+          cd apps/control-panel && npm ci
 
       - name: Install Playwright
         run: npx playwright install --with-deps ${{ matrix.browser }}
@@ -53,7 +55,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        device: ['iPhone 12', 'Pixel 5', 'iPad Pro']
+        device: ['iPhone 12', 'Pixel 5', 'iPad']
 
     steps:
       - uses: actions/checkout@v4
@@ -63,7 +65,9 @@ jobs:
           node-version: '20'
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm ci
+          cd apps/control-panel && npm ci
 
       - name: Install Playwright
         run: npx playwright install --with-deps
@@ -88,7 +92,9 @@ jobs:
           node-version: '20'
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm ci
+          cd apps/control-panel && npm ci
 
       - name: Install Playwright
         run: npx playwright install --with-deps
@@ -115,7 +121,9 @@ jobs:
           node-version: '20'
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm ci
+          cd apps/control-panel && npm ci
 
       - name: Download blob reports
         uses: actions/download-artifact@v4
@@ -153,7 +161,9 @@ jobs:
           node-version: '20'
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm ci
+          cd apps/control-panel && npm ci
 
       - name: Run visual regression tests
         run: npx playwright test --grep @visual --update-snapshots
