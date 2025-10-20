@@ -41,24 +41,24 @@ pub struct ChaChaEncryption {
 impl ChaChaEncryption {
     /// Create new encryption instance
     pub fn new(key: &[u8; 32]) -> Self {
-        let key = Key::from_slice(key);
-        let cipher = ChaCha20Poly1305::new(key);
+        let key = Key::from(*key);
+        let cipher = ChaCha20Poly1305::new(&key);
         Self { cipher }
     }
 
     /// Encrypt data
     pub fn encrypt(&self, plaintext: &[u8], nonce: &[u8; 12]) -> Result<Vec<u8>> {
-        let nonce = Nonce::from_slice(nonce);
+        let nonce = Nonce::from(*nonce);
         self.cipher
-            .encrypt(nonce, plaintext)
+            .encrypt(&nonce, plaintext)
             .map_err(|e| MixnodeError::Crypto(format!("Encryption failed: {}", e)))
     }
 
     /// Decrypt data
     pub fn decrypt(&self, ciphertext: &[u8], nonce: &[u8; 12]) -> Result<Vec<u8>> {
-        let nonce = Nonce::from_slice(nonce);
+        let nonce = Nonce::from(*nonce);
         self.cipher
-            .decrypt(nonce, ciphertext)
+            .decrypt(&nonce, ciphertext)
             .map_err(|e| MixnodeError::Crypto(format!("Decryption failed: {}", e)))
     }
 

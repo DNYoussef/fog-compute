@@ -15,7 +15,7 @@ path = "lib.rs"
 [features]
 default = ["sphinx", "vrf"]
 sphinx = []
-vrf = ["dep:vrf", "dep:schnorrkel"]  # Feature that enables the optional vrf dependency
+vrf = ["dep:schnorrkel"]  # VRF functionality via schnorrkel (pure Rust, no OpenSSL needed)
 cover-traffic = []
 all = ["sphinx", "vrf", "cover-traffic"]
 
@@ -42,8 +42,7 @@ hkdf = "0.12"
 rand = "0.8"
 rand_core = "0.6"
 
-# VRF (using 0.2.x - version 0.3 doesn't exist on crates.io)
-vrf = { version = "0.2", optional = true }
+# VRF - using pure Rust schnorrkel (no OpenSSL dependency)
 schnorrkel = { version = "0.11", optional = true }
 
 # Networking
