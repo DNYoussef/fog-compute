@@ -203,45 +203,45 @@ test.describe('Performance Across Browsers', () => {
 });
 
 test.describe('Mobile Browser Compatibility', () => {
-  const mobileContexts = [
-    { name: 'iOS Safari', device: devices['iPhone 12'] },
-    { name: 'Android Chrome', device: devices['Pixel 5'] },
-  ];
+  // Define which projects should run mobile tests
+  const mobileProjects = ['Mobile Chrome', 'Mobile Safari', 'iPad'];
 
-  for (const context of mobileContexts) {
-    test.describe(context.name, () => {
-      test.use({ ...context.device });
+  test.beforeEach(async ({ }, testInfo) => {
+    // Skip if not a mobile project
+    test.skip(
+      !mobileProjects.includes(testInfo.project.name),
+      `Skipping mobile tests for ${testInfo.project.name}`
+    );
+  });
 
-      test('Should work on mobile browser', async ({ page }) => {
-        await page.goto('/');
+  test('Should work on mobile browser', async ({ page }) => {
+    await page.goto('/');
 
-        await expect(page.locator('[data-testid="mobile-menu"]')).toBeVisible();
-        await expect(page.locator('[data-testid="main-content"]')).toBeVisible();
-      });
+    await expect(page.locator('[data-testid="mobile-menu"]')).toBeVisible();
+    await expect(page.locator('[data-testid="main-content"]')).toBeVisible();
+  });
 
-      test('Touch events should work', async ({ page }) => {
-        await page.goto('/');
+  test('Touch events should work', async ({ page }) => {
+    await page.goto('/');
 
-        const button = page.locator('[data-testid="primary-button"]').first();
-        await button.tap();
+    const button = page.locator('[data-testid="primary-button"]').first();
+    await button.tap();
 
-        // Verify touch response
-        await page.waitForTimeout(500);
-      });
+    // Verify touch response
+    await page.waitForTimeout(500);
+  });
 
-      test('Viewport meta tag should be set', async ({ page }) => {
-        await page.goto('/');
+  test('Viewport meta tag should be set', async ({ page }) => {
+    await page.goto('/');
 
-        const viewport = await page.evaluate(() => {
-          const meta = document.querySelector('meta[name="viewport"]');
-          return meta?.getAttribute('content');
-        });
-
-        expect(viewport).toContain('width=device-width');
-        expect(viewport).toContain('initial-scale=1');
-      });
+    const viewport = await page.evaluate(() => {
+      const meta = document.querySelector('meta[name="viewport"]');
+      return meta?.getAttribute('content');
     });
-  }
+
+    expect(viewport).toContain('width=device-width');
+    expect(viewport).toContain('initial-scale=1');
+  });
 });
 
 test.describe('Locale and Internationalization', () => {
