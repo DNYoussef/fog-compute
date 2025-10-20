@@ -149,31 +149,32 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./playwright-report
 
-  visual-regression:
-    runs-on: ubuntu-latest
-    container:
-      image: mcr.microsoft.com/playwright:v1.40.0-jammy
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install dependencies
-        run: |
-          npm ci
-          cd apps/control-panel && npm ci
-
-      - name: Run visual regression tests
-        run: npx playwright test --grep @visual --update-snapshots
-
-      - name: Upload updated snapshots
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: updated-snapshots
-          path: tests/**/*.png
+  # DISABLED: visual-regression (no visual regression tests implemented yet)
+  # visual-regression:
+  #   runs-on: ubuntu-latest
+  #   container:
+  #     image: mcr.microsoft.com/playwright:v1.40.0-jammy
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '20'
+  #
+  #     - name: Install dependencies
+  #       run: |
+  #         npm ci
+  #         cd apps/control-panel && npm ci
+  #
+  #     - name: Run visual regression tests
+  #       run: npx playwright test --grep @visual --update-snapshots
+  #
+  #     - name: Upload updated snapshots
+  #       if: always()
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: updated-snapshots
+  #         path: tests/**/*.png
 
   # DISABLED: betanet-monitoring (will re-enable with backend integration)
   # betanet-monitoring:
