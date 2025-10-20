@@ -62,7 +62,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="control-panel">
       {/* Header */}
       <div className="glass rounded-xl p-6">
         <h1 className="text-3xl font-bold bg-gradient-to-r from-fog-cyan to-fog-purple bg-clip-text text-transparent">
@@ -74,18 +74,23 @@ export default function Dashboard() {
       </div>
 
       {/* System Status Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6" data-testid="system-status">
         {/* Betanet Status */}
         <Link href="/betanet">
           <div className="glass glass-hover rounded-xl p-6 cursor-pointer transition-all duration-300 hover:scale-105">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-semibold text-fog-cyan">Betanet Privacy Network</h3>
-              <div className={`w-3 h-3 rounded-full status-${stats?.betanet.status === 'online' ? 'online' : stats?.betanet.status === 'degraded' ? 'warning' : 'offline'}`} />
+              <div className="flex items-center space-x-2">
+                <span className="text-sm font-medium" data-testid="network-status">
+                  {stats?.betanet.status === 'online' ? 'Online' : stats?.betanet.status === 'degraded' ? 'Degraded' : 'Offline'}
+                </span>
+                <div className={`w-3 h-3 rounded-full status-${stats?.betanet.status === 'online' ? 'online' : stats?.betanet.status === 'degraded' ? 'warning' : 'offline'}`} />
+              </div>
             </div>
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-gray-400">Active Mixnodes</span>
-                <span className="font-semibold">{stats?.betanet.mixnodes || 0}</span>
+                <span className="font-semibold" data-testid="node-count">{stats?.betanet.mixnodes || 0}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Connections</span>
@@ -147,7 +152,11 @@ export default function Dashboard() {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">CPU Usage</span>
-                <span className="font-semibold">{stats?.benchmarks.cpuUsage?.toFixed(1) || 0}%</span>
+                <span className="font-semibold" data-testid="cpu-usage">{stats?.benchmarks.cpuUsage?.toFixed(1) || 0}%</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Memory Usage</span>
+                <span className="font-semibold" data-testid="memory-usage">{stats?.benchmarks.memoryUsage?.toFixed(1) || 0}%</span>
               </div>
             </div>
           </div>
