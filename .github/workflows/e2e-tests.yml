@@ -167,57 +167,57 @@ jobs:
 
   # DISABLED: betanet-monitoring (will re-enable with backend integration)
   # betanet-monitoring:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Install Playwright
-        run: npx playwright install --with-deps chromium
-
-      - name: Run betanet monitoring tests
-        run: npx playwright test tests/e2e/betanet-monitoring.spec.ts
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '20'
+  #
+  #     - name: Install dependencies
+  #       run: npm ci
+  #
+  #     - name: Install Playwright
+  #       run: npx playwright install --with-deps chromium
+  #
+  #     - name: Run betanet monitoring tests
+  #       run: npx playwright test tests/e2e/betanet-monitoring.spec.ts
 
   # DISABLED: bitchat-p2p
   # bitchat-p2p:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Install Playwright
-        run: npx playwright install --with-deps chromium
-
-      - name: Run Bitchat P2P tests
-        run: npx playwright test tests/e2e/bitchat-messaging.spec.ts
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '20'
+  #
+  #     - name: Install dependencies
+  #       run: npm ci
+  #
+  #     - name: Install Playwright
+  #       run: npx playwright install --with-deps chromium
+  #
+  #     - name: Run Bitchat P2P tests
+  #       run: npx playwright test tests/e2e/bitchat-messaging.spec.ts
 
   # DISABLED: benchmark-visualization
   # benchmark-visualization:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Install Playwright
-        run: npx playwright install --with-deps chromium
-
-      - name: Run benchmark visualization tests
-        run: npx playwright test tests/e2e/benchmarks-visualization.spec.ts
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '20'
+  #
+  #     - name: Install dependencies
+  #       run: npm ci
+  #
+  #     - name: Install Playwright
+  #       run: npx playwright install --with-deps chromium
+  #
+  #     - name: Run benchmark visualization tests
+  #       run: npx playwright test tests/e2e/benchmarks-visualization.spec.ts
