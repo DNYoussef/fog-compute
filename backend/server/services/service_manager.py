@@ -60,10 +60,11 @@ class ServiceManager:
     async def _init_scheduler(self) -> None:
         """Initialize batch job scheduler (NSGA-II)"""
         try:
-            from batch.nsga2_scheduler import NSGAIIScheduler
+            from batch.placement import FogScheduler
 
-            self.services['scheduler'] = NSGAIIScheduler(num_nodes=10)
-            logger.info("✓ NSGA-II Batch Scheduler initialized")
+            # FogScheduler requires reputation_engine (optional, defaults to None)
+            self.services['scheduler'] = FogScheduler(reputation_engine=None)
+            logger.info("✓ NSGA-II Fog Scheduler initialized")
         except Exception as e:
             logger.error(f"Failed to initialize scheduler: {e}")
             self.services['scheduler'] = None
@@ -72,10 +73,10 @@ class ServiceManager:
         """Initialize idle compute harvesting services"""
         try:
             from idle.edge_manager import EdgeManager
-            from idle.harvest_manager import HarvestManager
+            from idle.harvest_manager import FogHarvestManager
 
             self.services['edge'] = EdgeManager()
-            self.services['harvest'] = HarvestManager()
+            self.services['harvest'] = FogHarvestManager()
             logger.info("✓ Idle compute services initialized")
         except Exception as e:
             logger.error(f"Failed to initialize idle compute: {e}")
@@ -99,11 +100,15 @@ class ServiceManager:
     async def _init_p2p(self) -> None:
         """Initialize unified P2P system"""
         try:
-            from p2p.unified_p2p_system import UnifiedP2PSystem
+            from p2p.unified_p2p_system import UnifiedDecentralizedSystem
             from p2p.unified_p2p_config import UnifiedP2PConfig
 
             config = UnifiedP2PConfig()
-            self.services['p2p'] = UnifiedP2PSystem(config)
+            # UnifiedDecentralizedSystem requires node_id
+            self.services['p2p'] = UnifiedDecentralizedSystem(
+                node_id=f"fog-backend-{hash(config) % 10000}",
+                config=config
+            )
             logger.info("✓ P2P unified system initialized")
         except Exception as e:
             logger.error(f"Failed to initialize P2P: {e}")
