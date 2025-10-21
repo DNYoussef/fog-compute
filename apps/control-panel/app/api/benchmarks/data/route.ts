@@ -1,15 +1,22 @@
 import { NextResponse } from 'next/server';
+import { proxyToBackend } from '@/lib/backend-proxy';
 
+/**
+ * Benchmarks Data API Route
+ * Proxies to FastAPI backend - real-time benchmark metrics
+ */
 export async function GET() {
-  // Mock real-time benchmark data
-  const data = {
-    timestamp: Date.now(),
-    latency: Math.random() * 100 + 20,
-    throughput: Math.random() * 150 + 50,
-    cpuUsage: Math.random() * 60 + 20,
-    memoryUsage: Math.random() * 50 + 30,
-    networkUtilization: Math.random() * 80 + 20,
-  };
+  try {
+    const response = await proxyToBackend('/api/benchmarks/data');
+    const data = await response.json();
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error('Error fetching benchmark data:', error);
 
-  return NextResponse.json(data);
+    return NextResponse.json({
+      metrics: [],
+      timestamp: null,
+      error: 'Backend unavailable'
+    });
+  }
 }

@@ -12,10 +12,11 @@ from enum import Enum
 import logging
 from typing import TYPE_CHECKING, Any
 
-from ..privacy.mixnet_integration import NymMixnetClient
-from ..privacy.onion_circuit_service import OnionCircuitService
-from ..privacy.onion_circuit_service import PrivacyLevel as CircuitPrivacyLevel
-from ..privacy.onion_routing import HiddenService, NodeType, OnionCircuit, OnionRouter
+# NymMixnetClient not yet implemented - skip for now
+# from ..privacy.mixnet_integration import NymMixnetClient
+from .onion_circuit_service import OnionCircuitService
+from .onion_circuit_service import PrivacyLevel as CircuitPrivacyLevel
+from .onion_routing import HiddenService, NodeType, OnionCircuit, OnionRouter
 
 if TYPE_CHECKING:
     from .fog_coordinator import FogCoordinator

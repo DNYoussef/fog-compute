@@ -1,42 +1,29 @@
 import { NextResponse } from 'next/server';
+import { proxyToBackend } from '@/lib/backend-proxy';
 
+/**
+ * Scheduler Stats API Route
+ * Proxies to FastAPI backend - job queue metrics, SLA compliance
+ */
 export async function GET() {
-  const stats = {
-    jobs: {
-      queued: Math.floor(Math.random() * 30) + 10,
-      running: Math.floor(Math.random() * 25) + 10,
-      completed: Math.floor(Math.random() * 10000) + 5000,
-      failed: Math.floor(Math.random() * 50) + 10
-    },
-    nsga: {
-      generationsRun: Math.floor(Math.random() * 1000) + 500,
-      paretoFront: Math.floor(Math.random() * 50) + 20,
-      convergenceRate: Math.random() * 20 + 80
-    },
-    sla: {
-      platinum: {
-        count: Math.floor(Math.random() * 100) + 50,
-        compliance: Math.random() * 5 + 95
-      },
-      gold: {
-        count: Math.floor(Math.random() * 150) + 100,
-        compliance: Math.random() * 10 + 90
-      },
-      silver: {
-        count: Math.floor(Math.random() * 200) + 150,
-        compliance: Math.random() * 15 + 85
-      },
-      bronze: {
-        count: Math.floor(Math.random() * 250) + 200,
-        compliance: Math.random() * 20 + 80
-      }
-    },
-    performance: {
-      avgPlacementTime: Math.random() * 3 + 1,
-      resourceUtilization: Math.random() * 20 + 75,
-      costEfficiency: Math.random() * 15 + 85
-    }
-  };
+  try {
+    const response = await proxyToBackend('/api/scheduler/stats');
+    const data = await response.json();
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error('Error fetching scheduler stats:', error);
 
-  return NextResponse.json(stats);
+    return NextResponse.json({
+      totalJobs: 0,
+      runningJobs: 0,
+      pendingJobs: 0,
+      completedJobs: 0,
+      queueLength: 0,
+      avgWaitTime: 0,
+      slaCompliance: { platinum: 100, gold: 95, silver: 90, bronze: 85 },
+      resourceUtilization: { cpu: 0, memory: 0, gpu: 0 },
+      optimizationScore: 0,
+      error: 'Backend unavailable'
+    });
+  }
 }

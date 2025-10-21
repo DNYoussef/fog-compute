@@ -1,28 +1,27 @@
 import { NextResponse } from 'next/server';
+import { proxyToBackend } from '@/lib/backend-proxy';
 
+/**
+ * Dashboard Stats API Route
+ * Proxies to FastAPI backend - aggregates all service metrics
+ */
 export async function GET() {
-  // Mock data - in production, this would fetch from actual services
-  const stats = {
-    betanet: {
-      mixnodes: Math.floor(Math.random() * 20) + 10,
-      activeConnections: Math.floor(Math.random() * 100) + 50,
-      packetsProcessed: Math.floor(Math.random() * 1000000) + 500000,
-      status: Math.random() > 0.1 ? 'online' : 'degraded' as 'online' | 'offline' | 'degraded',
-    },
-    bitchat: {
-      activePeers: Math.floor(Math.random() * 15) + 5,
-      messagesDelivered: Math.floor(Math.random() * 10000) + 5000,
-      encryptionStatus: true,
-      meshHealth: ['good', 'fair', 'poor'][Math.floor(Math.random() * 3)] as 'good' | 'fair' | 'poor',
-    },
-    benchmarks: {
-      avgLatency: Math.random() * 50 + 10,
-      throughput: Math.random() * 100 + 50,
-      cpuUsage: Math.random() * 60 + 20,
-      memoryUsage: Math.random() * 50 + 30,
-      networkUtilization: Math.random() * 70 + 20,
-    },
-  };
+  try {
+    const response = await proxyToBackend('/api/dashboard/stats');
+    const data = await response.json();
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error('Error fetching dashboard stats:', error);
 
-  return NextResponse.json(stats);
+    // Fallback mock data
+    return NextResponse.json({
+      betanet: { mixnodes: 0, activeConnections: 0, avgLatency: 0, packetsProcessed: 0 },
+      bitchat: { activePeers: 0, messagesProcessed: 0 },
+      benchmarks: { testsRun: 0, avgScore: 0, queueLength: 0 },
+      idleCompute: { totalDevices: 0, harvestingDevices: 0, computeHours: 0 },
+      tokenomics: { totalSupply: 0, activeStakers: 0 },
+      privacy: { activeCircuits: 0, circuitHealth: 0 },
+      error: 'Backend unavailable'
+    });
+  }
 }

@@ -1,0 +1,42 @@
+# Prometheus Configuration for Fog Compute
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'fog-compute'
+    environment: 'development'
+
+# Scrape configurations
+scrape_configs:
+  # Fog Backend API
+  - job_name: 'fog-backend'
+    static_configs:
+      - targets: ['backend:8000']
+        labels:
+          service: 'backend-api'
+
+  # Betanet Rust Service
+  - job_name: 'betanet'
+    static_configs:
+      - targets: ['betanet:9000']
+        labels:
+          service: 'betanet-privacy'
+
+  # PostgreSQL Database
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres:5432']
+        labels:
+          service: 'database'
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          service: 'prometheus'
+
+  # Node exporter (if added later)
+  # - job_name: 'node'
+  #   static_configs:
+  #     - targets: ['node-exporter:9100']

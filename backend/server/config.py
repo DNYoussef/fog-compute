@@ -1,0 +1,56 @@
+"""
+Backend API Server Configuration
+Centralized configuration for all services and connections
+"""
+from pydantic_settings import BaseSettings
+from typing import Optional
+import os
+
+
+class Settings(BaseSettings):
+    """Application settings with environment variable support"""
+
+    # API Server
+    API_HOST: str = "0.0.0.0"
+    API_PORT: int = 8000
+    API_TITLE: str = "Fog Compute Backend API"
+    API_VERSION: str = "1.0.0"
+
+    # CORS
+    CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+
+    # Database
+    DATABASE_URL: str = "postgresql+asyncpg://fog_user:fog_password@localhost:5432/fog_compute"
+    DATABASE_POOL_SIZE: int = 10
+    DATABASE_MAX_OVERFLOW: int = 20
+
+    # Betanet (Rust service)
+    BETANET_URL: str = "http://localhost:9000"
+    BETANET_TIMEOUT: int = 5
+
+    # WebSocket
+    WS_HEARTBEAT_INTERVAL: int = 30
+    WS_MESSAGE_QUEUE_SIZE: int = 100
+
+    # Service Paths (for importing Python modules)
+    SRC_PATH: str = os.path.join(os.path.dirname(__file__), "../../src")
+
+    # Monitoring
+    METRICS_ENABLED: bool = True
+    PROMETHEUS_PORT: int = 9090
+
+    # Security
+    SECRET_KEY: str = "your-secret-key-change-in-production"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+
+    # Performance
+    ENABLE_CACHE: bool = True
+    CACHE_TTL: int = 60  # seconds
+
+    class Config:
+        env_file = ".env"
+        case_sensitive = True
+
+
+# Global settings instance
+settings = Settings()

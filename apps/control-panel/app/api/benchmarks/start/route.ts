@@ -1,17 +1,25 @@
 import { NextResponse } from 'next/server';
+import { proxyToBackend } from '@/lib/backend-proxy';
 
 /**
- * Mock API endpoint for starting benchmarks
- * Returns simulated benchmark start response for E2E tests
+ * Start Benchmark API Route
+ * Proxies to FastAPI backend - start a benchmark test
  */
 export async function POST(request: Request) {
-  const body = await request.json().catch(() => ({}));
+  try {
+    const body = await request.json();
+    const response = await proxyToBackend('/api/benchmarks/start', {
+      method: 'POST',
+      body
+    });
+    const data = await response.json();
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error('Error starting benchmark:', error);
 
-  return NextResponse.json({
-    benchmarkId: 'bench-' + Date.now(),
-    status: 'started',
-    config: body,
-    estimatedDuration: 60,
-    startedAt: new Date().toISOString(),
-  });
+    return NextResponse.json({
+      success: false,
+      error: 'Backend unavailable'
+    }, { status: 503 });
+  }
 }

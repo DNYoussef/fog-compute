@@ -1,0 +1,137 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: fog-postgres
+    environment:
+      POSTGRES_USER: fog_user
+      POSTGRES_PASSWORD: fog_password
+      POSTGRES_DB: fog_compute
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fog_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fog-network
+
+  # Backend API Server (FastAPI)
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: fog-backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://fog_user:fog_password@postgres:5432/fog_compute
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+      PYTHONPATH: /app
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app/backend
+      - ./src:/app/src
+    networks:
+      - fog-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    command: python -m uvicorn server.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Betanet service is now integrated into the backend
+  # (Python-based BetanetService in backend/server/services/betanet.py)
+  # Rust HTTP server available but not required for operation
+
+  # Control Panel (Next.js)
+  frontend:
+    build:
+      context: ./apps/control-panel
+      dockerfile: Dockerfile.dev
+    container_name: fog-frontend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      NODE_ENV: development
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    volumes:
+      - ./apps/control-panel:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - fog-network
+
+  # Redis (for caching - optional)
+  redis:
+    image: redis:7-alpine
+    container_name: fog-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - fog-network
+
+  # Prometheus (Metrics Collection)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: fog-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - fog-network
+
+  # Grafana (Visualization)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: fog-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - fog-network
+
+  # Loki (Log Aggregation)
+  loki:
+    image: grafana/loki:latest
+    container_name: fog-loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - fog-network
+
+volumes:
+  postgres_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  fog-network:
+    driver: bridge

@@ -1,0 +1,16 @@
+# Frontend Development Dockerfile - Next.js Control Panel
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Install dependencies
+COPY package.json package-lock.json* ./
+RUN npm ci
+
+# Copy source code
+COPY . .
+
+EXPOSE 3000
+
+# Run in development mode
+CMD ["npm", "run", "dev"]
