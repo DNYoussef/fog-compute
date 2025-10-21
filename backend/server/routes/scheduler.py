@@ -2,14 +2,18 @@
 Batch Scheduler API Routes
 Handles job submission, scheduling, and NSGA-II optimization
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 import logging
 import uuid
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..services.service_manager import service_manager
+from ..database import get_db
+from ..models.database import Job
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/scheduler", tags=["scheduler"])
@@ -137,42 +141,52 @@ async def get_jobs(status: Optional[str] = None, limit: int = 100) -> Dict[str, 
 
 
 @router.post("/jobs")
-async def submit_job(request: JobSubmitRequest) -> Dict[str, Any]:
+async def submit_job(request: JobSubmitRequest, db: AsyncSession = Depends(get_db)) -> Dict[str, Any]:
     """
     Submit a new batch job
 
     Args:
         Job configuration with resource requirements
+        db: Database session (injected)
 
     Returns:
         Job ID and estimated start time
     """
-    scheduler = service_manager.get('scheduler')
-
-    if scheduler is None:
-        raise HTTPException(status_code=503, detail="Scheduler service unavailable")
-
     try:
-        # Create job object
-        job_data = {
-            'name': request.name,
-            'sla_tier': request.sla_tier,
-            'cpu_required': request.cpu_required,
-            'memory_required': request.memory_required,
-            'gpu_required': request.gpu_required,
-            'duration_estimate': request.duration_estimate,
-            'data_size_mb': request.data_size_mb
-        }
+        # Create database job record
+        db_job = Job(
+            name=request.name,
+            sla_tier=request.sla_tier,
+            cpu_required=request.cpu_required,
+            memory_required=request.memory_required,
+            gpu_required=request.gpu_required,
+            duration_estimate=request.duration_estimate,
+            data_size_mb=request.data_size_mb,
+            status='pending',
+            submitted_at=datetime.utcnow()
+        )
 
-        # Submit to scheduler
-        if hasattr(scheduler, 'submit_job'):
-            job_id = scheduler.submit_job(job_data)
-        else:
-            job_id = str(uuid.uuid4())
+        db.add(db_job)
+        await db.commit()
+        await db.refresh(db_job)
+
+        # Also submit to in-memory scheduler if available
+        scheduler = service_manager.get('scheduler')
+        if scheduler and hasattr(scheduler, 'submit_job'):
+            scheduler.submit_job({
+                'job_id': str(db_job.id),
+                'name': request.name,
+                'sla_tier': request.sla_tier,
+                'cpu_required': request.cpu_required,
+                'memory_required': request.memory_required,
+                'gpu_required': request.gpu_required
+            })
+
+        logger.info(f"Job {db_job.id} submitted successfully")
 
         return {
             "success": True,
-            "jobId": job_id,
+            "jobId": str(db_job.id),
             "status": "pending",
             "estimatedStartTime": None,  # Would be calculated by scheduler
             "sla": request.sla_tier

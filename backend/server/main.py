@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 # Import configuration and services
 from .config import settings
 from .services.service_manager import service_manager
+from .database import init_db, close_db
 
 # Import all route modules
 from .routes import (
@@ -46,6 +47,14 @@ async def lifespan(app: FastAPI):
     logger.info(f"📍 API URL: http://{settings.API_HOST}:{settings.API_PORT}")
     logger.info(f"🔗 CORS Origins: {settings.CORS_ORIGINS}")
 
+    # Initialize database
+    try:
+        await init_db()
+        logger.info("✅ Database initialized successfully")
+    except Exception as e:
+        logger.error(f"❌ Database initialization failed: {e}")
+        logger.warning("⚠️  Database may be unavailable")
+
     # Initialize all services
     try:
         await service_manager.initialize()
@@ -59,6 +68,7 @@ async def lifespan(app: FastAPI):
     # Shutdown
     logger.info("🛑 Shutting down Fog Compute Backend API Server...")
     await service_manager.shutdown()
+    await close_db()
     logger.info("✅ Graceful shutdown complete")
 
 

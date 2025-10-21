@@ -110,15 +110,14 @@ class ServiceManager:
             self.services['p2p'] = None
 
     async def _init_betanet_client(self) -> None:
-        """Initialize Betanet (Rust) HTTP client"""
+        """Initialize Betanet privacy network service"""
         try:
-            from .betanet_client import BetanetClient
-            from ..config import settings
+            from .betanet import betanet_service
 
-            self.services['betanet'] = BetanetClient(url=settings.BETANET_URL)
-            logger.info("✓ Betanet client initialized")
+            self.services['betanet'] = betanet_service
+            logger.info("✓ Betanet privacy network initialized")
         except Exception as e:
-            logger.error(f"Failed to initialize Betanet client: {e}")
+            logger.error(f"Failed to initialize Betanet service: {e}")
             self.services['betanet'] = None
 
     async def shutdown(self) -> None:

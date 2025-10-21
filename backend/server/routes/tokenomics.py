@@ -6,8 +6,11 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Dict, Any, List, Optional
 import logging
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..services.service_manager import service_manager
+from ..database import get_db
+from ..models.database import TokenBalance
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/tokenomics", tags=["tokenomics"])
@@ -74,33 +77,52 @@ async def get_tokenomics_stats() -> Dict[str, Any]:
 
 
 @router.get("/balance")
-async def get_balance(address: str) -> Dict[str, Any]:
+async def get_balance(address: str, db: AsyncSession = Depends(get_db)) -> Dict[str, Any]:
     """
     Get token balance for an address
 
     Args:
         address: Wallet address
+        db: Database session
 
     Returns:
         Balance, staked amount, and total
     """
-    dao = service_manager.get('dao')
-
-    if dao is None:
-        raise HTTPException(status_code=503, detail="Tokenomics service unavailable")
-
     try:
-        # Get balance from token manager
-        balance = dao.token_manager.get_balance(address)
-        stakes = dao.token_manager.stakes.get(address, {})
-        staked = stakes.get('amount', 0)
+        # Try to get from database first
+        from sqlalchemy import select
+        result = await db.execute(select(TokenBalance).where(TokenBalance.address == address))
+        token_balance = result.scalar_one_or_none()
 
+        if token_balance:
+            return token_balance.to_dict()
+
+        # If not in database, try the DAO service
+        dao = service_manager.get('dao')
+        if dao is not None:
+            try:
+                balance = dao.token_manager.get_balance(address)
+                stakes = dao.token_manager.stakes.get(address, {})
+                staked = stakes.get('amount', 0)
+
+                return {
+                    "address": address,
+                    "balance": balance,
+                    "staked": staked,
+                    "total": balance + staked,
+                    "rewards": stakes.get('rewards', 0)
+                }
+            except Exception as e:
+                logger.warning(f"DAO service error: {e}")
+
+        # Return default balance if address not found
         return {
             "address": address,
-            "balance": balance,
-            "staked": staked,
-            "total": balance + staked,
-            "rewards": stakes.get('rewards', 0)
+            "balance": 0.0,
+            "staked": 0.0,
+            "rewards": 0.0,
+            "total": 0.0,
+            "updated_at": None
         }
     except Exception as e:
         logger.error(f"Error fetching balance for {address}: {e}")

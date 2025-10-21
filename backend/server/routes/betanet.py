@@ -28,21 +28,22 @@ async def get_betanet_status() -> Dict[str, Any]:
 
     try:
         status = await betanet.get_status()
+        status_dict = status.to_dict()
 
         return {
-            "status": status.get('status', 'unknown'),
+            "status": status_dict.get('status', 'unknown'),
             "nodes": {
-                "total": status.get('active_nodes', 0) + status.get('inactive_nodes', 0),
-                "active": status.get('active_nodes', 0),
-                "inactive": status.get('inactive_nodes', 0)
+                "total": status_dict.get('active_nodes', 0),
+                "active": status_dict.get('active_nodes', 0),
+                "inactive": 0
             },
             "network": {
-                "latency": status.get('avg_latency_ms', 0),
-                "bandwidth": status.get('bandwidth', 1024),
-                "throughput": status.get('throughput', 850),
-                "packetsProcessed": status.get('packets_processed', 0)
+                "latency": status_dict.get('avg_latency_ms', 0),
+                "bandwidth": 1024,  # Mock value
+                "throughput": 850,  # Mock value
+                "packetsProcessed": status_dict.get('packets_processed', 0)
             },
-            "lastUpdated": status.get('timestamp', None)
+            "lastUpdated": status_dict.get('timestamp', None)
         }
     except Exception as e:
         logger.error(f"Error fetching Betanet status: {e}")
@@ -58,10 +59,10 @@ async def deploy_node(request: DeployNodeRequest) -> Dict[str, Any]:
         raise HTTPException(status_code=503, detail="Betanet service unavailable")
 
     try:
-        result = await betanet.deploy_node({
-            'node_type': request.node_type,
-            'region': request.region
-        })
+        result = await betanet.deploy_node(
+            node_type=request.node_type,
+            region=request.region
+        )
 
         return {
             "success": result.get('success', False),
