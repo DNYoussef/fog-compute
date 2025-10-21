@@ -1,18 +1,19 @@
 import { NextResponse } from 'next/server';
+import { proxyToBackend } from '@/lib/backend-proxy';
 
 /**
- * Mock API endpoint for health check
- * Returns simulated health status for E2E tests
+ * Health Check API Route
+ * Proxies to FastAPI backend health endpoint
  */
 export async function GET() {
-  return NextResponse.json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    services: {
-      database: 'up',
-      cache: 'up',
-      messageQueue: 'up',
-    },
-    version: '1.0.0',
-  });
+  try {
+    const response = await proxyToBackend('/health');
+    const data = await response.json();
+    return NextResponse.json(data);
+  } catch (error) {
+    return NextResponse.json({
+      status: 'unhealthy',
+      error: 'Backend unavailable'
+    }, { status: 503 });
+  }
 }

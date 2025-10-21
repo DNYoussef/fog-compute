@@ -1,25 +1,44 @@
 import { NextResponse } from 'next/server';
+import { proxyToBackend } from '@/lib/backend-proxy';
 
-export async function GET() {
-  const slas = ['platinum', 'gold', 'silver', 'bronze'];
-  const statuses = ['queued', 'running', 'completed', 'failed'];
-  const jobNames = [
-    'ML Training Pipeline', 'Data Processing Batch', 'Video Transcoding',
-    'Genomics Analysis', 'Financial Modeling', 'Climate Simulation',
-    'Protein Folding', 'Neural Architecture Search'
-  ];
+/**
+ * Scheduler Jobs API Route
+ * Proxies to FastAPI backend - get jobs list and submit new jobs
+ */
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const response = await proxyToBackend('/api/scheduler/jobs', {
+      params: searchParams
+    });
+    const data = await response.json();
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error('Error fetching jobs:', error);
 
-  const jobs = Array.from({ length: 10 }, (_, i) => {
-    const status = statuses[Math.floor(Math.random() * statuses.length)];
-    return {
-      id: `job-${i}`,
-      name: jobNames[i % jobNames.length] + ` #${i + 1}`,
-      sla: slas[Math.floor(Math.random() * slas.length)] as 'platinum' | 'gold' | 'silver' | 'bronze',
-      status: status as any,
-      progress: status === 'running' ? Math.floor(Math.random() * 80) + 10 : 0,
-      eta: `${Math.floor(Math.random() * 120) + 10}min`
-    };
-  });
+    return NextResponse.json({
+      jobs: [],
+      total: 0,
+      error: 'Backend unavailable'
+    });
+  }
+}
 
-  return NextResponse.json({ jobs });
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const response = await proxyToBackend('/api/scheduler/jobs', {
+      method: 'POST',
+      body
+    });
+    const data = await response.json();
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error('Error submitting job:', error);
+
+    return NextResponse.json({
+      success: false,
+      error: 'Backend unavailable'
+    }, { status: 503 });
+  }
 }

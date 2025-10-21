@@ -1,30 +1,27 @@
 import { NextResponse } from 'next/server';
+import { proxyToBackend } from '@/lib/backend-proxy';
 
+/**
+ * Idle Compute Stats API Route
+ * Proxies to FastAPI backend - device harvesting metrics
+ */
 export async function GET() {
-  const stats = {
-    devices: {
-      total: Math.floor(Math.random() * 150) + 100,
-      active: Math.floor(Math.random() * 100) + 50,
-      charging: Math.floor(Math.random() * 50) + 20,
-      thermal_throttle: Math.floor(Math.random() * 10)
-    },
-    compute: {
-      totalCPU: Math.random() * 200 + 100,
-      totalGPU: Math.random() * 50 + 20,
-      totalMemory: Math.random() * 500 + 200,
-      utilizationRate: Math.random() * 40 + 60
-    },
-    harvest: {
-      tasksCompleted: Math.floor(Math.random() * 10000) + 5000,
-      computeHoursCollected: Math.random() * 1000 + 500,
-      energyEfficiency: Math.random() * 15 + 85
-    },
-    mobile: {
-      android: Math.floor(Math.random() * 100) + 50,
-      ios: Math.floor(Math.random() * 80) + 40,
-      batteryHealthAvg: Math.random() * 10 + 90
-    }
-  };
+  try {
+    const response = await proxyToBackend('/api/idle-compute/stats');
+    const data = await response.json();
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error('Error fetching idle compute stats:', error);
 
-  return NextResponse.json(stats);
+    return NextResponse.json({
+      totalDevices: 0,
+      activeDevices: 0,
+      harvestingDevices: 0,
+      idleDevices: 0,
+      totalResources: { cpu: 0, memory: 0, avgBattery: 0 },
+      harvestMetrics: { tasksCompleted: 0, totalComputeHours: 0, efficiency: 0 },
+      deviceTypes: { android: 0, ios: 0, desktop: 0 },
+      error: 'Backend unavailable'
+    });
+  }
 }
