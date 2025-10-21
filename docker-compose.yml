@@ -1,0 +1,94 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: fog-postgres
+    environment:
+      POSTGRES_USER: fog_user
+      POSTGRES_PASSWORD: fog_password
+      POSTGRES_DB: fog_compute
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fog_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fog-network
+
+  # Backend API Server (FastAPI)
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: fog-backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://fog_user:fog_password@postgres:5432/fog_compute
+      BETANET_URL: http://betanet:9000
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app/backend
+      - ./src:/app/src
+    networks:
+      - fog-network
+    command: python -m uvicorn backend.server.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Betanet (Rust Service)
+  betanet:
+    build:
+      context: .
+      dockerfile: src/betanet/Dockerfile
+    container_name: fog-betanet
+    ports:
+      - "9000:9000"
+    networks:
+      - fog-network
+    # Would run the Betanet HTTP server once implemented
+
+  # Control Panel (Next.js)
+  frontend:
+    build:
+      context: ./apps/control-panel
+      dockerfile: Dockerfile
+    container_name: fog-frontend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      NODE_ENV: development
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    volumes:
+      - ./apps/control-panel:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - fog-network
+    command: npm run dev
+
+  # Redis (for caching - optional)
+  redis:
+    image: redis:7-alpine
+    container_name: fog-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - fog-network
+
+volumes:
+  postgres_data:
+
+networks:
+  fog-network:
+    driver: bridge
