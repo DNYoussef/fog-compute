@@ -21,7 +21,14 @@ import time
 from typing import Any
 
 # Import reputation system for trust scoring
-from ..reputation import BayesianReputationEngine
+# Note: reputation module not yet implemented - using optional import
+try:
+    from ..reputation import BayesianReputationEngine
+except ImportError:
+    # Mock reputation engine for now
+    class BayesianReputationEngine:
+        def get_trust_score(self, node_id: str) -> float:
+            return 0.8  # Default trust score
 
 # Import marketplace for pricing constraints
 from .marketplace import BidType, PricingTier

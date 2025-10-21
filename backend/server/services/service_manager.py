@@ -29,28 +29,38 @@ class ServiceManager:
 
         logger.info("Initializing backend services...")
 
-        try:
-            # Import and initialize services
-            await self._init_tokenomics()
-            await self._init_scheduler()
-            await self._init_idle_compute()
-            await self._init_vpn_onion()
-            await self._init_p2p()
-            await self._init_betanet_client()
+        # Initialize services individually to prevent one failure from blocking others
+        await self._init_tokenomics()
+        await self._init_scheduler()
+        await self._init_idle_compute()
 
-            self._initialized = True
-            logger.info(f"Successfully initialized {len(self.services)} services")
+        # VPN/Onion DISABLED: cryptography library causes Rust panic (pyo3_runtime.PanicException)
+        # This is a system-level issue with cryptography package + Rust bindings
+        # TODO: Fix in Week 2 by reinstalling cryptography or using alternative crypto library
+        logger.warning("⚠️  VPN/Onion services disabled (cryptography dependency issue)")
+        self.services['onion'] = None
+        self.services['vpn_coordinator'] = None
+        # await self._init_vpn_onion()  # Commented out until cryptography fixed
 
-        except Exception as e:
-            logger.error(f"Service initialization failed: {e}")
-            raise
+        await self._init_p2p()
+        await self._init_betanet_client()
+
+        self._initialized = True
+        logger.info(f"Successfully initialized {len(self.services)} services")
 
     async def _init_tokenomics(self) -> None:
         """Initialize tokenomics and DAO system"""
         try:
-            from tokenomics.unified_dao_tokenomics_system import UnifiedDAOTokenomicsSystem
+            from tokenomics.unified_dao_tokenomics_system import (
+                UnifiedDAOTokenomicsSystem,
+                TokenomicsConfig
+            )
 
-            self.services['dao'] = UnifiedDAOTokenomicsSystem()
+            # Create config with defaults
+            config = TokenomicsConfig()
+            config.database_path = "./backend/data/dao_tokenomics.db"
+
+            self.services['dao'] = UnifiedDAOTokenomicsSystem(config)
             logger.info("✓ Tokenomics DAO system initialized")
         except Exception as e:
             logger.error(f"Failed to initialize tokenomics: {e}")
@@ -74,9 +84,13 @@ class ServiceManager:
         try:
             from idle.edge_manager import EdgeManager
             from idle.harvest_manager import FogHarvestManager
+            import socket
+
+            # Generate unique node_id from hostname
+            node_id = f"fog-backend-{socket.gethostname()}"
 
             self.services['edge'] = EdgeManager()
-            self.services['harvest'] = FogHarvestManager()
+            self.services['harvest'] = FogHarvestManager(node_id=node_id)
             logger.info("✓ Idle compute services initialized")
         except Exception as e:
             logger.error(f"Failed to initialize idle compute: {e}")
@@ -92,6 +106,11 @@ class ServiceManager:
             self.services['onion'] = OnionCircuitService()
             self.services['vpn_coordinator'] = FogOnionCoordinator()
             logger.info("✓ VPN/Onion routing services initialized")
+        except ImportError as e:
+            # cryptography library issue - skip for now
+            logger.warning(f"VPN/Onion services skipped (cryptography dependency issue): {e}")
+            self.services['onion'] = None
+            self.services['vpn_coordinator'] = None
         except Exception as e:
             logger.error(f"Failed to initialize VPN/Onion: {e}")
             self.services['onion'] = None
@@ -102,11 +121,15 @@ class ServiceManager:
         try:
             from p2p.unified_p2p_system import UnifiedDecentralizedSystem
             from p2p.unified_p2p_config import UnifiedP2PConfig
+            import socket
+            import uuid
 
             config = UnifiedP2PConfig()
-            # UnifiedDecentralizedSystem requires node_id
+            # Generate unique node_id (config object is not hashable)
+            node_id = f"fog-backend-{socket.gethostname()}-{uuid.uuid4().hex[:8]}"
+
             self.services['p2p'] = UnifiedDecentralizedSystem(
-                node_id=f"fog-backend-{hash(config) % 10000}",
+                node_id=node_id,
                 config=config
             )
             logger.info("✓ P2P unified system initialized")

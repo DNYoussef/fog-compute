@@ -12,7 +12,7 @@ from enum import Enum
 import logging
 from typing import Any
 
-from ..privacy.onion_routing import OnionCircuit, OnionRouter
+from .onion_routing import OnionCircuit, OnionRouter
 
 logger = logging.getLogger(__name__)
 
