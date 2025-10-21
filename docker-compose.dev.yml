@@ -1,0 +1,75 @@
+# Docker Compose - Development Configuration
+# Extends base docker-compose.yml with dev-specific overrides
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+version: '3.8'
+
+services:
+  # PostgreSQL - Development Configuration
+  postgres:
+    environment:
+      POSTGRES_DB: fog_compute_dev
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"  # Expose for local development
+
+  # Backend - Development Configuration
+  backend:
+    build:
+      target: development
+    environment:
+      DATABASE_URL: postgresql+asyncpg://fog_user:fog_password@postgres:5432/fog_compute_dev
+      LOG_LEVEL: DEBUG
+      RELOAD: "true"
+    volumes:
+      - ./backend:/app/backend
+      - ./src:/app/src
+      - backend_venv:/app/.venv
+    command: >
+      sh -c "pip install -e /app/backend &&
+             python -m uvicorn server.main:app
+             --host 0.0.0.0
+             --port 8000
+             --reload
+             --log-level debug"
+
+  # Frontend - Development Configuration
+  frontend:
+    build:
+      dockerfile: Dockerfile.dev
+    environment:
+      NODE_ENV: development
+      NEXT_TELEMETRY_DISABLED: 1
+    volumes:
+      - ./apps/control-panel:/app
+      - control_panel_modules:/app/node_modules
+      - control_panel_next:/app/.next
+
+  # Redis - Development Configuration
+  redis:
+    ports:
+      - "6379:6379"  # Expose for local development
+
+  # Prometheus - Development Configuration
+  prometheus:
+    ports:
+      - "9090:9090"  # Expose for local access
+
+  # Grafana - Development Configuration
+  grafana:
+    ports:
+      - "3001:3000"  # Expose for local access
+    environment:
+      - GF_LOG_LEVEL=debug
+
+  # Loki - Development Configuration
+  loki:
+    ports:
+      - "3100:3100"  # Expose for local access
+
+volumes:
+  postgres_dev_data:
+  backend_venv:
+  control_panel_modules:
+  control_panel_next:

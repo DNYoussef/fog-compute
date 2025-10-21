@@ -29,9 +29,9 @@ services:
     container_name: fog-backend
     environment:
       DATABASE_URL: postgresql+asyncpg://fog_user:fog_password@postgres:5432/fog_compute
-      BETANET_URL: http://betanet:9000
       API_HOST: 0.0.0.0
       API_PORT: 8000
+      PYTHONPATH: /app
     ports:
       - "8000:8000"
     depends_on:
@@ -42,25 +42,22 @@ services:
       - ./src:/app/src
     networks:
       - fog-network
-    command: python -m uvicorn backend.server.main:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    command: python -m uvicorn server.main:app --host 0.0.0.0 --port 8000 --reload
 
-  # Betanet (Rust Service)
-  betanet:
-    build:
-      context: .
-      dockerfile: src/betanet/Dockerfile
-    container_name: fog-betanet
-    ports:
-      - "9000:9000"
-    networks:
-      - fog-network
-    # Would run the Betanet HTTP server once implemented
+  # Betanet service is now integrated into the backend
+  # (Python-based BetanetService in backend/server/services/betanet.py)
+  # Rust HTTP server available but not required for operation
 
   # Control Panel (Next.js)
   frontend:
     build:
       context: ./apps/control-panel
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     container_name: fog-frontend
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000
@@ -68,14 +65,14 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     volumes:
       - ./apps/control-panel:/app
       - /app/node_modules
       - /app/.next
     networks:
       - fog-network
-    command: npm run dev
 
   # Redis (for caching - optional)
   redis:
