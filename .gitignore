@@ -27,3 +27,8 @@ build/
 # Backup directories
 original_*/
 CLEANUP_BACKUP_*/
+
+# Test output
+tests/output/
+**/playwright-report/
+**/playwright-artifacts/
