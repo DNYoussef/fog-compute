@@ -582,7 +582,6 @@ mod tests {
                 println!("Sphinx processing error: {:?}", e);
                 // For now, just verify the function completes without crashing
                 // The actual cryptographic processing may fail due to invalid keys
-                assert!(true);
             }
         }
     }
@@ -596,7 +595,7 @@ mod tests {
 
         // Final destination packet should return payload
         let mut final_packet = SphinxPacket::new();
-        final_packet.header.routing_info = RoutingInfo::new([0u8;16], 0, 0, true).to_bytes();
+        final_packet.header.routing_info = RoutingInfo::new([0u8; 16], 0, 0, true).to_bytes();
         final_packet.payload[..3].copy_from_slice(b"end");
         let final_res = final_packet.process();
         assert_eq!(final_res.unwrap(), Some(final_packet.payload.to_vec()));

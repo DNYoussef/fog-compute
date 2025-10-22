@@ -177,7 +177,7 @@ impl VrfNeighborSelector {
         // Update AS groups
         self.as_groups
             .entry(as_num)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(addr);
 
         // Clear cache as topology changed
@@ -275,7 +275,7 @@ impl VrfNeighborSelector {
     /// Generate VRF proof using Schnorrkel (Ed25519-based VRF)
     #[cfg(feature = "vrf")]
     fn generate_vrf_proof(&self, seed: &[u8]) -> Result<VrfProof> {
-        use schnorrkel::{signing_context, MiniSecretKey, ExpansionMode};
+        use schnorrkel::{signing_context, ExpansionMode, MiniSecretKey};
 
         // Convert private key seed to Schnorrkel keypair
         let mini = MiniSecretKey::from_bytes(&self.vrf_private_key)
@@ -298,7 +298,7 @@ impl VrfNeighborSelector {
     #[cfg(not(feature = "vrf"))]
     fn generate_vrf_output(&self, seed: &[u8]) -> Result<[u8; 32]> {
         // Fallback: Secure HMAC-SHA256(private_key, seed)
-        use sha2::{Sha256, Digest};
+        use sha2::{Digest, Sha256};
         let mut hasher = Sha256::new();
         hasher.update(&self.vrf_private_key);
         hasher.update(seed);
@@ -339,7 +339,7 @@ impl VrfNeighborSelector {
         as_numbers.sort_by_key(|as_num| {
             let mut hasher = Sha256::new();
             hasher.update(vrf_output);
-            hasher.update(&as_num.to_be_bytes());
+            hasher.update(as_num.to_be_bytes());
             hasher.finalize()
         });
 
@@ -405,7 +405,7 @@ impl VrfNeighborSelector {
         // Create round-specific VRF output
         let mut hasher = Sha256::new();
         hasher.update(vrf_output);
-        hasher.update(&round.to_be_bytes());
+        hasher.update(round.to_be_bytes());
         let round_output = hasher.finalize();
 
         // Convert to index

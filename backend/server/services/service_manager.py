@@ -34,16 +34,12 @@ class ServiceManager:
         await self._init_scheduler()
         await self._init_idle_compute()
 
-        # VPN/Onion DISABLED: cryptography library causes Rust panic (pyo3_runtime.PanicException)
-        # This is a system-level issue with cryptography package + Rust bindings
-        # TODO: Fix in Week 2 by reinstalling cryptography or using alternative crypto library
-        logger.warning("⚠️  VPN/Onion services disabled (cryptography dependency issue)")
-        self.services['onion'] = None
-        self.services['vpn_coordinator'] = None
-        # await self._init_vpn_onion()  # Commented out until cryptography fixed
+        # VPN/Onion FIXED: Updated cryptography to stable version 41.0.7
+        await self._init_vpn_onion()
 
         await self._init_p2p()
         await self._init_betanet_client()
+        await self._init_bitchat()
 
         self._initialized = True
         logger.info(f"Successfully initialized {len(self.services)} services")
@@ -58,7 +54,12 @@ class ServiceManager:
 
             # Create config with defaults
             config = TokenomicsConfig()
-            config.database_path = "./backend/data/dao_tokenomics.db"
+
+            # Ensure data directory exists
+            data_dir = Path(__file__).parent.parent.parent / "data"
+            data_dir.mkdir(parents=True, exist_ok=True)
+
+            config.database_path = str(data_dir / "dao_tokenomics.db")
 
             self.services['dao'] = UnifiedDAOTokenomicsSystem(config)
             logger.info("✓ Tokenomics DAO system initialized")
@@ -101,20 +102,62 @@ class ServiceManager:
         """Initialize VPN and onion routing services"""
         try:
             from vpn.onion_circuit_service import OnionCircuitService
+            from vpn.onion_routing import OnionRouter, NodeType
             from vpn.fog_onion_coordinator import FogOnionCoordinator
+            from fog.coordinator import FogCoordinator
+            import socket
+            import uuid
 
-            self.services['onion'] = OnionCircuitService()
-            self.services['vpn_coordinator'] = FogOnionCoordinator()
-            logger.info("✓ VPN/Onion routing services initialized")
+            # Create OnionRouter instance (required by OnionCircuitService)
+            node_id = f"fog-backend-{socket.gethostname()}-{uuid.uuid4().hex[:8]}"
+            node_types = {NodeType.MIDDLE}  # Backend acts as a middle relay
+
+            onion_router = OnionRouter(
+                node_id=node_id,
+                node_types=node_types,
+                enable_hidden_services=True
+            )
+
+            # Initialize circuit service with the router
+            self.services['onion'] = OnionCircuitService(onion_router=onion_router)
+
+            # Initialize FogCoordinator with onion router integration
+            fog_coordinator = FogCoordinator(
+                node_id=f"fog-coord-{socket.gethostname()}",
+                onion_router=onion_router,
+                heartbeat_interval=30,
+                heartbeat_timeout=90
+            )
+
+            # Start FogCoordinator background tasks
+            await fog_coordinator.start()
+            self.services['fog_coordinator'] = fog_coordinator
+            logger.info("✓ FogCoordinator initialized")
+
+            # Initialize FogOnionCoordinator with FogCoordinator
+            vpn_coord = FogOnionCoordinator(
+                node_id=f"vpn-coord-{uuid.uuid4().hex[:8]}",
+                fog_coordinator=fog_coordinator,
+                enable_mixnet=False,  # Mixnet not yet integrated
+                max_circuits=50
+            )
+
+            # Start VPN coordinator
+            await vpn_coord.start()
+            self.services['vpn_coordinator'] = vpn_coord
+            logger.info("✓ VPN/Onion circuit service initialized")
+            logger.info("✓ VPN Coordinator operational")
         except ImportError as e:
             # cryptography library issue - skip for now
-            logger.warning(f"VPN/Onion services skipped (cryptography dependency issue): {e}")
+            logger.warning(f"VPN/Onion services skipped (import error): {e}")
             self.services['onion'] = None
             self.services['vpn_coordinator'] = None
+            self.services['fog_coordinator'] = None
         except Exception as e:
             logger.error(f"Failed to initialize VPN/Onion: {e}")
             self.services['onion'] = None
             self.services['vpn_coordinator'] = None
+            self.services['fog_coordinator'] = None
 
     async def _init_p2p(self) -> None:
         """Initialize unified P2P system"""
@@ -148,11 +191,32 @@ class ServiceManager:
             logger.error(f"Failed to initialize Betanet service: {e}")
             self.services['betanet'] = None
 
+    async def _init_bitchat(self) -> None:
+        """Initialize BitChat P2P messaging service"""
+        try:
+            from .bitchat import bitchat_service
+
+            self.services['bitchat'] = bitchat_service
+            logger.info("✓ BitChat P2P messaging initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize BitChat service: {e}")
+            self.services['bitchat'] = None
+
     async def shutdown(self) -> None:
         """Gracefully shutdown all services"""
         logger.info("Shutting down services...")
 
-        # Cleanup services that need it
+        # Shutdown FogCoordinator and VPN coordinator first
+        for name in ['vpn_coordinator', 'fog_coordinator']:
+            service = self.services.get(name)
+            if service and hasattr(service, 'stop'):
+                try:
+                    await service.stop()
+                    logger.info(f"✓ Stopped {name}")
+                except Exception as e:
+                    logger.error(f"Error stopping {name}: {e}")
+
+        # Cleanup other services
         for name, service in self.services.items():
             if hasattr(service, 'close'):
                 try:

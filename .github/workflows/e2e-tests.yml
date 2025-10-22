@@ -1,6 +1,10 @@
-# NOTE: Integration tests (betanet-monitoring, bitchat-p2p, benchmark-visualization)  
-# are temporarily disabled until backend services are integrated.
-# Only running control-panel UI tests with mocked APIs.
+# E2E Tests for Fog Compute Platform
+# NOW RUNS AGAINST REAL BACKEND (updated Week 1)
+#
+# Tests run with:
+#   - PostgreSQL database (seeded with test data)
+#   - FastAPI backend server (port 8000)
+#   - Next.js frontend (port 3000)
 
 name: E2E Tests - Fog Compute
 
@@ -30,6 +34,31 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Start PostgreSQL
+        uses: ikalnytskyi/action-setup-postgres@v5
+        with:
+          username: postgres
+          password: postgres
+          database: fog_compute_test
+          port: 5432
+        id: postgres
+
+      - name: Install Python dependencies
+        run: |
+          pip install -r backend/requirements.txt
+
+      - name: Seed test database
+        run: |
+          python -m backend.server.tests.fixtures.seed_data --quick
+        env:
+          DATABASE_URL: ${{ steps.postgres.outputs.connection-uri }}
+
       - name: Install dependencies
         run: |
           npm ci
@@ -42,6 +71,7 @@ jobs:
         run: npx playwright test --project=${{ matrix.browser }} --shard=${{ matrix.shard }}/4
         env:
           CI: true
+          DATABASE_URL: ${{ steps.postgres.outputs.connection-uri }}
 
       - name: Upload blob report
         if: always()
@@ -64,6 +94,31 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Start PostgreSQL
+        uses: ikalnytskyi/action-setup-postgres@v5
+        with:
+          username: postgres
+          password: postgres
+          database: fog_compute_test
+          port: 5432
+        id: postgres
+
+      - name: Install Python dependencies
+        run: |
+          pip install -r backend/requirements.txt
+
+      - name: Seed test database
+        run: |
+          python -m backend.server.tests.fixtures.seed_data --quick
+        env:
+          DATABASE_URL: ${{ steps.postgres.outputs.connection-uri }}
+
       - name: Install dependencies
         run: |
           npm ci
@@ -74,6 +129,9 @@ jobs:
 
       - name: Run mobile tests
         run: npx playwright test --project="Mobile ${{ matrix.device }}"
+        env:
+          CI: true
+          DATABASE_URL: ${{ steps.postgres.outputs.connection-uri }}
 
       - name: Upload mobile test results
         if: always()
@@ -91,6 +149,31 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Start PostgreSQL
+        uses: ikalnytskyi/action-setup-postgres@v5
+        with:
+          username: postgres
+          password: postgres
+          database: fog_compute_test
+          port: 5432
+        id: postgres
+
+      - name: Install Python dependencies
+        run: |
+          pip install -r backend/requirements.txt
+
+      - name: Seed test database
+        run: |
+          python -m backend.server.tests.fixtures.seed_data --quick
+        env:
+          DATABASE_URL: ${{ steps.postgres.outputs.connection-uri }}
+
       - name: Install dependencies
         run: |
           npm ci
@@ -101,6 +184,9 @@ jobs:
 
       - name: Run cross-browser tests
         run: npx playwright test tests/e2e/cross-platform.spec.ts
+        env:
+          CI: true
+          DATABASE_URL: ${{ steps.postgres.outputs.connection-uri }}
 
       - name: Upload cross-browser report
         if: always()

@@ -1,0 +1,239 @@
+# Docker Compose - Development Overrides
+# Automatically loaded with docker-compose.yml when running: docker-compose up
+# Provides developer conveniences: hot-reload, debug, exposed ports
+# Version: 3.8
+
+version: '3.8'
+
+services:
+  # ==========================================
+  # PostgreSQL - Development Overrides
+  # ==========================================
+  postgres:
+    environment:
+      # Use separate dev database
+      POSTGRES_DB: ${POSTGRES_DB:-fog_compute_dev}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"  # Expose for DBeaver, psql, etc.
+    volumes:
+      # Use separate dev volume
+      - postgres_dev_data:/var/lib/postgresql/data
+      # Optional: Mount init scripts
+      # - ./scripts/db-init:/docker-entrypoint-initdb.d:ro
+
+  # ==========================================
+  # Backend - Development Overrides
+  # ==========================================
+  backend:
+    build:
+      target: development  # Use dev stage from multi-stage Dockerfile
+    environment:
+      # Dev database
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-fog_user}:${POSTGRES_PASSWORD:-fog_password}@postgres:5432/${POSTGRES_DB:-fog_compute_dev}
+
+      # Debug logging
+      LOG_LEVEL: DEBUG
+
+      # Hot-reload
+      RELOAD: "true"
+
+      # Development flags
+      DEBUG: "true"
+      TESTING: "false"
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"  # Expose for Postman, curl, etc.
+    volumes:
+      # Hot-reload for code changes
+      - ./backend:/app/backend:delegated
+      - ./src:/app/src:delegated
+
+      # Cache Python dependencies (avoid reinstall on container restart)
+      - backend_venv:/app/.venv
+
+      # Exclude from bind mount
+      - /app/backend/__pycache__
+      - /app/src/__pycache__
+    command: >
+      sh -c "
+        pip install -e /app/backend &&
+        python -m uvicorn server.main:app
+          --host 0.0.0.0
+          --port 8000
+          --reload
+          --log-level debug
+          --access-log
+      "
+
+  # ==========================================
+  # Frontend - Development Overrides
+  # ==========================================
+  frontend:
+    build:
+      target: development
+    environment:
+      # Dev mode
+      NODE_ENV: development
+
+      # API connection (localhost for browser access)
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+
+      # Disable telemetry
+      NEXT_TELEMETRY_DISABLED: 1
+
+      # Fast refresh
+      WATCHPACK_POLLING: "true"
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"  # Expose for browser access
+    volumes:
+      # Hot-reload for code changes
+      - ./apps/control-panel:/app:delegated
+
+      # Cache node_modules (avoid reinstall)
+      - control_panel_modules:/app/node_modules
+
+      # Cache .next build directory
+      - control_panel_next:/app/.next
+
+      # Exclude from bind mount
+      - /app/.next/cache
+
+  # ==========================================
+  # Redis - Development Overrides
+  # ==========================================
+  redis:
+    ports:
+      - "${REDIS_PORT:-6379}:6379"  # Expose for redis-cli, RedisInsight
+    command: redis-server --appendonly yes
+      # No password required in dev (optional override)
+      # --requirepass ${REDIS_PASSWORD:-devpassword}
+
+  # ==========================================
+  # Prometheus - Development Overrides
+  # ==========================================
+  prometheus:
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"  # Expose for web UI access
+
+  # ==========================================
+  # Grafana - Development Overrides
+  # ==========================================
+  grafana:
+    environment:
+      # Debug logging
+      GF_LOG_LEVEL: debug
+
+      # Development settings
+      GF_LOG_MODE: console
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/provisioning/dashboards/overview.json
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"  # Expose for web UI access
+
+  # ==========================================
+  # Loki - Development Overrides
+  # ==========================================
+  loki:
+    ports:
+      - "${LOKI_PORT:-3100}:3100"  # Expose for direct queries
+
+  # ==========================================
+  # Development-Only Services
+  # ==========================================
+
+  # PostgreSQL Admin UI (pgAdmin)
+  pgadmin:
+    image: dpage/pgadmin4:7
+    container_name: fog-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@fogcompute.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - internal
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  # Redis Commander (Redis UI)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: fog-redis-commander
+    environment:
+      REDIS_HOSTS: local:redis:6379
+      # REDIS_PASSWORD: ${REDIS_PASSWORD:-devpassword}
+    ports:
+      - "${REDIS_COMMANDER_PORT:-8081}:8081"
+    networks:
+      - internal
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  # Mailhog (Email testing)
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: fog-mailhog
+    ports:
+      - "${MAILHOG_SMTP_PORT:-1025}:1025"  # SMTP
+      - "${MAILHOG_UI_PORT:-8025}:8025"    # Web UI
+    networks:
+      - internal
+    restart: unless-stopped
+
+# ============================================
+# VOLUMES (Development)
+# ============================================
+
+volumes:
+  # Separate dev database
+  postgres_dev_data:
+    driver: local
+
+  # Backend dependency cache
+  backend_venv:
+    driver: local
+
+  # Frontend dependency cache
+  control_panel_modules:
+    driver: local
+
+  # Frontend build cache
+  control_panel_next:
+    driver: local
+
+  # Development tools
+  pgadmin_data:
+    driver: local
+
+# ============================================
+# NOTES
+# ============================================
+
+# Usage:
+#   docker-compose up                    # Starts with dev overrides (this file)
+#   docker-compose up -d                 # Background mode
+#   docker-compose logs -f backend       # Follow backend logs
+#   docker-compose exec backend bash     # Shell into backend
+#   docker-compose down                  # Stop all services
+#   docker-compose down -v               # Stop and remove volumes
+
+# Access:
+#   Backend API:          http://localhost:8000
+#   Frontend:             http://localhost:3000
+#   Grafana:              http://localhost:3001 (admin/password from .env)
+#   Prometheus:           http://localhost:9090
+#   pgAdmin:              http://localhost:5050
+#   Redis Commander:      http://localhost:8081
+#   Mailhog:              http://localhost:8025
+
+# Hot-Reload:
+#   Backend:  Edit files in ./backend or ./src - auto-reloads
+#   Frontend: Edit files in ./apps/control-panel - auto-reloads
+
+# Environment Variables:
+#   Copy .env.example to .env and customize as needed
+#   All ports can be overridden via .env file

@@ -48,43 +48,51 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
-use tokio::sync::RwLock;
 use thiserror::Error;
+use tokio::sync::RwLock;
 
 // Core modules
 pub mod core {
-    pub mod mixnode;
     pub mod config;
+    pub mod mixnode;
+    pub mod protocol_version;
+    pub mod relay_lottery;
     pub mod routing;
 }
 
 // Cryptographic modules
+#[allow(clippy::module_inception)]
 pub mod crypto {
-    pub mod sphinx;
     pub mod crypto;
+    pub mod sphinx;
 }
 
 // VRF modules
 pub mod vrf {
+    pub mod poisson_delay;
     pub mod vrf_delay;
     pub mod vrf_neighbor;
 }
 
 // Utility modules
 pub mod utils {
-    pub mod rate;
     pub mod delay;
     pub mod packet;
+    pub mod rate;
 }
+
+// Cover traffic generation (optional feature)
+#[cfg(feature = "cover-traffic")]
+pub mod cover;
 
 // High-performance pipeline (primary implementation)
 pub mod pipeline;
 
 // Re-exports for convenience
-pub use core::mixnode::StandardMixnode;
 pub use core::config::MixnodeConfig;
+pub use core::mixnode::StandardMixnode;
 pub use crypto::sphinx::{SphinxPacket, SphinxProcessor};
-pub use pipeline::{PacketPipeline, PipelinePacket, PipelineBenchmark};
+pub use pipeline::{PacketPipeline, PipelineBenchmark, PipelinePacket};
 pub use utils::packet::Packet;
 
 /// Mixnode protocol version
@@ -123,6 +131,10 @@ pub enum MixnodeError {
     /// VRF error
     #[error("VRF error: {0}")]
     Vrf(String),
+
+    /// Protocol error
+    #[error("Protocol error: {0}")]
+    Protocol(String),
 }
 
 /// Result type for mixnode operations
@@ -210,16 +222,21 @@ pub struct PerformanceTargets {
 impl Default for PerformanceTargets {
     fn default() -> Self {
         Self {
-            target_throughput_pps: 25000.0,  // 70% improvement over 15k baseline
-            max_avg_latency_ms: 1.0,         // Sub-millisecond processing
-            min_pool_hit_rate_pct: 85.0,     // High memory efficiency
-            max_drop_rate_pct: 0.1,          // Very low drop rate
+            target_throughput_pps: 25000.0, // 70% improvement over 15k baseline
+            max_avg_latency_ms: 1.0,        // Sub-millisecond processing
+            min_pool_hit_rate_pct: 85.0,    // High memory efficiency
+            max_drop_rate_pct: 0.1,         // Very low drop rate
         }
     }
 }
 
+pub mod server;
+
 #[cfg(test)]
-mod tests {
+mod tests;
+
+#[cfg(test)]
+mod unit_tests {
     use super::*;
 
     #[test]
@@ -241,4 +258,4 @@ mod tests {
         assert_eq!(targets.target_throughput_pps, 25000.0);
         assert_eq!(targets.max_avg_latency_ms, 1.0);
     }
-}pub mod server;
+}

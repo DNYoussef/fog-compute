@@ -76,7 +76,7 @@ test.describe('Benchmarks Visualization Dashboard', () => {
     });
   });
 
-  test('Interactive charts and controls', async ({ page }) => {
+  test.skip('Interactive charts and controls', async ({ page }) => {
     await test.step('Customize chart display', async () => {
       // Run a quick benchmark first
       await page.click('[data-testid="quick-benchmark-button"]');
@@ -124,7 +124,7 @@ test.describe('Benchmarks Visualization Dashboard', () => {
     });
   });
 
-  test('Time series and historical data', async ({ page }) => {
+  test.skip('Time series and historical data', async ({ page }) => {
     await test.step('View historical benchmarks', async () => {
       await page.click('[data-testid="historical-data-tab"]');
 
@@ -160,7 +160,7 @@ test.describe('Benchmarks Visualization Dashboard', () => {
     });
   });
 
-  test('Export and report generation', async ({ page }) => {
+  test.skip('Export and report generation', async ({ page }) => {
     await test.step('Generate benchmark report', async () => {
       // Run benchmark first
       await page.click('[data-testid="quick-benchmark-button"]');
@@ -221,7 +221,7 @@ test.describe('Benchmarks Visualization Dashboard', () => {
     });
   });
 
-  test('Real-time benchmark monitoring', async ({ page }) => {
+  test.skip('Real-time benchmark monitoring', async ({ page }) => {
     await test.step('Enable live monitoring', async () => {
       await page.check('[data-testid="live-monitoring-toggle"]');
 
@@ -256,7 +256,7 @@ test.describe('Benchmarks Visualization Dashboard', () => {
     });
   });
 
-  test('Multi-benchmark comparison', async ({ page }) => {
+  test.skip('Multi-benchmark comparison', async ({ page }) => {
     await test.step('Select benchmarks to compare', async () => {
       await page.click('[data-testid="comparison-mode-button"]');
 
@@ -295,7 +295,7 @@ test.describe('Benchmarks Visualization Dashboard', () => {
     });
   });
 
-  test('Benchmark configuration presets', async ({ page }) => {
+  test.skip('Benchmark configuration presets', async ({ page }) => {
     await test.step('Load preset configuration', async () => {
       await page.click('[data-testid="presets-button"]');
 

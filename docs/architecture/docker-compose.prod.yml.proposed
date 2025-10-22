@@ -1,0 +1,388 @@
+# Docker Compose - Production Configuration
+# Production-specific overrides with security hardening
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# Version: 3.8
+
+version: '3.8'
+
+services:
+  # ==========================================
+  # PostgreSQL - Production Configuration
+  # ==========================================
+  postgres:
+    environment:
+      # Use secrets instead of environment variables
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
+    # No ports exposed (internal only)
+
+  # ==========================================
+  # Backend - Production Configuration
+  # ==========================================
+  backend:
+    build:
+      target: production
+      args:
+        BUILD_DATE: ${BUILD_DATE}
+        VCS_REF: ${VCS_REF}
+        VERSION: ${VERSION}
+    environment:
+      # Production database URL with secrets
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+
+      # Production logging
+      LOG_LEVEL: INFO
+      LOG_FORMAT: json
+
+      # Production workers
+      WORKERS: ${WORKERS:-4}
+
+      # Security
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-*}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://fogcompute.io}
+
+      # No reload in production
+      RELOAD: "false"
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+        reservations:
+          cpus: '2'
+          memory: 4G
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    # No volumes (immutable infrastructure)
+    # No ports (behind nginx reverse proxy)
+
+  # ==========================================
+  # Frontend - Production Configuration
+  # ==========================================
+  frontend:
+    build:
+      target: production
+      args:
+        BUILD_DATE: ${BUILD_DATE}
+        VCS_REF: ${VCS_REF}
+        VERSION: ${VERSION}
+    environment:
+      # Production API URL (via nginx)
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api.fogcompute.io}
+
+      # Production mode
+      NODE_ENV: production
+
+      # Telemetry
+      NEXT_TELEMETRY_DISABLED: 1
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
+    # No volumes
+    # No ports (behind nginx)
+
+  # ==========================================
+  # Redis - Production Configuration
+  # ==========================================
+  redis:
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --requirepass ${REDIS_PASSWORD}
+      --maxmemory 2gb
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+    # No ports exposed
+
+  # ==========================================
+  # Prometheus - Production Configuration
+  # ==========================================
+  prometheus:
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=90d'  # 90 days retention
+      - '--storage.tsdb.retention.size=50GB'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 8G
+        reservations:
+          cpus: '1'
+          memory: 4G
+    # No ports (accessed via nginx)
+
+  # ==========================================
+  # Grafana - Production Configuration
+  # ==========================================
+  grafana:
+    environment:
+      # Production logging
+      GF_LOG_LEVEL: warn
+      GF_LOG_MODE: console
+
+      # Security
+      GF_SECURITY_ADMIN_PASSWORD_FILE: /run/secrets/grafana_password
+      GF_SECURITY_SECRET_KEY_FILE: /run/secrets/grafana_secret_key
+
+      # Server
+      GF_SERVER_ROOT_URL: ${GF_SERVER_ROOT_URL:-https://grafana.fogcompute.io}
+      GF_SERVER_DOMAIN: ${GF_SERVER_DOMAIN:-grafana.fogcompute.io}
+
+      # Analytics
+      GF_ANALYTICS_REPORTING_ENABLED: false
+      GF_ANALYTICS_CHECK_FOR_UPDATES: false
+
+      # SMTP (optional)
+      GF_SMTP_ENABLED: ${GF_SMTP_ENABLED:-false}
+      GF_SMTP_HOST: ${GF_SMTP_HOST:-smtp.gmail.com:587}
+      GF_SMTP_USER: ${GF_SMTP_USER}
+      GF_SMTP_PASSWORD: ${GF_SMTP_PASSWORD}
+      GF_SMTP_FROM_ADDRESS: ${GF_SMTP_FROM_ADDRESS:-grafana@fogcompute.io}
+    secrets:
+      - grafana_password
+      - grafana_secret_key
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+    # No ports (accessed via nginx)
+
+  # ==========================================
+  # Loki - Production Configuration
+  # ==========================================
+  loki:
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
+    # No ports
+
+  # ==========================================
+  # Nginx Reverse Proxy (Production Only)
+  # ==========================================
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: fog-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # Nginx configuration
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+
+      # SSL certificates
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+
+      # Let's Encrypt (optional)
+      - ./nginx/certbot/conf:/etc/letsencrypt:ro
+      - ./nginx/certbot/www:/var/www/certbot:ro
+
+      # Logs
+      - nginx_logs:/var/log/nginx
+    networks:
+      - public
+    depends_on:
+      - backend
+      - frontend
+      - grafana
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health", "||", "exit", "1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    restart: always
+
+  # ==========================================
+  # Certbot (SSL Certificate Renewal)
+  # ==========================================
+  certbot:
+    image: certbot/certbot:latest
+    container_name: fog-certbot
+    volumes:
+      - ./nginx/certbot/conf:/etc/letsencrypt
+      - ./nginx/certbot/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    restart: unless-stopped
+
+  # ==========================================
+  # Node Exporter (System Metrics)
+  # ==========================================
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: fog-node-exporter
+    command:
+      - '--path.rootfs=/host'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /:/host:ro,rslave
+    networks:
+      - monitoring
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+    restart: unless-stopped
+
+  # ==========================================
+  # cAdvisor (Container Metrics)
+  # ==========================================
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: fog-cadvisor
+    privileged: true
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    networks:
+      - monitoring
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+    restart: unless-stopped
+
+  # ==========================================
+  # Alertmanager (Alert Routing)
+  # ==========================================
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: fog-alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/config.yml'
+      - '--storage.path=/alertmanager'
+    volumes:
+      - ./monitoring/alerting/alertmanager.yml:/etc/alertmanager/config.yml:ro
+      - alertmanager_data:/alertmanager
+    networks:
+      - monitoring
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+    restart: unless-stopped
+
+# ============================================
+# NETWORKS
+# ============================================
+
+# All networks defined in base compose
+# No additional networks needed for production
+
+# ============================================
+# VOLUMES
+# ============================================
+
+volumes:
+  nginx_logs:
+    driver: local
+  alertmanager_data:
+    driver: local
+
+# ============================================
+# SECRETS
+# ============================================
+
+secrets:
+  postgres_password:
+    file: ./secrets/postgres_password.txt
+
+  grafana_password:
+    file: ./secrets/grafana_password.txt
+
+  grafana_secret_key:
+    file: ./secrets/grafana_secret_key.txt
+
+  # Additional secrets can be added here
+  # jwt_secret:
+  #   file: ./secrets/jwt_secret.txt
+
+# ============================================
+# DEPLOYMENT NOTES
+# ============================================
+
+# Prerequisites:
+#   1. Create secrets directory: mkdir -p secrets
+#   2. Generate secrets:
+#      - echo "YOUR_POSTGRES_PASSWORD" > secrets/postgres_password.txt
+#      - echo "YOUR_GRAFANA_PASSWORD" > secrets/grafana_password.txt
+#      - openssl rand -hex 32 > secrets/grafana_secret_key.txt
+#   3. Set file permissions: chmod 600 secrets/*.txt
+#   4. Configure nginx SSL certificates in ./nginx/ssl/
+#   5. Update environment variables in .env.prod
+
+# Deployment:
+#   docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+# Verification:
+#   docker-compose -f docker-compose.yml -f docker-compose.prod.yml ps
+#   docker-compose -f docker-compose.yml -f docker-compose.prod.yml logs -f
+
+# Updates:
+#   docker-compose -f docker-compose.yml -f docker-compose.prod.yml pull
+#   docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+
+# Backup:
+#   docker-compose -f docker-compose.yml -f docker-compose.prod.yml exec postgres \
+#     pg_dump -U fog_user fog_compute > backup_$(date +%Y%m%d_%H%M%S).sql
+
+# Monitoring:
+#   Prometheus: https://prometheus.fogcompute.io
+#   Grafana: https://grafana.fogcompute.io
+#   Logs: docker-compose -f docker-compose.yml -f docker-compose.prod.yml logs

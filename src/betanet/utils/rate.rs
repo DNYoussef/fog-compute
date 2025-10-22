@@ -516,7 +516,7 @@ impl TrafficEstimator {
         }
 
         // Ensure epsilon stays within reasonable bounds
-        self.epsilon_estimate = self.epsilon_estimate.max(0.001).min(1000.0);
+        self.epsilon_estimate = self.epsilon_estimate.clamp(0.001, 1000.0);
     }
 
     /// Get current epsilon estimate (packets per second)
@@ -668,7 +668,7 @@ mod tests {
         // Wait for partial refill
         sleep(Duration::from_millis(500)).await; // Should add ~5 tokens
         let available = bucket.available_tokens();
-        assert!(available >= 4 && available <= 6); // Allow some timing variance
+        assert!((4..=6).contains(&available)); // Allow some timing variance
     }
 
     #[tokio::test]

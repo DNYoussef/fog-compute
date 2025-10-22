@@ -63,10 +63,13 @@ lazy_static = "1.4"
 # Utilities
 hex = "0.4"
 base64 = "0.21"
+uuid = { version = "1.18.1", features = ["v4"] }
+chrono = { version = "0.4.42", features = ["serde"] }
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["async_tokio"] }
 proptest = "1.4"
+futures = "0.3"
 
 # Note: pipeline_benchmark is defined as an example below, not a bench
 # [[bench]]

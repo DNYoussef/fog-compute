@@ -11,13 +11,10 @@ use tracing::{debug, error, info, warn};
 
 use crate::{
     core::config::MixnodeConfig,
+    core::routing::RoutingTable,
     utils::delay::DelayQueue,
     utils::packet::{Packet, PacketType},
-    core::routing::RoutingTable,
-    MixnodeTrait,
-    MixnodeError,
-    MixnodeStats,
-    Result,
+    MixnodeError, MixnodeStats, MixnodeTrait, Result,
 };
 
 /// Standard mixnode implementation

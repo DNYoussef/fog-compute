@@ -35,12 +35,13 @@ async def get_dashboard_stats() -> Dict[str, Any]:
         onion = service_manager.get('onion')
 
         # Betanet stats
-        betanet_status = await betanet.get_status() if betanet else {}
+        betanet_status = await betanet.get_status() if betanet else None
+        betanet_status_dict = betanet_status.to_dict() if betanet_status else {}
         betanet_stats = {
-            "mixnodes": betanet_status.get('active_nodes', 0),
-            "activeConnections": betanet_status.get('connections', 0),
-            "avgLatency": betanet_status.get('avg_latency_ms', 0),
-            "packetsProcessed": betanet_status.get('packets_processed', 0)
+            "mixnodes": betanet_status_dict.get('active_nodes', 0),
+            "activeConnections": betanet_status_dict.get('connections', 0),
+            "avgLatency": betanet_status_dict.get('avg_latency_ms', 0),
+            "packetsProcessed": betanet_status_dict.get('packets_processed', 0)
         }
 
         # P2P stats

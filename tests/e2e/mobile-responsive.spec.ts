@@ -16,9 +16,15 @@ const mobileDevices = [
 test.describe('Mobile Responsive Design', () => {
   for (const device of mobileDevices.slice(0, 2)) { // Test first 2 devices
     test.describe(`${device.name}`, () => {
-      test.use({ ...device });
+      // Device configuration moved to individual test level to avoid worker issues
 
-      test('Should display mobile-optimized layout', async ({ page }) => {
+      test('Should display mobile-optimized layout', async ({ page, context }) => {
+        await context.addInitScript(() => {
+          Object.defineProperty(navigator, 'userAgent', {
+            get: () => device.userAgent || navigator.userAgent,
+          });
+        });
+        await page.setViewportSize(device.viewport);
         await page.goto('/');
 
         // Verify mobile menu
@@ -36,6 +42,7 @@ test.describe('Mobile Responsive Design', () => {
       });
 
       test('Should have touch-friendly targets', async ({ page }) => {
+        await page.setViewportSize(device.viewport);
         await page.goto('/');
 
         const buttons = page.locator('button, a[href]');
@@ -54,6 +61,7 @@ test.describe('Mobile Responsive Design', () => {
       });
 
       test('Should support touch gestures', async ({ page }) => {
+        await page.setViewportSize(device.viewport);
         await page.goto('/control-panel');
 
         // Swipe gesture for navigation
@@ -69,6 +77,7 @@ test.describe('Mobile Responsive Design', () => {
       });
 
       test('Should handle mobile menu interactions', async ({ page }) => {
+        await page.setViewportSize(device.viewport);
         await page.goto('/');
 
         // Open mobile menu
@@ -130,9 +139,10 @@ test.describe('Mobile Responsive Design', () => {
   });
 
   test.describe('Mobile-Specific Features', () => {
-    test.use({ ...devices['iPhone 12'] });
+    const iphone12 = devices['iPhone 12'];
 
     test('Should support pull-to-refresh', async ({ page }) => {
+      await page.setViewportSize(iphone12.viewport);
       await page.goto('/nodes');
 
       const listContainer = page.locator('[data-testid="nodes-list"]');
@@ -149,6 +159,7 @@ test.describe('Mobile Responsive Design', () => {
     });
 
     test('Should display bottom navigation on mobile', async ({ page }) => {
+      await page.setViewportSize(iphone12.viewport);
       await page.goto('/');
 
       const bottomNav = page.locator('[data-testid="bottom-navigation"]');
@@ -166,6 +177,7 @@ test.describe('Mobile Responsive Design', () => {
     });
 
     test('Should optimize images for mobile', async ({ page }) => {
+      await page.setViewportSize(iphone12.viewport);
       await page.goto('/');
 
       const images = page.locator('img[srcset]');
@@ -182,6 +194,7 @@ test.describe('Mobile Responsive Design', () => {
     });
 
     test('Should handle orientation changes', async ({ page }) => {
+      await page.setViewportSize(iphone12.viewport);
       await page.goto('/');
 
       // Portrait mode
@@ -201,9 +214,10 @@ test.describe('Mobile Responsive Design', () => {
   });
 
   test.describe('Mobile Form Interactions', () => {
-    test.use({ ...devices['Pixel 5'] });
+    const pixel5 = devices['Pixel 5'];
 
     test('Should optimize forms for mobile', async ({ page }) => {
+      await page.setViewportSize(pixel5.viewport);
       await page.goto('/nodes');
       await page.tap('[data-testid="add-node-button"]');
 
@@ -220,6 +234,7 @@ test.describe('Mobile Responsive Design', () => {
     });
 
     test('Should support native date/time pickers', async ({ page }) => {
+      await page.setViewportSize(pixel5.viewport);
       await page.goto('/tasks');
       await page.tap('[data-testid="schedule-task-button"]');
 
@@ -230,6 +245,7 @@ test.describe('Mobile Responsive Design', () => {
     });
 
     test('Should handle virtual keyboard', async ({ page }) => {
+      await page.setViewportSize(pixel5.viewport);
       await page.goto('/');
       await page.tap('[data-testid="search-button"]');
 
@@ -246,9 +262,10 @@ test.describe('Mobile Responsive Design', () => {
   });
 
   test.describe('Tablet Experience', () => {
-    test.use({ ...devices['iPad Pro'] });
+    const ipadPro = devices['iPad Pro'];
 
     test('Should use hybrid desktop/mobile layout', async ({ page }) => {
+      await page.setViewportSize(ipadPro.viewport);
       await page.goto('/');
 
       // Should show sidebar and main content
@@ -260,6 +277,7 @@ test.describe('Mobile Responsive Design', () => {
     });
 
     test('Should support split-screen layouts', async ({ page }) => {
+      await page.setViewportSize(ipadPro.viewport);
       await page.goto('/nodes');
 
       const splitView = page.locator('[data-testid="split-view"]');
@@ -276,6 +294,7 @@ test.describe('Mobile Responsive Design', () => {
     });
 
     test('Should support multi-touch gestures', async ({ page }) => {
+      await page.setViewportSize(ipadPro.viewport);
       await page.goto('/betanet');
 
       const canvas = page.locator('[data-testid="network-topology"] canvas');
@@ -299,9 +318,10 @@ test.describe('Mobile Responsive Design', () => {
   });
 
   test.describe('Mobile Performance', () => {
-    test.use({ ...devices['iPhone 12'] });
+    const iphone12Perf = devices['iPhone 12'];
 
     test('Should load quickly on mobile', async ({ page }) => {
+      await page.setViewportSize(iphone12Perf.viewport);
       const startTime = Date.now();
 
       await page.goto('/', { waitUntil: 'networkidle' });
@@ -311,6 +331,7 @@ test.describe('Mobile Responsive Design', () => {
     });
 
     test('Should lazy load images', async ({ page }) => {
+      await page.setViewportSize(iphone12Perf.viewport);
       await page.goto('/');
 
       // Scroll down
@@ -330,6 +351,7 @@ test.describe('Mobile Responsive Design', () => {
     });
 
     test('Should use optimized assets', async ({ page }) => {
+      await page.setViewportSize(iphone12Perf.viewport);
       await page.goto('/');
 
       // Check for WebP support

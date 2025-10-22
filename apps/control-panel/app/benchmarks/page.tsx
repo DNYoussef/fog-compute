@@ -66,7 +66,7 @@ export default function BenchmarksPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="benchmarks-dashboard">
       {/* Header */}
       <div className="glass rounded-xl p-6">
         <h1 className="text-3xl font-bold text-green-400">Performance Benchmarks</h1>
@@ -76,7 +76,7 @@ export default function BenchmarksPage() {
       </div>
 
       {/* Current Metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4" data-testid="stats-summary">
         <div className="glass rounded-lg p-4">
           <div className="text-2xl font-bold text-blue-400">{latestData.latency.toFixed(2)}ms</div>
           <div className="text-sm text-gray-400">Latency</div>
@@ -100,15 +100,17 @@ export default function BenchmarksPage() {
       </div>
 
       {/* Benchmark Controls */}
-      <BenchmarkControls
-        isRunning={isRunning}
-        testType={testType}
-        onStart={startBenchmark}
-        onStop={stopBenchmark}
-      />
+      <div data-testid="benchmark-controls">
+        <BenchmarkControls
+          isRunning={isRunning}
+          testType={testType}
+          onStart={startBenchmark}
+          onStop={stopBenchmark}
+        />
+      </div>
 
       {/* Performance Charts */}
-      <div className="glass rounded-xl p-6">
+      <div className="glass rounded-xl p-6" data-testid="charts-container">
         <h2 className="text-xl font-semibold mb-4">Real-Time Performance Metrics</h2>
         <BenchmarkCharts data={benchmarkData} />
       </div>

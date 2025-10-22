@@ -4,9 +4,7 @@ use chacha20poly1305::{
     aead::{Aead, AeadCore, KeyInit},
     ChaCha20Poly1305, Key, Nonce,
 };
-use ed25519_dalek::{
-    SigningKey, VerifyingKey as Ed25519PublicKey, Signature, Signer, Verifier,
-};
+use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey as Ed25519PublicKey};
 use hkdf::Hkdf;
 use rand::rngs::OsRng;
 use sha2::Sha256;

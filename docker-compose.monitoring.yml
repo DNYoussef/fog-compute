@@ -1,0 +1,103 @@
+# FOG Compute - Enhanced Monitoring Stack
+# Extends base configuration with additional monitoring tools
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.monitoring.yml up
+#
+# Adds: Node Exporter, cAdvisor, Alertmanager for comprehensive monitoring
+
+version: '3.8'
+
+services:
+  # Node Exporter - System Metrics
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: fog-node-exporter
+    command:
+      - '--path.rootfs=/host'
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    networks:
+      - fog-network
+    restart: unless-stopped
+    ports:
+      - "9100:9100"
+
+  # cAdvisor - Container Metrics
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: fog-cadvisor
+    privileged: true
+    devices:
+      - /dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    networks:
+      - fog-network
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+
+  # Alertmanager - Alert Management
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: fog-alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/config.yml'
+      - '--storage.path=/alertmanager'
+    volumes:
+      - ./monitoring/alertmanager:/etc/alertmanager:ro
+      - alertmanager_data:/alertmanager
+    networks:
+      - fog-network
+    restart: unless-stopped
+    ports:
+      - "9093:9093"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9093/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Prometheus - Enhanced Configuration Override
+  prometheus:
+    volumes:
+      - ./monitoring/prometheus/prometheus-extended.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/rules:/etc/prometheus/rules:ro
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=90d'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+
+  # Grafana - Enhanced Configuration Override
+  grafana:
+    environment:
+      GF_INSTALL_PLUGINS: grafana-piechart-panel,grafana-clock-panel
+    volumes:
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./monitoring/grafana/dashboards-extended:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3001:3000"
+
+  # Loki - Enhanced Configuration Override
+  loki:
+    ports:
+      - "3100:3100"
+
+volumes:
+  alertmanager_data:
+    driver: local

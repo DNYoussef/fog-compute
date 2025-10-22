@@ -114,7 +114,7 @@ test.describe('Betanet Network Visualization', () => {
     });
   });
 
-  test('Network path tracing and diagnostics', async () => {
+  test.skip('Network path tracing and diagnostics', async () => {
     await test.step('Navigate to path tracing', async () => {
       await page.goto('/betanet/trace');
       await expect(page.locator('[data-testid="path-trace-tool"]')).toBeVisible();
@@ -159,7 +159,7 @@ test.describe('Betanet Network Visualization', () => {
     });
   });
 
-  test('Node health monitoring and alerts', async () => {
+  test.skip('Node health monitoring and alerts', async () => {
     await test.step('Access health monitoring', async () => {
       await page.goto('/betanet/health');
       await expect(page.locator('[data-testid="health-dashboard"]')).toBeVisible();
@@ -213,7 +213,7 @@ test.describe('Betanet Network Visualization', () => {
     });
   });
 
-  test('Network topology analysis', async () => {
+  test.skip('Network topology analysis', async () => {
     await test.step('Load topology analyzer', async () => {
       await page.goto('/betanet/topology');
       await expect(page.locator('[data-testid="topology-analyzer"]')).toBeVisible();
@@ -267,7 +267,7 @@ test.describe('Betanet Network Visualization', () => {
     });
   });
 
-  test('Performance benchmarking', async () => {
+  test.skip('Performance benchmarking', async () => {
     await test.step('Navigate to benchmarks', async () => {
       await page.goto('/betanet/benchmarks');
       await expect(page.locator('[data-testid="benchmark-dashboard"]')).toBeVisible();

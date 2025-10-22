@@ -1,0 +1,331 @@
+# Docker Compose - Betanet Configuration
+# 3-node mixnet topology with monitoring integration
+# Usage:
+#   Betanet only:     docker-compose -f docker-compose.yml -f docker-compose.betanet.yml up
+#   With dev tools:   docker-compose -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.betanet.yml up
+#   Production:       docker-compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.betanet.yml up -d
+# Version: 3.8
+
+version: '3.8'
+
+# ============================================
+# YAML Anchors (DRY)
+# ============================================
+
+x-betanet-node: &betanet-node
+  build:
+    context: .
+    dockerfile: Dockerfile.betanet
+  restart: unless-stopped
+  networks:
+    - betanet
+    - monitoring  # Connect to monitoring for Prometheus scraping
+  healthcheck: &betanet-health
+    test: ["CMD", "curl", "-f", "http://localhost:${NODE_PORT}/health"]
+    interval: 30s
+    timeout: 10s
+    retries: 3
+    start_period: 30s
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+x-betanet-env: &betanet-env
+  # Rust logging
+  RUST_LOG: ${RUST_LOG:-info}
+  RUST_BACKTRACE: ${RUST_BACKTRACE:-0}
+
+  # Performance tuning
+  PIPELINE_WORKERS: ${PIPELINE_WORKERS:-4}
+  BATCH_SIZE: ${BATCH_SIZE:-128}
+  POOL_SIZE: ${POOL_SIZE:-1024}
+  MAX_QUEUE_DEPTH: ${MAX_QUEUE_DEPTH:-10000}
+  TARGET_THROUGHPUT: ${TARGET_THROUGHPUT:-25000}
+
+  # Network configuration
+  MAX_PACKET_SIZE: ${MAX_PACKET_SIZE:-65536}
+  KEEPALIVE_INTERVAL: ${KEEPALIVE_INTERVAL:-30}
+  CONNECTION_TIMEOUT: ${CONNECTION_TIMEOUT:-60}
+
+  # VRF parameters
+  VRF_DIFFICULTY: ${VRF_DIFFICULTY:-4}
+  RELAY_SELECTION_POOL: ${RELAY_SELECTION_POOL:-100}
+
+  # Metrics
+  METRICS_ENABLED: ${METRICS_ENABLED:-true}
+  METRICS_PORT: ${METRICS_PORT:-9091}
+
+# ============================================
+# SERVICES
+# ============================================
+
+services:
+  # ==========================================
+  # Betanet Mixnode 1 (Entry Node)
+  # ==========================================
+  betanet-mixnode-1:
+    <<: *betanet-node
+    container_name: betanet-mixnode-1
+    hostname: mixnode-1
+    environment:
+      <<: *betanet-env
+      NODE_TYPE: entry
+      NODE_ID: 1
+      NODE_PORT: 9001
+      NEXT_HOP: betanet-mixnode-2:9002
+    ports:
+      - "${BETANET_NODE1_PORT:-9001}:9001"
+      - "${BETANET_NODE1_METRICS_PORT:-9101}:9091"
+    volumes:
+      - betanet_1_config:/config
+      - betanet_1_data:/data
+      - betanet_1_logs:/logs
+    deploy:
+      resources:
+        limits:
+          cpus: ${BETANET_NODE1_CPUS:-2}
+          memory: ${BETANET_NODE1_MEMORY:-2G}
+        reservations:
+          cpus: '1'
+          memory: 1G
+
+  # ==========================================
+  # Betanet Mixnode 2 (Middle/Relay Node)
+  # ==========================================
+  betanet-mixnode-2:
+    <<: *betanet-node
+    container_name: betanet-mixnode-2
+    hostname: mixnode-2
+    environment:
+      <<: *betanet-env
+      NODE_TYPE: middle
+      NODE_ID: 2
+      NODE_PORT: 9002
+      PREV_HOP: betanet-mixnode-1:9001
+      NEXT_HOP: betanet-mixnode-3:9003
+    ports:
+      - "${BETANET_NODE2_PORT:-9002}:9002"
+      - "${BETANET_NODE2_METRICS_PORT:-9102}:9091"
+    volumes:
+      - betanet_2_config:/config
+      - betanet_2_data:/data
+      - betanet_2_logs:/logs
+    depends_on:
+      betanet-mixnode-1:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: ${BETANET_NODE2_CPUS:-2}
+          memory: ${BETANET_NODE2_MEMORY:-2G}
+        reservations:
+          cpus: '1'
+          memory: 1G
+
+  # ==========================================
+  # Betanet Mixnode 3 (Exit Node)
+  # ==========================================
+  betanet-mixnode-3:
+    <<: *betanet-node
+    container_name: betanet-mixnode-3
+    hostname: mixnode-3
+    environment:
+      <<: *betanet-env
+      NODE_TYPE: exit
+      NODE_ID: 3
+      NODE_PORT: 9003
+      PREV_HOP: betanet-mixnode-2:9002
+    ports:
+      - "${BETANET_NODE3_PORT:-9003}:9003"
+      - "${BETANET_NODE3_METRICS_PORT:-9103}:9091"
+    volumes:
+      - betanet_3_config:/config
+      - betanet_3_data:/data
+      - betanet_3_logs:/logs
+    depends_on:
+      betanet-mixnode-2:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: ${BETANET_NODE3_CPUS:-2}
+          memory: ${BETANET_NODE3_MEMORY:-2G}
+        reservations:
+          cpus: '1'
+          memory: 1G
+
+  # ==========================================
+  # Betanet Monitor (Health Dashboard)
+  # ==========================================
+  betanet-monitor:
+    image: nginx:alpine
+    container_name: betanet-monitor
+    volumes:
+      - ./monitoring/betanet/dashboard:/usr/share/nginx/html:ro
+    ports:
+      - "${BETANET_MONITOR_PORT:-8080}:80"
+    networks:
+      - betanet
+      - monitoring
+    depends_on:
+      - betanet-mixnode-1
+      - betanet-mixnode-2
+      - betanet-mixnode-3
+    restart: unless-stopped
+
+  # ==========================================
+  # Betanet Load Generator (Optional)
+  # ==========================================
+  betanet-loadgen:
+    build:
+      context: .
+      dockerfile: tools/loadgen/Dockerfile
+    container_name: betanet-loadgen
+    environment:
+      ENTRY_NODE: betanet-mixnode-1:9001
+      LOAD_RATE: ${BETANET_LOAD_RATE:-100}  # packets/sec
+      LOAD_DURATION: ${BETANET_LOAD_DURATION:-0}  # 0 = continuous
+      PACKET_SIZE: ${BETANET_PACKET_SIZE:-1024}
+    networks:
+      - betanet
+    depends_on:
+      - betanet-mixnode-1
+    restart: unless-stopped
+    profiles:
+      - testing
+      - benchmarking
+
+# ============================================
+# NETWORKS
+# ============================================
+
+networks:
+  # Betanet isolated network
+  betanet:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.30.0.0/16
+          gateway: 172.30.0.1
+    driver_opts:
+      com.docker.network.bridge.name: br-betanet
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+
+  # Monitoring network (shared with base compose)
+  monitoring:
+    external: true
+
+# ============================================
+# VOLUMES
+# ============================================
+
+volumes:
+  # Mixnode 1 volumes
+  betanet_1_config:
+    driver: local
+  betanet_1_data:
+    driver: local
+  betanet_1_logs:
+    driver: local
+
+  # Mixnode 2 volumes
+  betanet_2_config:
+    driver: local
+  betanet_2_data:
+    driver: local
+  betanet_2_logs:
+    driver: local
+
+  # Mixnode 3 volumes
+  betanet_3_config:
+    driver: local
+  betanet_3_data:
+    driver: local
+  betanet_3_logs:
+    driver: local
+
+# ============================================
+# CONFIGURATION NOTES
+# ============================================
+
+# Environment Variables (.env):
+#   # Betanet Node Ports
+#   BETANET_NODE1_PORT=9001
+#   BETANET_NODE2_PORT=9002
+#   BETANET_NODE3_PORT=9003
+#
+#   # Metrics Ports
+#   BETANET_NODE1_METRICS_PORT=9101
+#   BETANET_NODE2_METRICS_PORT=9102
+#   BETANET_NODE3_METRICS_PORT=9103
+#
+#   # Performance Tuning
+#   PIPELINE_WORKERS=4
+#   BATCH_SIZE=128
+#   POOL_SIZE=1024
+#   TARGET_THROUGHPUT=25000
+#
+#   # Resource Limits
+#   BETANET_NODE1_CPUS=2
+#   BETANET_NODE1_MEMORY=2G
+
+# Network Topology:
+#   Client -> Entry Node (9001) -> Middle Node (9002) -> Exit Node (9003) -> Destination
+#
+#   Each hop applies:
+#     - Sphinx encryption/decryption
+#     - VRF-based delay (timing obfuscation)
+#     - Relay lottery selection (L4 enhancement)
+#     - Cover traffic injection
+
+# Monitoring Integration:
+#   Prometheus scrapes metrics from:
+#     - betanet-mixnode-1:9091 (entry node)
+#     - betanet-mixnode-2:9091 (middle node)
+#     - betanet-mixnode-3:9091 (exit node)
+#
+#   Grafana dashboards:
+#     - ./monitoring/grafana/dashboards/betanet-overview.json
+#     - ./monitoring/grafana/dashboards/betanet-performance.json
+#     - ./monitoring/grafana/dashboards/betanet-security.json
+
+# Health Checks:
+#   Each node exposes /health endpoint:
+#     - http://localhost:9001/health (entry)
+#     - http://localhost:9002/health (middle)
+#     - http://localhost:9003/health (exit)
+
+# Scaling:
+#   To add more relay nodes:
+#     1. Copy betanet-mixnode-2 service
+#     2. Update NODE_ID, ports, and hop configuration
+#     3. Add to dependency chain
+#     4. Update Prometheus scrape targets
+
+# Performance Testing:
+#   Enable load generator:
+#     docker-compose --profile testing up betanet-loadgen
+#
+#   Benchmark throughput:
+#     docker-compose --profile benchmarking up betanet-loadgen
+
+# Debugging:
+#   View logs:
+#     docker-compose -f docker-compose.yml -f docker-compose.betanet.yml logs -f betanet-mixnode-1
+#
+#   Increase logging:
+#     RUST_LOG=debug docker-compose -f docker-compose.yml -f docker-compose.betanet.yml up
+#
+#   Access node shell:
+#     docker-compose -f docker-compose.yml -f docker-compose.betanet.yml exec betanet-mixnode-1 sh
+
+# Security Considerations:
+#   - Betanet network isolated from fog-network (no direct access to DB)
+#   - Only monitoring network bridge allows Prometheus scraping
+#   - No external internet access by default (can be enabled for exit node)
+#   - VRF keys should be rotated regularly
+#   - Consider adding mutual TLS between nodes in production

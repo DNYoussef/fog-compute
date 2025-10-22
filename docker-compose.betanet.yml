@@ -1,25 +1,35 @@
+# FOG Compute - Betanet Mixnode Services
+# Extends base configuration with Betanet mixnode network
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.betanet.yml up
+#
+# NOTE: This configuration SHARES the unified monitoring stack (Prometheus, Grafana, Loki)
+#       from the base configuration. No duplicate services!
+
 version: '3.8'
 
 services:
-  # Betanet Mixnode 1 (Entry)
+  # Betanet Mixnode 1 (Entry Node)
   betanet-mixnode-1:
     build:
       context: .
       dockerfile: Dockerfile.betanet
     container_name: betanet-mixnode-1
     ports:
-      - "9001:9001"
+      - "9001:9001"  # External port for mixnode communication
     environment:
-      - NODE_TYPE=entry
-      - NODE_PORT=9001
-      - RUST_LOG=info
-      - PIPELINE_WORKERS=4
-      - BATCH_SIZE=128
-      - POOL_SIZE=1024
-      - MAX_QUEUE_DEPTH=10000
-      - TARGET_THROUGHPUT=25000
+      NODE_TYPE: entry
+      NODE_PORT: 9001
+      RUST_LOG: info
+      PIPELINE_WORKERS: 4
+      BATCH_SIZE: 128
+      POOL_SIZE: 1024
+      MAX_QUEUE_DEPTH: 10000
+      TARGET_THROUGHPUT: 25000
+      # Database connection via multi-network bridge
+      DATABASE_URL: postgresql://fog_user:fog_password@postgres:5432/fog_compute
     networks:
-      - betanet
+      - betanet-network  # Primary network for mixnode communication
+      - fog-network      # Secondary network for database/backend access
     volumes:
       - ./config/betanet-1:/config
       - ./data/betanet-1:/data
@@ -29,8 +39,14 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
 
-  # Betanet Mixnode 2 (Middle)
+  # Betanet Mixnode 2 (Middle Node)
   betanet-mixnode-2:
     build:
       context: .
@@ -39,29 +55,35 @@ services:
     ports:
       - "9002:9002"
     environment:
-      - NODE_TYPE=middle
-      - NODE_PORT=9002
-      - RUST_LOG=info
-      - PIPELINE_WORKERS=4
-      - BATCH_SIZE=128
-      - POOL_SIZE=1024
-      - MAX_QUEUE_DEPTH=10000
-      - TARGET_THROUGHPUT=25000
+      NODE_TYPE: middle
+      NODE_PORT: 9002
+      RUST_LOG: info
+      PIPELINE_WORKERS: 4
+      BATCH_SIZE: 128
+      POOL_SIZE: 1024
+      MAX_QUEUE_DEPTH: 10000
+      TARGET_THROUGHPUT: 25000
+      DATABASE_URL: postgresql://fog_user:fog_password@postgres:5432/fog_compute
     networks:
-      - betanet
+      - betanet-network
+      - fog-network
     volumes:
       - ./config/betanet-2:/config
       - ./data/betanet-2:/data
     restart: unless-stopped
     depends_on:
-      - betanet-mixnode-1
+      betanet-mixnode-1:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9002/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
 
-  # Betanet Mixnode 3 (Exit)
+  # Betanet Mixnode 3 (Exit Node)
   betanet-mixnode-3:
     build:
       context: .
@@ -70,70 +92,35 @@ services:
     ports:
       - "9003:9003"
     environment:
-      - NODE_TYPE=exit
-      - NODE_PORT=9003
-      - RUST_LOG=info
-      - PIPELINE_WORKERS=4
-      - BATCH_SIZE=128
-      - POOL_SIZE=1024
-      - MAX_QUEUE_DEPTH=10000
-      - TARGET_THROUGHPUT=25000
+      NODE_TYPE: exit
+      NODE_PORT: 9003
+      RUST_LOG: info
+      PIPELINE_WORKERS: 4
+      BATCH_SIZE: 128
+      POOL_SIZE: 1024
+      MAX_QUEUE_DEPTH: 10000
+      TARGET_THROUGHPUT: 25000
+      DATABASE_URL: postgresql://fog_user:fog_password@postgres:5432/fog_compute
     networks:
-      - betanet
+      - betanet-network
+      - fog-network
     volumes:
       - ./config/betanet-3:/config
       - ./data/betanet-3:/data
     restart: unless-stopped
     depends_on:
-      - betanet-mixnode-2
+      betanet-mixnode-2:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9003/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
 
-  # Prometheus for metrics collection
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: betanet-prometheus
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus-data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-    networks:
-      - betanet
-    restart: unless-stopped
+# No additional volumes needed - using base configuration volumes
 
-  # Grafana for visualization
-  grafana:
-    image: grafana/grafana:latest
-    container_name: betanet-grafana
-    ports:
-      - "3000:3000"
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_USERS_ALLOW_SIGN_UP=false
-    volumes:
-      - grafana-data:/var/lib/grafana
-      - ./config/grafana/dashboards:/etc/grafana/provisioning/dashboards
-      - ./config/grafana/datasources:/etc/grafana/provisioning/datasources
-    networks:
-      - betanet
-    depends_on:
-      - prometheus
-    restart: unless-stopped
-
-networks:
-  betanet:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.30.0.0/16
-
-volumes:
-  prometheus-data:
-  grafana-data:
+# No additional networks needed - using base configuration networks
+# betanet-network and fog-network are created in base docker-compose.yml

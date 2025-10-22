@@ -38,10 +38,12 @@ export default function RootLayout({
             },
           }}
         />
-        <div className="min-h-screen flex flex-col">
+        <div className="min-h-screen flex flex-col" data-testid="main-layout">
           <Navigation />
           <main className="flex-1 container mx-auto px-4 py-6" data-testid="main-content">
-            {children}
+            <div data-testid="main-grid">
+              {children}
+            </div>
           </main>
         </div>
       </body>

@@ -1,0 +1,674 @@
+{
+  "metadata": {
+    "analysis_date": "2025-10-21",
+    "project_path": "c:\\Users\\17175\\Desktop\\fog-compute",
+    "total_layers": 8,
+    "programming_languages": ["Rust", "Python", "TypeScript"],
+    "docker_compose_files": 3
+  },
+  "layers": [
+    {
+      "name": "BetaNet",
+      "id": 1,
+      "location": "src/betanet/",
+      "language": "Rust",
+      "description": "Privacy-First Network - HTX-powered onion routing with Sphinx packet processing",
+      "key_files": [
+        "lib.rs (main library entry)",
+        "pipeline.rs (high-performance packet pipeline)",
+        "core/mixnode.rs (mixnode implementation)",
+        "core/routing.rs (routing logic)",
+        "core/config.rs (configuration)",
+        "core/relay_lottery.rs (relay selection)",
+        "core/protocol_version.rs (protocol versioning)",
+        "crypto/sphinx.rs (Sphinx packet crypto)",
+        "crypto/crypto.rs (cryptographic primitives)",
+        "vrf/vrf_delay.rs (VRF-based delays)",
+        "vrf/vrf_neighbor.rs (VRF neighbor selection)",
+        "vrf/poisson_delay.rs (Poisson distribution delays)",
+        "utils/rate.rs (rate limiting)",
+        "utils/delay.rs (delay utilities)",
+        "utils/packet.rs (packet handling)",
+        "server/http.rs (HTTP server)",
+        "server/mod.rs (server module)",
+        "cover.rs (cover traffic generation)"
+      ],
+      "entry_points": [
+        "bin/http_server.rs (HTTP server binary)",
+        "examples/simple_mixnode.rs (example - DISABLED due to path issues)",
+        "examples/pipeline_benchmark.rs (benchmark - DISABLED)"
+      ],
+      "dependencies": [
+        "tokio (async runtime)",
+        "ed25519-dalek, x25519-dalek (crypto)",
+        "chacha20poly1305, aes-gcm (encryption)",
+        "schnorrkel (VRF)",
+        "prometheus (metrics)"
+      ],
+      "exports": [
+        "PacketPipeline",
+        "MixnodeConfig",
+        "StandardMixnode",
+        "SphinxPacket",
+        "SphinxProcessor"
+      ],
+      "docker_services": [
+        "betanet-mixnode-1 (entry node, port 9001)",
+        "betanet-mixnode-2 (middle node, port 9002)",
+        "betanet-mixnode-3 (exit node, port 9003)"
+      ],
+      "integration_points": {
+        "backend": "backend/server/services/betanet.py (Python wrapper)",
+        "backend_client": "backend/server/services/betanet_client.py (HTTP client)",
+        "routes": "backend/server/routes/betanet.py (API endpoints)"
+      },
+      "issues": [
+        "Examples disabled in Cargo.toml (path resolution issues)",
+        "No Python bindings for direct Rust integration",
+        "Relies on HTTP API for Python-Rust communication",
+        "Tests located in src/betanet/tests/ (non-standard location)"
+      ],
+      "performance_targets": {
+        "throughput": "25,000 pps (70% improvement)",
+        "latency": "< 1ms average processing",
+        "pool_hit_rate": "> 85%"
+      }
+    },
+    {
+      "name": "BitChat",
+      "id": 2,
+      "location": "src/bitchat/",
+      "language": "TypeScript/React",
+      "description": "P2P Messaging - BLE-based offline mesh networking",
+      "key_files": [
+        "index.ts (main exports)",
+        "types/index.ts (TypeScript types)",
+        "protocol/webrtc.ts (WebRTC transport)",
+        "protocol/bluetooth.ts (BLE transport)",
+        "encryption/chacha20.ts (ChaCha20 encryption)",
+        "hooks/useBitChatService.ts (React hook)",
+        "ui/BitChatInterface.tsx (main UI)",
+        "ui/PeerList.tsx (peer list UI)",
+        "ui/ConversationView.tsx (chat UI)",
+        "ui/NetworkStatus.tsx (network status UI)",
+        "ui/BitChatInterface.test.tsx (tests)"
+      ],
+      "entry_points": [
+        "index.ts (module export)",
+        "ui/BitChatInterface.tsx (React component)"
+      ],
+      "dependencies": [
+        "React",
+        "WebRTC API",
+        "Web Bluetooth API",
+        "ChaCha20 crypto library"
+      ],
+      "exports": [
+        "BitChatInterface (default)",
+        "WebRTCProtocol",
+        "BluetoothProtocol",
+        "ChaCha20Encryption",
+        "useBitChatService",
+        "PeerList",
+        "ConversationView",
+        "NetworkStatus"
+      ],
+      "docker_services": [],
+      "integration_points": {
+        "frontend": "apps/control-panel/app/bitchat/page.tsx (Next.js page)",
+        "p2p_system": "src/p2p/unified_p2p_system.py (Python unified P2P)"
+      },
+      "issues": [
+        "No __init__.py in src/bitchat (not a Python module)",
+        "Documentation files in src/bitchat/ (should be in docs/)",
+        "Test file mixed with source (should be in tests/)"
+      ]
+    },
+    {
+      "name": "P2P Unified System",
+      "id": 3,
+      "location": "src/p2p/",
+      "language": "Python",
+      "description": "Unified P2P - Consolidates BitChat (BLE) + BetaNet (HTX) + Mesh protocols",
+      "key_files": [
+        "__init__.py (module init)",
+        "unified_p2p_system.py (main unified system)",
+        "unified_p2p_config.py (configuration)"
+      ],
+      "entry_points": [
+        "unified_p2p_system.py (executable script)"
+      ],
+      "dependencies": [
+        "infrastructure.p2p.betanet.htx_transport (MISSING - import fails)",
+        "infrastructure.p2p.bitchat.ble_transport (MISSING)",
+        "infrastructure.p2p.core.transport_manager (MISSING)"
+      ],
+      "exports": [
+        "UnifiedP2PSystem",
+        "TransportType (BLE, HTX, Mesh)",
+        "MessageRouter"
+      ],
+      "docker_services": [],
+      "integration_points": {
+        "backend": "backend/server/routes/p2p.py (API endpoints)",
+        "betanet": "Links to Rust BetaNet via htx_transport",
+        "bitchat": "Links to TypeScript BitChat via ble_transport"
+      },
+      "issues": [
+        "CRITICAL: Missing infrastructure.p2p.* modules (imports fail)",
+        "References non-existent transport implementations",
+        "TRANSPORTS_AVAILABLE = False due to import failures",
+        "MOBILE_BRIDGE_AVAILABLE = False (no mobile bridges)",
+        "Incomplete implementation - missing key dependencies"
+      ]
+    },
+    {
+      "name": "Idle Compute Harvesting",
+      "id": 4,
+      "location": "src/idle/",
+      "language": "Python",
+      "description": "Idle resource collection from mobile devices during charging",
+      "key_files": [
+        "__init__.py (module init)",
+        "harvest_manager.py (main harvest manager)",
+        "edge_manager.py (edge device orchestration)",
+        "mobile_resource_manager.py (mobile device management)"
+      ],
+      "entry_points": [
+        "harvest_manager.py (FogHarvestManager class)",
+        "edge_manager.py (EdgeManager class)"
+      ],
+      "dependencies": [
+        "asyncio",
+        "dataclasses",
+        "uuid",
+        "logging"
+      ],
+      "exports": [
+        "FogHarvestManager",
+        "EdgeManager",
+        "HarvestState",
+        "ComputeType",
+        "HarvestPolicy"
+      ],
+      "docker_services": [],
+      "integration_points": {
+        "backend": "backend/server/routes/idle_compute.py (API endpoints)",
+        "service_manager": "backend/server/services/service_manager.py (initialization)",
+        "tokenomics": "Integrates with tokenomics for compute rewards"
+      },
+      "issues": [
+        "Mobile platform bridges not implemented",
+        "No actual hardware integration (battery, thermal sensors)",
+        "Missing real device detection logic"
+      ]
+    },
+    {
+      "name": "VPN/Onion Routing Privacy Layer",
+      "id": 5,
+      "location": "src/vpn/",
+      "language": "Python",
+      "description": "Multi-layer encryption with circuit creation and mixnet integration",
+      "key_files": [
+        "__init__.py (module init)",
+        "onion_routing.py (core onion routing)",
+        "onion_circuit_service.py (circuit management)",
+        "fog_onion_coordinator.py (fog integration)"
+      ],
+      "entry_points": [
+        "fog_onion_coordinator.py (FogOnionCoordinator class)",
+        "onion_circuit_service.py (OnionCircuitService class)"
+      ],
+      "dependencies": [
+        "asyncio",
+        "dataclasses",
+        "cryptography (v41.0.7 - fixed)",
+        "NymMixnetClient (MISSING - commented out)"
+      ],
+      "exports": [
+        "OnionRouter",
+        "OnionCircuit",
+        "HiddenService",
+        "OnionCircuitService",
+        "FogOnionCoordinator",
+        "PrivacyLevel"
+      ],
+      "docker_services": [],
+      "integration_points": {
+        "backend": "backend/server/routes/privacy.py (API endpoints)",
+        "service_manager": "backend/server/services/service_manager.py (initialization)",
+        "betanet": "Uses BetaNet for onion routing transport",
+        "fog": "Integrates with fog coordinator for privacy-aware task routing"
+      },
+      "issues": [
+        "NymMixnetClient integration not implemented (commented out)",
+        "Missing actual circuit establishment logic",
+        "No real encryption implementation in circuit creation"
+      ]
+    },
+    {
+      "name": "Tokenomics System",
+      "id": 6,
+      "location": "src/tokenomics/",
+      "language": "Python",
+      "description": "DAO governance, market-based resource pricing, token staking and rewards",
+      "key_files": [
+        "__init__.py (module init)",
+        "unified_dao_tokenomics_system.py (main DAO system)",
+        "tokenomics_integration.py (integration layer)",
+        "fog_tokenomics_service.py (fog-specific tokenomics)"
+      ],
+      "entry_points": [
+        "unified_dao_tokenomics_system.py (UnifiedDAOTokenomicsSystem class)"
+      ],
+      "dependencies": [
+        "sqlite3 (database)",
+        "dataclasses",
+        "uuid",
+        "logging"
+      ],
+      "exports": [
+        "UnifiedDAOTokenomicsSystem",
+        "TokenAction",
+        "ProposalType",
+        "VoteChoice",
+        "TokenomicsConfig"
+      ],
+      "docker_services": [],
+      "integration_points": {
+        "backend": "backend/server/routes/tokenomics.py (API endpoints)",
+        "service_manager": "backend/server/services/service_manager.py (initialization)",
+        "database": "backend/data/dao_tokenomics.db (SQLite database)",
+        "idle_compute": "Rewards for compute contributions",
+        "scheduler": "Token-based job prioritization"
+      },
+      "issues": [
+        "SQLite database created in backend/data/ (should be configurable)",
+        "No blockchain integration (centralized token management)",
+        "Missing smart contract deployment"
+      ]
+    },
+    {
+      "name": "Batch Processing Scheduler",
+      "id": 7,
+      "location": "src/batch/",
+      "language": "Python",
+      "description": "NSGA-II multi-objective optimization, SLA-aware job placement",
+      "key_files": [
+        "__init__.py (module init)",
+        "placement.py (FogScheduler - NSGA-II)",
+        "marketplace.py (resource bidding marketplace)",
+        "sla_classes.py (SLA tier definitions)",
+        "enhanced_sla_tiers.py (enhanced SLA tiers)"
+      ],
+      "entry_points": [
+        "placement.py (FogScheduler class)",
+        "marketplace.py (FogMarketplace class)"
+      ],
+      "dependencies": [
+        "asyncio",
+        "dataclasses",
+        "uuid",
+        "logging"
+      ],
+      "exports": [
+        "FogScheduler",
+        "FogMarketplace",
+        "BidType",
+        "BidStatus",
+        "PricingTier"
+      ],
+      "docker_services": [],
+      "integration_points": {
+        "backend": "backend/server/routes/scheduler.py (API endpoints)",
+        "service_manager": "backend/server/services/service_manager.py (initialization)",
+        "database": "backend/server/models/database.py (Job model)",
+        "tokenomics": "Token-based resource pricing",
+        "idle_compute": "Resource availability from idle devices"
+      },
+      "issues": [
+        "NSGA-II algorithm not fully implemented (placeholder logic)",
+        "Missing actual multi-objective optimization",
+        "No real job execution - just scheduling"
+      ]
+    },
+    {
+      "name": "Fog Infrastructure",
+      "id": 8,
+      "location": "src/fog/",
+      "language": "Python",
+      "description": "Performance benchmarking, coordinator modules, system monitoring",
+      "key_files": [
+        "__init__.py (module init)",
+        "coordinator.py (FogCoordinator implementation)",
+        "coordinator_interface.py (IFogCoordinator interface)",
+        "utils.py (utility functions)",
+        "benchmarks/benchmark_suite.py (benchmark suite)",
+        "benchmarks/run_benchmarks.py (benchmark runner)",
+        "benchmarks/__init__.py (benchmarks module)",
+        "tests/test_coordinator.py (coordinator tests)",
+        "tests/__init__.py (tests module)",
+        "config/targets.json (benchmark targets)"
+      ],
+      "entry_points": [
+        "coordinator.py (FogCoordinator class)",
+        "benchmarks/run_benchmarks.py (executable benchmark script)"
+      ],
+      "dependencies": [
+        "asyncio",
+        "dataclasses",
+        "typing",
+        "logging"
+      ],
+      "exports": [
+        "FogCoordinator",
+        "IFogCoordinator",
+        "FogNode",
+        "NetworkTopology",
+        "NodeStatus",
+        "NodeType",
+        "RoutingStrategy",
+        "Task"
+      ],
+      "docker_services": [],
+      "integration_points": {
+        "backend": "backend/server/routes/dashboard.py (dashboard API)",
+        "all_layers": "Central coordination point for all services",
+        "benchmarks": "Performance validation for all layers"
+      },
+      "issues": [
+        "USAGE.md in src/fog/ (should be in docs/)",
+        "verify.sh script in src/fog/ (should be in scripts/)"
+      ]
+    }
+  ],
+  "docker_analysis": {
+    "main_compose": {
+      "file": "docker-compose.yml",
+      "services": [
+        "postgres (PostgreSQL 15-alpine, port 5432)",
+        "backend (FastAPI, port 8000)",
+        "frontend (Next.js, port 3000)",
+        "redis (Redis 7-alpine, port 6379)",
+        "prometheus (Prometheus, port 9090)",
+        "grafana (Grafana, port 3001)",
+        "loki (Loki, port 3100)"
+      ],
+      "networks": ["fog-network"],
+      "volumes": ["postgres_data", "prometheus_data", "grafana_data"]
+    },
+    "dev_compose": {
+      "file": "docker-compose.dev.yml",
+      "purpose": "Development overrides",
+      "changes": [
+        "postgres: Uses fog_compute_dev database",
+        "backend: Debug logging, hot-reload enabled",
+        "frontend: Development mode, hot-reload volumes",
+        "All services: Exposed ports for local development"
+      ],
+      "volumes": ["postgres_dev_data", "backend_venv", "control_panel_modules", "control_panel_next"]
+    },
+    "betanet_compose": {
+      "file": "docker-compose.betanet.yml",
+      "purpose": "Standalone BetaNet network deployment",
+      "services": [
+        "betanet-mixnode-1 (entry, port 9001)",
+        "betanet-mixnode-2 (middle, port 9002)",
+        "betanet-mixnode-3 (exit, port 9003)",
+        "prometheus (port 9090)",
+        "grafana (port 3000)"
+      ],
+      "networks": ["betanet (172.30.0.0/16)"],
+      "volumes": ["prometheus-data", "grafana-data"],
+      "notes": [
+        "Separate network from main compose",
+        "Grafana on port 3000 conflicts with main compose (port 3001)"
+      ]
+    },
+    "duplicates": [
+      "prometheus appears in both main and betanet compose",
+      "grafana appears in both main and betanet compose (port conflict: 3000 vs 3001)"
+    ],
+    "gaps": [
+      "No Docker service for BitChat (TypeScript/frontend only)",
+      "No Docker service for P2P Unified System",
+      "No Docker service for Idle Compute harvesting",
+      "No Docker service for VPN/Onion routing",
+      "No Docker service for Tokenomics (runs in backend)",
+      "No Docker service for Batch Scheduler (runs in backend)"
+    ],
+    "integration_strategy": {
+      "betanet": "Rust HTTP server in separate containers, Python backend calls via HTTP",
+      "other_layers": "All run within backend FastAPI container, imported as Python modules"
+    }
+  },
+  "import_issues": [
+    {
+      "severity": "CRITICAL",
+      "file": "src/p2p/unified_p2p_system.py",
+      "issue": "Missing infrastructure.p2p.* modules",
+      "details": "Imports from ...infrastructure.p2p.betanet.htx_transport, ...infrastructure.p2p.bitchat.ble_transport, ...infrastructure.p2p.core.transport_manager - all MISSING",
+      "impact": "P2P system cannot initialize, TRANSPORTS_AVAILABLE = False"
+    },
+    {
+      "severity": "CRITICAL",
+      "file": "src/p2p/unified_p2p_system.py",
+      "issue": "Missing mobile bridge modules",
+      "details": "Mobile integration imports fail, MOBILE_BRIDGE_AVAILABLE = False",
+      "impact": "No mobile device integration"
+    },
+    {
+      "severity": "HIGH",
+      "file": "src/vpn/fog_onion_coordinator.py",
+      "issue": "Commented out NymMixnetClient import",
+      "details": "from ..privacy.mixnet_integration import NymMixnetClient - COMMENTED OUT",
+      "impact": "No mixnet integration, reduced privacy features"
+    },
+    {
+      "severity": "MEDIUM",
+      "file": "backend/server/services/service_manager.py",
+      "issue": "PYTHONPATH dependency",
+      "details": "sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / 'src')) - relies on PYTHONPATH manipulation",
+      "impact": "Fragile import system, breaks if run from different directories"
+    },
+    {
+      "severity": "LOW",
+      "file": "backend/server/tests/fixtures/seed_data.py",
+      "issue": "Absolute import from backend",
+      "details": "from backend.server.models.database import ... - assumes backend in PYTHONPATH",
+      "impact": "Tests may fail if not run from project root"
+    }
+  ],
+  "organization_issues": [
+    {
+      "category": "Documentation in source directories",
+      "files": [
+        "src/betanet/README.md",
+        "src/bitchat/README.md",
+        "src/bitchat/QUICK-START.md",
+        "src/bitchat/API.md",
+        "src/bitchat/ARCHITECTURE.md",
+        "src/bitchat/INDEX.md",
+        "src/fog/USAGE.md"
+      ],
+      "recommendation": "Move to docs/ directory with proper subdirectory structure"
+    },
+    {
+      "category": "Scripts in source directories",
+      "files": [
+        "src/fog/verify.sh"
+      ],
+      "recommendation": "Move to scripts/ directory"
+    },
+    {
+      "category": "Tests mixed with source",
+      "files": [
+        "src/bitchat/ui/BitChatInterface.test.tsx",
+        "src/betanet/tests/l4_functionality_tests.rs",
+        "src/fog/tests/test_coordinator.py"
+      ],
+      "recommendation": "Move to tests/ directory mirroring source structure"
+    },
+    {
+      "category": "Config files in source",
+      "files": [
+        "src/fog/config/targets.json"
+      ],
+      "recommendation": "Move to project root config/ directory"
+    },
+    {
+      "category": "Executable Python files as modules",
+      "files": [
+        "src/p2p/unified_p2p_system.py (has if __name__ == '__main__')",
+        "src/idle/harvest_manager.py",
+        "src/vpn/fog_onion_coordinator.py"
+      ],
+      "recommendation": "Create entry scripts in scripts/ or use proper CLI framework"
+    }
+  ],
+  "python_module_structure": {
+    "valid_modules": [
+      "src/batch/ (has __init__.py)",
+      "src/fog/ (has __init__.py)",
+      "src/fog/benchmarks/ (has __init__.py)",
+      "src/fog/tests/ (has __init__.py)",
+      "src/idle/ (has __init__.py)",
+      "src/p2p/ (has __init__.py)",
+      "src/tokenomics/ (has __init__.py)",
+      "src/vpn/ (has __init__.py)",
+      "backend/server/ (has multiple __init__.py files)"
+    ],
+    "missing_init_files": [
+      "src/bitchat/ (TypeScript - not a Python module)",
+      "src/betanet/ (Rust - not a Python module)"
+    ],
+    "import_style": {
+      "backend": "Relative imports (from .config, from ..services)",
+      "src_modules": "Absolute imports assuming PYTHONPATH includes src/"
+    }
+  },
+  "frontend_structure": {
+    "location": "apps/control-panel/",
+    "framework": "Next.js 14+ (App Router)",
+    "pages": [
+      "app/page.tsx (dashboard)",
+      "app/betanet/page.tsx",
+      "app/bitchat/page.tsx",
+      "app/benchmarks/page.tsx",
+      "app/control-panel/ (directory)",
+      "app/idle-compute/ (directory)",
+      "app/nodes/ (directory)",
+      "app/scheduler/ (directory)",
+      "app/tasks/ (directory)",
+      "app/tokenomics/ (directory)"
+    ],
+    "error_boundaries": [
+      "app/error.tsx (global)",
+      "app/global-error.tsx",
+      "app/betanet/error.tsx",
+      "app/bitchat/error.tsx",
+      "app/idle-compute/error.tsx",
+      "app/scheduler/error.tsx",
+      "app/tokenomics/error.tsx"
+    ],
+    "components": [
+      "components/Navigation.tsx",
+      "components/WebSocketStatus.tsx"
+    ],
+    "integration": {
+      "api": "http://localhost:8000 (backend FastAPI)",
+      "websocket": "ws://localhost:8000/ws/metrics",
+      "bitchat": "src/bitchat/ (imported as npm module)"
+    }
+  },
+  "backend_structure": {
+    "location": "backend/",
+    "framework": "FastAPI",
+    "main_file": "backend/server/main.py",
+    "database": {
+      "orm": "SQLAlchemy (async)",
+      "migrations": "Alembic",
+      "url": "postgresql+asyncpg://fog_user:fog_password@postgres:5432/fog_compute",
+      "models": "backend/server/models/database.py"
+    },
+    "routes": [
+      "auth.py",
+      "dashboard.py",
+      "betanet.py",
+      "tokenomics.py",
+      "scheduler.py",
+      "idle_compute.py",
+      "privacy.py",
+      "p2p.py",
+      "benchmarks.py"
+    ],
+    "services": [
+      "service_manager.py (orchestrator)",
+      "betanet.py (Python wrapper)",
+      "betanet_client.py (HTTP client for Rust)"
+    ],
+    "middleware": [
+      "rate_limit.py (rate limiting)",
+      "CORS (FastAPI middleware)"
+    ],
+    "auth": [
+      "jwt_utils.py (JWT token handling)",
+      "dependencies.py (FastAPI dependencies)",
+      "__init__.py (auth exports)"
+    ],
+    "websocket": [
+      "metrics_stream.py (real-time metrics)"
+    ],
+    "schemas": [
+      "auth.py (Pydantic models for auth)",
+      "validation.py (input validation)"
+    ]
+  },
+  "critical_findings": {
+    "broken_integrations": [
+      "P2P Unified System - Missing infrastructure.p2p.* modules (CRITICAL)",
+      "Mobile bridges - MOBILE_BRIDGE_AVAILABLE = False (HIGH)",
+      "Nym Mixnet - Integration commented out (MEDIUM)"
+    ],
+    "incomplete_implementations": [
+      "NSGA-II scheduler - Algorithm not fully implemented",
+      "Onion routing - No actual circuit encryption",
+      "Idle compute - No hardware sensor integration",
+      "Mobile resource manager - No platform-specific code"
+    ],
+    "architectural_issues": [
+      "Rust-Python integration via HTTP only (no FFI/PyO3)",
+      "PYTHONPATH manipulation instead of proper packaging",
+      "Executable scripts mixed with library code",
+      "Documentation scattered across src/ directories"
+    ],
+    "deployment_gaps": [
+      "6 out of 8 layers run in single backend container",
+      "No horizontal scaling for individual layers",
+      "Betanet is only layer with dedicated containers",
+      "No service mesh or inter-service communication"
+    ]
+  },
+  "recommendations": {
+    "high_priority": [
+      "Implement missing infrastructure.p2p.* modules for P2P integration",
+      "Create proper Python packaging with pyproject.toml/setup.py",
+      "Consolidate documentation to docs/ directory",
+      "Implement PyO3 bindings for Rust-Python integration",
+      "Add missing test infrastructure"
+    ],
+    "medium_priority": [
+      "Separate layer deployments into dedicated containers",
+      "Implement actual NSGA-II algorithm",
+      "Add hardware sensor integration for idle compute",
+      "Complete onion routing encryption implementation",
+      "Add service health monitoring"
+    ],
+    "low_priority": [
+      "Move tests to tests/ directory",
+      "Create CLI entry points for executable modules",
+      "Add Nym Mixnet integration",
+      "Implement mobile platform bridges"
+    ]
+  }
+}

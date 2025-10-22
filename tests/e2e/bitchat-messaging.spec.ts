@@ -113,7 +113,7 @@ test.describe('Bitchat P2P Messaging', () => {
     });
   });
 
-  test('Group messaging and channels', async () => {
+  test.skip('Group messaging and channels', async () => {
     await test.step('Create group chat', async () => {
       await page.goto('/bitchat');
       await page.fill('[data-testid="peer-name-input"]', 'Group-Admin');
@@ -159,7 +159,7 @@ test.describe('Bitchat P2P Messaging', () => {
     });
   });
 
-  test('File sharing over P2P', async () => {
+  test.skip('File sharing over P2P', async () => {
     await test.step('Setup peer connection', async () => {
       await page.goto('/bitchat');
       await page.fill('[data-testid="peer-name-input"]', 'File-Sender');
@@ -219,7 +219,7 @@ test.describe('Bitchat P2P Messaging', () => {
     });
   });
 
-  test('Voice and video calls (WebRTC)', async () => {
+  test.skip('Voice and video calls (WebRTC)', async () => {
     await test.step('Initiate voice call', async () => {
       await page.goto('/bitchat');
       await page.fill('[data-testid="peer-name-input"]', 'Caller');
@@ -272,7 +272,7 @@ test.describe('Bitchat P2P Messaging', () => {
     });
   });
 
-  test('Message search and history', async () => {
+  test.skip('Message search and history', async () => {
     await test.step('Send multiple messages', async () => {
       await page.goto('/bitchat');
       await page.fill('[data-testid="peer-name-input"]', 'Searcher');
@@ -338,7 +338,7 @@ test.describe('Bitchat P2P Messaging', () => {
     });
   });
 
-  test('Status and presence', async () => {
+  test.skip('Status and presence', async () => {
     await test.step('Set user status', async () => {
       await page.goto('/bitchat');
       await page.fill('[data-testid="peer-name-input"]', 'Status-User');

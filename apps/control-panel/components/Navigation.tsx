@@ -16,7 +16,7 @@ export function Navigation() {
   ];
 
   return (
-    <nav className="glass-dark border-b border-white/10">
+    <nav className="glass-dark border-b border-white/10" data-testid="main-nav">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
@@ -28,7 +28,7 @@ export function Navigation() {
           </div>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-1">
+          <div className="hidden md:flex items-center space-x-1" data-testid="desktop-nav">
             {links.map((link) => {
               const isActive = pathname === link.href;
               return (
@@ -58,7 +58,7 @@ export function Navigation() {
 
           {/* Mobile Menu Button */}
           <button
-            data-testid="mobile-menu"
+            data-testid="mobile-menu-button"
             className="md:hidden p-2 text-gray-400 hover:text-white transition-colors"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
@@ -86,6 +86,7 @@ export function Navigation() {
 
       {/* Mobile Menu Drawer */}
       <div
+        data-testid="mobile-menu-drawer"
         className={`md:hidden fixed top-16 right-0 bottom-0 w-64 glass-dark border-l border-white/10 z-50 transform transition-transform duration-300 ${
           isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
         }`}

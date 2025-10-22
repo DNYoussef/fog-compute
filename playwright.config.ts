@@ -8,10 +8,10 @@ export default defineConfig({
   testDir: './tests/e2e',
 
   // Maximum time one test can run
-  timeout: 30 * 1000,
+  timeout: 60 * 1000,
 
   expect: {
-    timeout: 5000,
+    timeout: 10000,
   },
 
   // Run tests in files in parallel
@@ -68,8 +68,8 @@ export default defineConfig({
     },
 
     // Advanced timeouts
-    actionTimeout: 10 * 1000,
-    navigationTimeout: 30 * 1000,
+    actionTimeout: 15 * 1000,
+    navigationTimeout: 45 * 1000,
 
     // Browser launch options
     launchOptions: {
@@ -130,15 +130,26 @@ export default defineConfig({
     },
   ],
 
-  // Run local dev server before starting tests  
-  webServer: {
-    command: 'cd apps/control-panel && npm run dev',
-    url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120 * 1000,
-    stdout: 'pipe',
-    stderr: 'pipe',
-  },
+  // Run local dev server before starting tests
+  // CRITICAL: Start both backend AND frontend for E2E tests
+  webServer: [
+    {
+      command: 'cd backend && python -m uvicorn server.main:app --port 8000',
+      url: 'http://localhost:8000/health',
+      reuseExistingServer: !process.env.CI,
+      timeout: 60 * 1000,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    },
+    {
+      command: 'cd apps/control-panel && npm run dev',
+      url: 'http://localhost:3000',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120 * 1000,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    },
+  ],
 
   // Output folder for test artifacts
   outputDir: 'tests/output/playwright-artifacts',

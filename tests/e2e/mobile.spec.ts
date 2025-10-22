@@ -5,9 +5,10 @@
 import { test, expect, devices } from '@playwright/test';
 
 test.describe('Mobile Responsiveness', () => {
-  test.use({ ...devices['iPhone 12'] });
+  const iphone12 = devices['iPhone 12'];
 
   test.beforeEach(async ({ page }) => {
+    await page.setViewportSize(iphone12.viewport);
     await page.goto('http://localhost:3000');
   });
 
@@ -74,9 +75,10 @@ test.describe('Mobile Responsiveness', () => {
 });
 
 test.describe('Tablet Responsiveness', () => {
-  test.use({ ...devices['iPad Pro'] });
+  const ipadPro = devices['iPad Pro'];
 
   test.beforeEach(async ({ page }) => {
+    await page.setViewportSize(ipadPro.viewport);
     await page.goto('http://localhost:3000');
   });
 
@@ -126,8 +128,7 @@ test.describe('Cross-Device Features', () => {
 
   devices_list.forEach(({ device, name }) => {
     test(`benchmark controls work on ${name}`, async ({ page }) => {
-      test.use({ ...device });
-
+      await page.setViewportSize(device.viewport);
       await page.goto('http://localhost:3000/benchmarks');
 
       // Start button should be accessible

@@ -3,7 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
@@ -21,6 +21,7 @@ struct BetanetStatus {
 // Node deployment request
 #[derive(Deserialize)]
 struct DeployRequest {
+    #[allow(dead_code)]
     node_type: String,
     #[allow(dead_code)]
     region: Option<String>,
@@ -34,41 +35,85 @@ struct DeployResponse {
     status: String,
 }
 
-// Mixnode information
-#[derive(Serialize, Clone)]
+// Mixnode information with real-time tracking
+#[derive(Clone)]
 struct MixnodeInfo {
     id: String,
     status: String,
     packets_processed: u64,
-    uptime_seconds: u64,
+    packets_forwarded: u64,
+    packets_dropped: u64,
+    start_time: Instant,
+    latency_sum_us: u64,
+    latency_count: u64,
 }
 
-// Application state
+// Serializable version for API responses
+#[derive(Serialize)]
+struct MixnodeInfoResponse {
+    id: String,
+    status: String,
+    packets_processed: u64,
+    packets_forwarded: u64,
+    packets_dropped: u64,
+    uptime_seconds: u64,
+    avg_latency_ms: f64,
+}
+
+// Application state with real metrics
 #[derive(Clone)]
 struct AppState {
     mixnodes: Arc<Mutex<Vec<MixnodeInfo>>>,
-    packets_processed: Arc<Mutex<u64>>,
+    start_time: Instant,
 }
 
 impl AppState {
     fn new() -> Self {
         Self {
-            mixnodes: Arc::new(Mutex::new(vec![
-                MixnodeInfo {
-                    id: format!("mixnode-{}", uuid_simple()),
-                    status: "active".to_string(),
-                    packets_processed: 12453,
-                    uptime_seconds: 86400,
-                },
-                MixnodeInfo {
-                    id: format!("mixnode-{}", uuid_simple()),
-                    status: "active".to_string(),
-                    packets_processed: 9821,
-                    uptime_seconds: 72000,
-                },
-            ])),
-            packets_processed: Arc::new(Mutex::new(22274)),
+            mixnodes: Arc::new(Mutex::new(Vec::new())),
+            start_time: Instant::now(),
         }
+    }
+
+    /// Record packet processing for a mixnode
+    #[allow(dead_code)]
+    fn record_packet(&self, node_id: &str, processing_time_us: u64, forwarded: bool) {
+        let mut mixnodes = self.mixnodes.lock().unwrap();
+        if let Some(node) = mixnodes.iter_mut().find(|n| n.id == node_id) {
+            node.packets_processed += 1;
+            if forwarded {
+                node.packets_forwarded += 1;
+            } else {
+                node.packets_dropped += 1;
+            }
+            node.latency_sum_us += processing_time_us;
+            node.latency_count += 1;
+        }
+    }
+
+    /// Get total packets processed across all mixnodes
+    fn total_packets_processed(&self) -> u64 {
+        let mixnodes = self.mixnodes.lock().unwrap();
+        mixnodes.iter().map(|n| n.packets_processed).sum()
+    }
+
+    /// Get average latency across all mixnodes
+    fn avg_latency_ms(&self) -> f64 {
+        let mixnodes = self.mixnodes.lock().unwrap();
+        let total_latency_us: u64 = mixnodes.iter().map(|n| n.latency_sum_us).sum();
+        let total_count: u64 = mixnodes.iter().map(|n| n.latency_count).sum();
+
+        if total_count > 0 {
+            (total_latency_us as f64 / total_count as f64) / 1000.0
+        } else {
+            0.0
+        }
+    }
+
+    /// Get total active connections (estimated based on active mixnodes)
+    fn total_connections(&self) -> usize {
+        let mixnodes = self.mixnodes.lock().unwrap();
+        mixnodes.iter().filter(|n| n.status == "active").count()
     }
 }
 
@@ -93,14 +138,17 @@ fn get_timestamp() -> String {
 
 async fn handle_get_status(state: &AppState) -> String {
     let mixnodes = state.mixnodes.lock().unwrap();
-    let packets = state.packets_processed.lock().unwrap();
 
     let status = BetanetStatus {
-        status: "operational".to_string(),
-        active_nodes: mixnodes.len(),
-        connections: mixnodes.len() * 3,
-        avg_latency_ms: 45.0,
-        packets_processed: *packets,
+        status: if mixnodes.is_empty() {
+            "idle".to_string()
+        } else {
+            "operational".to_string()
+        },
+        active_nodes: mixnodes.iter().filter(|n| n.status == "active").count(),
+        connections: state.total_connections(),
+        avg_latency_ms: state.avg_latency_ms(),
+        packets_processed: state.total_packets_processed(),
         timestamp: get_timestamp(),
     };
 
@@ -109,7 +157,30 @@ async fn handle_get_status(state: &AppState) -> String {
 
 async fn handle_get_mixnodes(state: &AppState) -> String {
     let mixnodes = state.mixnodes.lock().unwrap();
-    serde_json::to_string(&*mixnodes).unwrap()
+
+    // Convert to response format with calculated fields
+    let responses: Vec<MixnodeInfoResponse> = mixnodes
+        .iter()
+        .map(|node| {
+            let avg_latency = if node.latency_count > 0 {
+                (node.latency_sum_us as f64 / node.latency_count as f64) / 1000.0
+            } else {
+                0.0
+            };
+
+            MixnodeInfoResponse {
+                id: node.id.clone(),
+                status: node.status.clone(),
+                packets_processed: node.packets_processed,
+                packets_forwarded: node.packets_forwarded,
+                packets_dropped: node.packets_dropped,
+                uptime_seconds: node.start_time.elapsed().as_secs(),
+                avg_latency_ms: avg_latency,
+            }
+        })
+        .collect();
+
+    serde_json::to_string(&responses).unwrap()
 }
 
 async fn handle_deploy(state: &AppState, _body: &str) -> String {
@@ -117,9 +188,13 @@ async fn handle_deploy(state: &AppState, _body: &str) -> String {
 
     let new_node = MixnodeInfo {
         id: node_id.clone(),
-        status: "deploying".to_string(),
+        status: "active".to_string(),
         packets_processed: 0,
-        uptime_seconds: 0,
+        packets_forwarded: 0,
+        packets_dropped: 0,
+        start_time: Instant::now(),
+        latency_sum_us: 0,
+        latency_count: 0,
     };
 
     let mut mixnodes = state.mixnodes.lock().unwrap();
@@ -127,8 +202,8 @@ async fn handle_deploy(state: &AppState, _body: &str) -> String {
 
     let response = DeployResponse {
         success: true,
-        node_id: Some(node_id),
-        status: "deploying".to_string(),
+        node_id: Some(node_id.clone()),
+        status: "deployed".to_string(),
     };
 
     serde_json::to_string(&response).unwrap()
@@ -136,20 +211,37 @@ async fn handle_deploy(state: &AppState, _body: &str) -> String {
 
 async fn handle_get_metrics(state: &AppState) -> String {
     let mixnodes = state.mixnodes.lock().unwrap();
-    let packets = state.packets_processed.lock().unwrap();
+    let active_count = mixnodes.iter().filter(|n| n.status == "active").count();
 
     format!(
         "# HELP betanet_nodes_total Total number of betanet mixnodes\n\
          # TYPE betanet_nodes_total gauge\n\
          betanet_nodes_total {}\n\
+         # HELP betanet_nodes_active Number of active betanet mixnodes\n\
+         # TYPE betanet_nodes_active gauge\n\
+         betanet_nodes_active {}\n\
          # HELP betanet_packets_processed_total Total packets processed\n\
          # TYPE betanet_packets_processed_total counter\n\
          betanet_packets_processed_total {}\n\
-         # HELP betanet_avg_latency_ms Average latency in milliseconds\n\
+         # HELP betanet_packets_forwarded_total Total packets forwarded\n\
+         # TYPE betanet_packets_forwarded_total counter\n\
+         betanet_packets_forwarded_total {}\n\
+         # HELP betanet_packets_dropped_total Total packets dropped\n\
+         # TYPE betanet_packets_dropped_total counter\n\
+         betanet_packets_dropped_total {}\n\
+         # HELP betanet_avg_latency_ms Average packet processing latency in milliseconds\n\
          # TYPE betanet_avg_latency_ms gauge\n\
-         betanet_avg_latency_ms 45.0\n",
+         betanet_avg_latency_ms {}\n\
+         # HELP betanet_uptime_seconds Server uptime in seconds\n\
+         # TYPE betanet_uptime_seconds counter\n\
+         betanet_uptime_seconds {}\n",
         mixnodes.len(),
-        *packets
+        active_count,
+        state.total_packets_processed(),
+        mixnodes.iter().map(|n| n.packets_forwarded).sum::<u64>(),
+        mixnodes.iter().map(|n| n.packets_dropped).sum::<u64>(),
+        state.avg_latency_ms(),
+        state.start_time.elapsed().as_secs()
     )
 }
 

@@ -1,6 +1,9 @@
 //! VRF-based delay calculation
 
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
+
+#[cfg(feature = "vrf")]
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::Result;
 
@@ -37,11 +40,14 @@ pub async fn calculate_vrf_delay(min_delay: &Duration, max_delay: &Duration) -> 
         let range = max_delay.as_millis() - min_delay.as_millis();
         let delay_offset = (value as u128) % range;
 
-        Ok(Duration::from_millis((min_delay.as_millis() + delay_offset) as u64))
+        Ok(Duration::from_millis(
+            (min_delay.as_millis() + delay_offset) as u64,
+        ))
     }
 
     #[cfg(not(feature = "vrf"))]
     {
+        let _ = (min_delay, max_delay); // Suppress unused variable warning
         Err(crate::MixnodeError::Vrf(
             "VRF feature not enabled".to_string(),
         ))

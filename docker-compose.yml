@@ -1,7 +1,13 @@
+# FOG Compute - Production Base Configuration
+# This is the production-ready base configuration with multi-network support
+# Usage: docker-compose up (production)
+#        docker-compose -f docker-compose.yml -f docker-compose.dev.yml up (development)
+#        docker-compose -f docker-compose.yml -f docker-compose.betanet.yml up (with betanet)
+
 version: '3.8'
 
 services:
-  # PostgreSQL Database
+  # PostgreSQL Database - Core Data Store
   postgres:
     image: postgres:15-alpine
     container_name: fog-postgres
@@ -9,8 +15,6 @@ services:
       POSTGRES_USER: fog_user
       POSTGRES_PASSWORD: fog_password
       POSTGRES_DB: fog_compute
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -20,118 +24,160 @@ services:
       retries: 5
     networks:
       - fog-network
+      - betanet-network  # Multi-network: accessible from betanet services
+    restart: unless-stopped
 
   # Backend API Server (FastAPI)
   backend:
     build:
       context: .
       dockerfile: backend/Dockerfile
+      target: production
     container_name: fog-backend
     environment:
       DATABASE_URL: postgresql+asyncpg://fog_user:fog_password@postgres:5432/fog_compute
       API_HOST: 0.0.0.0
       API_PORT: 8000
       PYTHONPATH: /app
-    ports:
-      - "8000:8000"
+      LOG_LEVEL: INFO
     depends_on:
       postgres:
         condition: service_healthy
-    volumes:
-      - ./backend:/app/backend
-      - ./src:/app/src
+      redis:
+        condition: service_started
     networks:
       - fog-network
+      - betanet-network  # Multi-network: bridge between fog and betanet
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-    command: python -m uvicorn server.main:app --host 0.0.0.0 --port 8000 --reload
-
-  # Betanet service is now integrated into the backend
-  # (Python-based BetanetService in backend/server/services/betanet.py)
-  # Rust HTTP server available but not required for operation
+    restart: unless-stopped
 
   # Control Panel (Next.js)
   frontend:
     build:
       context: ./apps/control-panel
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
+      target: production
     container_name: fog-frontend
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000
-      NODE_ENV: development
-    ports:
-      - "3000:3000"
+      NEXT_PUBLIC_API_URL: http://backend:8000
+      NODE_ENV: production
     depends_on:
       backend:
         condition: service_healthy
-    volumes:
-      - ./apps/control-panel:/app
-      - /app/node_modules
-      - /app/.next
     networks:
       - fog-network
+    restart: unless-stopped
 
-  # Redis (for caching - optional)
+  # Redis - Caching and Session Store
   redis:
     image: redis:7-alpine
     container_name: fog-redis
-    ports:
-      - "6379:6379"
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis_data:/data
     networks:
       - fog-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
 
-  # Prometheus (Metrics Collection)
+  # Prometheus - Metrics Collection (Unified Monitoring Stack)
   prometheus:
     image: prom/prometheus:latest
     container_name: fog-prometheus
-    ports:
-      - "9090:9090"
     volumes:
-      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
     networks:
       - fog-network
+      - betanet-network  # Multi-network: scrapes metrics from both networks
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-  # Grafana (Visualization)
+  # Grafana - Visualization (Unified Monitoring Stack)
   grafana:
     image: grafana/grafana:latest
     container_name: fog-grafana
-    ports:
-      - "3001:3000"
     environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_USERS_ALLOW_SIGN_UP=false
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: false
+      GF_SERVER_ROOT_URL: http://localhost:3001
+      GF_SECURITY_ALLOW_EMBEDDING: true
+      GF_LOG_LEVEL: info
     volumes:
-      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
-      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
       - grafana_data:/var/lib/grafana
     depends_on:
-      - prometheus
+      prometheus:
+        condition: service_healthy
     networks:
       - fog-network
+      - betanet-network  # Multi-network: visualizes metrics from both networks
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-  # Loki (Log Aggregation)
+  # Loki - Log Aggregation (Unified Monitoring Stack)
   loki:
     image: grafana/loki:latest
     container_name: fog-loki
-    ports:
-      - "3100:3100"
     command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - loki_data:/loki
     networks:
       - fog-network
+      - betanet-network  # Multi-network: aggregates logs from both networks
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3100/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 volumes:
   postgres_data:
+    driver: local
+  redis_data:
+    driver: local
   prometheus_data:
+    driver: local
   grafana_data:
+    driver: local
+  loki_data:
+    driver: local
 
 networks:
   fog-network:
     driver: bridge
+    name: fog-network
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+  betanet-network:
+    driver: bridge
+    name: betanet-network
+    ipam:
+      config:
+        - subnet: 172.30.0.0/16

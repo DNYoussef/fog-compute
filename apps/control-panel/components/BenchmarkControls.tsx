@@ -19,6 +19,7 @@ export function BenchmarkControls({ isRunning, testType, onStart, onStop }: Benc
             <button
               onClick={() => !isRunning && onStart('latency')}
               disabled={isRunning}
+              data-testid="start-benchmark-button"
               className={`w-full glass-hover rounded-lg p-3 text-left transition-all ${
                 testType === 'latency' && isRunning ? 'ring-2 ring-blue-400' : ''
               } ${isRunning ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -30,6 +31,7 @@ export function BenchmarkControls({ isRunning, testType, onStart, onStop }: Benc
             <button
               onClick={() => !isRunning && onStart('throughput')}
               disabled={isRunning}
+              data-testid="quick-benchmark-button"
               className={`w-full glass-hover rounded-lg p-3 text-left transition-all ${
                 testType === 'throughput' && isRunning ? 'ring-2 ring-green-400' : ''
               } ${isRunning ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -57,6 +59,7 @@ export function BenchmarkControls({ isRunning, testType, onStart, onStop }: Benc
             {isRunning ? (
               <button
                 onClick={onStop}
+                data-testid="stop-benchmark-button"
                 className="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center justify-center space-x-2"
               >
                 <span>⏹</span>
@@ -69,14 +72,19 @@ export function BenchmarkControls({ isRunning, testType, onStart, onStop }: Benc
             )}
 
             {isRunning && (
-              <div className="glass-dark rounded-lg p-4">
+              <div className="glass-dark rounded-lg p-4" data-testid="benchmark-status">
                 <div className="flex items-center justify-center space-x-2">
                   <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                  <span className="text-sm text-gray-400">Test in progress...</span>
+                  <span className="text-sm text-gray-400">Running</span>
                 </div>
                 <div className="mt-2 text-center text-xs text-gray-500">
                   Running {testType} benchmark
                 </div>
+              </div>
+            )}
+            {!isRunning && (
+              <div className="glass-dark rounded-lg p-4" data-testid="benchmark-status">
+                <div className="text-center text-sm text-gray-400">Stopped</div>
               </div>
             )}
           </div>

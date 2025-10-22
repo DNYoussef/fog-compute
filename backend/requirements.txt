@@ -27,6 +27,15 @@ python-dotenv==1.0.0
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 
+# Cryptography (specific stable version to fix Rust panic)
+cryptography==41.0.7
+
+# System Monitoring (for idle compute)
+psutil==5.9.8
+
+# Optimization (for scheduler)
+PuLP==2.8.0
+
 # Monitoring
 prometheus-client==0.19.0
 
@@ -36,3 +45,8 @@ grpcio-tools==1.60.0
 
 # Async support
 aiofiles==23.2.1
+
+# Caching & Performance
+redis==5.0.1
+hiredis==2.3.2
+cachetools==5.3.2
