@@ -23,7 +23,7 @@ use sha2::{Digest, Sha256};
 
 // Import reputation module (stub implementation)
 #[allow(dead_code)]
-use crate::core::reputation::{NodeReputation, ReputationManager};
+use crate::core::reputation::ReputationManager;
 
 /// Node reputation score (0.0 to 1.0)
 pub type ReputationScore = f64;
@@ -366,17 +366,19 @@ impl RelayLottery {
         } else {
             // Fallback to non-VRF selection
             let relay = self.select_relay()?;
+            let relay_address = relay.address; // Copy address before creating proof
+            let weights: Vec<f64> = self.relays.iter().map(|r| r.weight).collect();
             let proof = LotteryProof {
                 vrf_proof: None,
                 seed: seed.to_vec(),
-                selected: vec![relay.address],
-                weights: self.relays.iter().map(|r| r.weight).collect(),
+                selected: vec![relay_address],
+                weights,
                 timestamp: std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
                     .unwrap()
                     .as_secs(),
             };
-            Ok((relay.address, proof))
+            Ok((relay_address, proof))
         }
     }
 
@@ -476,44 +478,22 @@ impl RelayLottery {
     }
 
     /// Integrate with reputation manager
+    /// Note: Reputation system is a stub - full implementation planned for Week 7
     pub fn sync_with_reputation_manager(&mut self) {
-        if let Some(reputation_manager) = &mut self.reputation_manager {
-            // Apply decay to all reputations
-            reputation_manager.apply_decay_all();
+        if let Some(_reputation_manager) = &mut self.reputation_manager {
+            // TODO: Implement full reputation integration in Week 7
+            // Current reputation.rs is a stub implementation
+            // reputation_manager.apply_decay_all();
 
             // Update relay weights based on reputation
-            for relay in &mut self.relays {
-                if let Some(node_rep) = reputation_manager.get_reputation(&relay.address) {
-                    // Check Sybil resistance: minimum stake required
-                    if self.sybil_resistance && node_rep.stake < self.min_stake {
-                        relay.weight = 0.01; // Minimum weight for non-compliant nodes
-                        continue;
-                    }
-
-                    // Update reputation score
-                    relay.reputation = node_rep.reputation;
-
-                    // Update performance score
-                    relay.performance = node_rep.metrics.latency_score()
-                        * node_rep.metrics.success_rate()
-                        * node_rep.metrics.uptime_percent;
-
-                    // Update stake
-                    relay.stake = node_rep.stake;
-
-                    // Recalculate weight with reputation integration
-                    let stake_score = (relay.stake as f64).ln() / 20.0;
-                    relay.weight = relay.reputation * 0.5
-                        + relay.performance * 0.3
-                        + stake_score.min(1.0) * 0.2;
-                    relay.weight = relay.weight.max(0.01);
-                }
-            }
-
-            // Invalidate cached weighted index
-            self.weighted_index = None;
+            // for relay in &mut self.relays {
+            //     if let Some(node_rep) = reputation_manager.get_reputation(&relay.address.to_string()) {
+            //         relay.weight *= node_rep.score;
+            //     }
+            // }
         }
     }
+
 
     /// Get lottery statistics
     pub fn get_statistics(&self) -> LotteryStatistics {

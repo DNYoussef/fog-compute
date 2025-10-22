@@ -11,7 +11,7 @@ import struct
 import time
 from typing import Optional
 
-from backend.server.services.betanet_client import (
+from server.services.betanet_client import (
     BetanetTcpClient,
     BetanetConfig,
     BetanetCircuitClient,

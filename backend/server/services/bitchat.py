@@ -13,6 +13,7 @@ import json
 
 from ..models.database import Peer, Message
 from ..database import get_db
+from . import bitchat_groups
 
 logger = logging.getLogger(__name__)
 
@@ -477,6 +478,79 @@ class BitChatService:
                 'messages_24h': 0,
                 'status': 'error'
             }
+
+    # ========================================================================
+    # Group Management Methods
+    # ========================================================================
+
+    async def create_group(
+        self,
+        name: str,
+        description: Optional[str],
+        created_by: str,
+        initial_members: List[str],
+        db: AsyncSession
+    ) -> Dict:
+        """Create a new group chat"""
+        return await bitchat_groups.create_group(
+            name=name,
+            description=description,
+            created_by=created_by,
+            initial_members=initial_members,
+            db=db
+        )
+
+    async def list_groups(
+        self,
+        peer_id: Optional[str],
+        db: AsyncSession
+    ) -> List[Dict]:
+        """List groups (optionally filtered by peer membership)"""
+        return await bitchat_groups.list_groups(peer_id=peer_id, db=db)
+
+    async def get_group(
+        self,
+        group_id: str,
+        db: AsyncSession
+    ) -> Optional[Dict]:
+        """Get group information"""
+        return await bitchat_groups.get_group(group_id=group_id, db=db)
+
+    async def add_group_member(
+        self,
+        group_id: str,
+        peer_id: str,
+        role: str,
+        db: AsyncSession
+    ) -> Dict:
+        """Add a member to a group"""
+        return await bitchat_groups.add_group_member(
+            group_id=group_id,
+            peer_id=peer_id,
+            role=role,
+            db=db
+        )
+
+    async def remove_group_member(
+        self,
+        group_id: str,
+        peer_id: str,
+        db: AsyncSession
+    ) -> bool:
+        """Remove a member from a group"""
+        return await bitchat_groups.remove_group_member(
+            group_id=group_id,
+            peer_id=peer_id,
+            db=db
+        )
+
+    async def list_group_members(
+        self,
+        group_id: str,
+        db: AsyncSession
+    ) -> List[Dict]:
+        """List members of a group"""
+        return await bitchat_groups.list_group_members(group_id=group_id, db=db)
 
 
 # Singleton instance

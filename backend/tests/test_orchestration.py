@@ -7,19 +7,19 @@ import asyncio
 from datetime import datetime, timedelta
 from typing import Any
 
-from backend.server.services.dependencies import (
+from server.services.dependencies import (
     DependencyGraph,
     ServiceType,
     create_default_dependency_graph,
     validate_startup_order
 )
-from backend.server.services.health_checks import (
+from server.services.health_checks import (
     HealthChecker,
     HealthCheckConfig,
     HealthCheckManager,
     HealthStatus
 )
-from backend.server.services.registry import (
+from server.services.registry import (
     ServiceRegistry,
     ServiceStatus,
     ServiceMetadata

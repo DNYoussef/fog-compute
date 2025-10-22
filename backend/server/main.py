@@ -35,11 +35,15 @@ from .routes import (
     benchmarks,
     auth,
     bitchat,
-    orchestration
+    orchestration,
+    websocket as websocket_routes
 )
 
-# Import WebSocket handler
+# Import WebSocket handlers
 from .websocket.metrics_stream import MetricsStreamer
+from .websocket.server import connection_manager
+from .websocket.publishers import publisher_manager
+from .services.metrics_aggregator import metrics_aggregator
 
 # Import middleware
 from .middleware import RateLimitMiddleware
@@ -69,10 +73,32 @@ async def lifespan(app: FastAPI):
         logger.error(f"❌ Service initialization failed: {e}")
         logger.warning("⚠️  Some services may be unavailable")
 
+    # Initialize WebSocket infrastructure
+    try:
+        await connection_manager.start()
+        await publisher_manager.start_all()
+
+        # Set up metrics aggregator with alert callback
+        metrics_aggregator.set_alert_callback(publisher_manager.publish_alert)
+
+        logger.info("✅ WebSocket infrastructure started successfully")
+    except Exception as e:
+        logger.error(f"❌ WebSocket initialization failed: {e}")
+        logger.warning("⚠️  Real-time updates may be unavailable")
+
     yield
 
     # Shutdown
     logger.info("🛑 Shutting down Fog Compute Backend API Server...")
+
+    # Stop WebSocket infrastructure
+    try:
+        await publisher_manager.stop_all()
+        await connection_manager.stop()
+        logger.info("✅ WebSocket infrastructure stopped")
+    except Exception as e:
+        logger.error(f"Error stopping WebSocket infrastructure: {e}")
+
     await enhanced_service_manager.shutdown()
     await close_db()
     logger.info("✅ Graceful shutdown complete")
@@ -127,6 +153,7 @@ app.include_router(p2p.router)
 app.include_router(benchmarks.router)
 app.include_router(bitchat.router)  # BitChat messaging
 app.include_router(orchestration.router)  # Service orchestration
+app.include_router(websocket_routes.router)  # WebSocket management
 
 
 # WebSocket for real-time metrics

@@ -493,3 +493,155 @@ class TaskAssignment(Base):
             'execution_time_ms': self.execution_time_ms,
             'retry_count': self.retry_count,
         }
+
+
+class GroupChat(Base):
+    """
+    Group Chat for BitChat
+    Tracks group conversations with membership
+    """
+    __tablename__ = 'group_chats'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    group_id = Column(String(255), unique=True, nullable=False, index=True)
+    name = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    created_by = Column(String(255), ForeignKey('peers.peer_id'), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    member_count = Column(Integer, default=1, nullable=False)
+    message_count = Column(Integer, default=0, nullable=False)
+
+    # Gossip protocol metadata
+    vector_clock = Column(JSON, default={}, nullable=False)  # Vector clock for message ordering
+    last_sync = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'group_id': self.group_id,
+            'name': self.name,
+            'description': self.description,
+            'created_by': self.created_by,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'is_active': self.is_active,
+            'member_count': self.member_count,
+            'message_count': self.message_count,
+            'last_sync': self.last_sync.isoformat() if self.last_sync else None,
+        }
+
+
+class GroupMembership(Base):
+    """
+    Group Membership for BitChat
+    Tracks peer membership in groups
+    """
+    __tablename__ = 'group_memberships'
+    __table_args__ = (
+        {'extend_existing': True}
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    group_id = Column(String(255), ForeignKey('group_chats.group_id'), nullable=False, index=True)
+    peer_id = Column(String(255), ForeignKey('peers.peer_id'), nullable=False, index=True)
+    role = Column(String(50), default='member', nullable=False)  # admin, moderator, member
+    joined_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    left_at = Column(DateTime, nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    messages_sent = Column(Integer, default=0, nullable=False)
+
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'group_id': self.group_id,
+            'peer_id': self.peer_id,
+            'role': self.role,
+            'joined_at': self.joined_at.isoformat() if self.joined_at else None,
+            'left_at': self.left_at.isoformat() if self.left_at else None,
+            'is_active': self.is_active,
+            'messages_sent': self.messages_sent,
+        }
+
+
+class FileTransfer(Base):
+    """
+    File Transfer for BitChat
+    Tracks file uploads/downloads with chunking
+    """
+    __tablename__ = 'file_transfers'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    file_id = Column(String(255), unique=True, nullable=False, index=True)
+    filename = Column(String(255), nullable=False)
+    file_size = Column(Integer, nullable=False)  # Size in bytes
+    mime_type = Column(String(100), nullable=True)
+
+    # Chunking metadata
+    chunk_size = Column(Integer, default=1048576, nullable=False)  # 1MB chunks
+    total_chunks = Column(Integer, nullable=False)
+    uploaded_chunks = Column(Integer, default=0, nullable=False)
+
+    # Ownership and encryption
+    uploaded_by = Column(String(255), ForeignKey('peers.peer_id'), nullable=False, index=True)
+    encryption_key_hash = Column(String(255), nullable=True)  # Hash of encryption key
+
+    # Status tracking
+    status = Column(String(50), default='pending', nullable=False, index=True)  # pending, uploading, completed, failed
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    completed_at = Column(DateTime, nullable=True)
+
+    # Multi-source download tracking
+    download_sources = Column(JSON, default=[], nullable=False)  # List of peer IDs with complete file
+
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'file_id': self.file_id,
+            'filename': self.filename,
+            'file_size': self.file_size,
+            'mime_type': self.mime_type,
+            'chunk_size': self.chunk_size,
+            'total_chunks': self.total_chunks,
+            'uploaded_chunks': self.uploaded_chunks,
+            'uploaded_by': self.uploaded_by,
+            'status': self.status,
+            'progress': (self.uploaded_chunks / self.total_chunks * 100) if self.total_chunks > 0 else 0,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'completed_at': self.completed_at.isoformat() if self.completed_at else None,
+            'download_sources': self.download_sources,
+        }
+
+
+class FileChunk(Base):
+    """
+    File Chunk for BitChat
+    Tracks individual file chunks for resume capability
+    """
+    __tablename__ = 'file_chunks'
+    __table_args__ = (
+        {'extend_existing': True}
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    file_id = Column(String(255), ForeignKey('file_transfers.file_id'), nullable=False, index=True)
+    chunk_index = Column(Integer, nullable=False)
+    chunk_hash = Column(String(64), nullable=False)  # SHA-256 hash
+    chunk_size = Column(Integer, nullable=False)
+    uploaded = Column(Boolean, default=False, nullable=False)
+    uploaded_at = Column(DateTime, nullable=True)
+    stored_path = Column(String(500), nullable=True)  # Path to stored chunk
+
+    # Multi-source tracking
+    available_from = Column(JSON, default=[], nullable=False)  # List of peer IDs with this chunk
+
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'file_id': self.file_id,
+            'chunk_index': self.chunk_index,
+            'chunk_hash': self.chunk_hash,
+            'chunk_size': self.chunk_size,
+            'uploaded': self.uploaded,
+            'uploaded_at': self.uploaded_at.isoformat() if self.uploaded_at else None,
+            'available_from': self.available_from,
+        }

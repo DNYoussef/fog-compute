@@ -58,6 +58,9 @@ pub mod core {
     pub mod protocol_version;
     pub mod relay_lottery;
     pub mod routing;
+    pub mod reputation;
+    pub mod compatibility;
+    pub mod versions;
 }
 
 // Cryptographic modules
@@ -79,6 +82,7 @@ pub mod utils {
     pub mod delay;
     pub mod packet;
     pub mod rate;
+    pub mod timing_defense;
 }
 
 // Cover traffic generation (optional feature)

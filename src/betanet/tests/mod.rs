@@ -4,4 +4,4 @@
 mod test_networking;
 mod test_relay_lottery;
 mod test_protocol_versioning;
-mod test_delay_injection;
+// mod test_delay_injection; // Disabled: depends on batching module

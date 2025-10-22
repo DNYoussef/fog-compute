@@ -121,7 +121,7 @@ impl PacketAdapter {
         }
 
         // Extract length
-        let length = u32::from_be_bytes([
+        let _length = u32::from_be_bytes([
             packet_data[0],
             packet_data[1],
             packet_data[2],

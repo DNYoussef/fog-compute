@@ -9,8 +9,6 @@ use std::time::{Duration, Instant};
 use rand::prelude::*;
 use tokio::sync::Mutex;
 
-use crate::Result;
-
 /// Timing defense configuration
 #[derive(Debug, Clone)]
 pub struct TimingDefenseConfig {

@@ -144,7 +144,9 @@ impl PoissonDelayGenerator {
 
         // Update lambda for exponential distribution
         let new_lambda = 1.0 / self.current_mean_delay_ms;
-        self.exp_dist = Exp::new(new_lambda).unwrap_or(self.exp_dist);
+        if let Ok(new_dist) = Exp::new(new_lambda) {
+            self.exp_dist = new_dist;
+        }
     }
 
     /// Set per-circuit delay multiplier for circuit-specific tuning

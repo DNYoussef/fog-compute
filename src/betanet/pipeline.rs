@@ -30,7 +30,7 @@ use crate::utils::packet::Packet;
 use crate::crypto::sphinx::{SphinxPacket, SphinxProcessor};
 
 /// Batch size for high-throughput processing (increased for 25k pkt/s target)
-pub const BATCH_SIZE: usize = 256;
+pub const BATCH_SIZE: usize = 128;
 /// Memory pool size for packet buffers
 pub const POOL_SIZE: usize = 1024;
 /// Maximum queue depth before backpressure

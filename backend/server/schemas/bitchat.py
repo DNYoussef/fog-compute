@@ -79,3 +79,104 @@ class BitChatStatsResponse(BaseModel):
     total_messages: int
     messages_24h: int
     status: str
+
+
+# ============================================================================
+# Group Chat Schemas
+# ============================================================================
+
+class GroupCreateRequest(BaseModel):
+    """Request to create a group"""
+    name: str = Field(..., description="Group name", min_length=1, max_length=255)
+    description: Optional[str] = Field(None, description="Group description")
+    created_by: str = Field(..., description="Creator peer ID")
+    initial_members: List[str] = Field(default_factory=list, description="Initial member peer IDs")
+
+
+class GroupResponse(BaseModel):
+    """Group information response"""
+    id: str
+    group_id: str
+    name: str
+    description: Optional[str]
+    created_by: str
+    created_at: str
+    is_active: bool
+    member_count: int
+    message_count: int
+    last_sync: str
+
+
+class GroupMemberAddRequest(BaseModel):
+    """Request to add a member to a group"""
+    peer_id: str = Field(..., description="Peer ID to add")
+    role: str = Field(default="member", description="Member role (admin, moderator, member)")
+
+
+class GroupMemberResponse(BaseModel):
+    """Group membership response"""
+    id: str
+    group_id: str
+    peer_id: str
+    role: str
+    joined_at: str
+    is_active: bool
+    messages_sent: int
+
+
+class GroupMessageSendRequest(BaseModel):
+    """Request to send a group message"""
+    from_peer_id: str = Field(..., description="Sender peer ID")
+    content: str = Field(..., description="Encrypted message content")
+    encryption_algorithm: str = Field(default="AES-256-GCM", description="Encryption algorithm")
+    nonce: Optional[str] = Field(None, description="Encryption nonce/IV")
+
+
+# ============================================================================
+# File Transfer Schemas
+# ============================================================================
+
+class FileUploadInitRequest(BaseModel):
+    """Request to initialize file upload"""
+    filename: str = Field(..., description="File name", min_length=1)
+    file_size: int = Field(..., description="File size in bytes", gt=0, le=1073741824)  # Max 1GB
+    uploaded_by: str = Field(..., description="Uploader peer ID")
+    mime_type: Optional[str] = Field(None, description="MIME type")
+
+
+class FileTransferResponse(BaseModel):
+    """File transfer information response"""
+    id: str
+    file_id: str
+    filename: str
+    file_size: int
+    mime_type: Optional[str]
+    chunk_size: int
+    total_chunks: int
+    uploaded_chunks: int
+    uploaded_by: str
+    status: str
+    progress: float
+    created_at: str
+    completed_at: Optional[str]
+    download_sources: List[str]
+
+
+class ChunkUploadRequest(BaseModel):
+    """Request to upload a chunk"""
+    chunk_index: int = Field(..., description="Chunk index", ge=0)
+    # chunk_data will be sent as multipart form data
+
+
+class ChunkStatusResponse(BaseModel):
+    """Chunk status response"""
+    chunk_index: int
+    chunk_hash: str
+    chunk_size: int
+    uploaded: bool
+    available_from: List[str]
+
+
+class FileDownloadRequest(BaseModel):
+    """Request to download a file"""
+    sources: Optional[List[str]] = Field(None, description="Preferred peer sources")
