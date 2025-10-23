@@ -20,6 +20,12 @@ jobs:
         profile: minimal
         override: true
 
+    - name: Setup Rust Cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: src/betanet
+        cache-on-failure: true
+
     - name: Build Betanet
       run: cargo build --verbose --manifest-path src/betanet/Cargo.toml
       if: hashFiles('src/betanet/Cargo.toml') != ''
