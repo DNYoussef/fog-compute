@@ -13,6 +13,7 @@ export function Navigation() {
     { href: '/betanet', label: 'Betanet', icon: '🔒' },
     { href: '/bitchat', label: 'BitChat', icon: '💬' },
     { href: '/benchmarks', label: 'Benchmarks', icon: '⚡' },
+    { href: '/quality', label: 'Quality', icon: '✅' },
   ];
 
   return (

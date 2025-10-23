@@ -1,0 +1,212 @@
+
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Performance Profile Report</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                h1 { color: #333; }
+                h2 { color: #666; margin-top: 30px; }
+                .section { margin: 20px 0; padding: 15px; background: #f5f5f5; border-radius: 5px; }
+                table { border-collapse: collapse; width: 100%; margin: 10px 0; }
+                th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+                th { background-color: #4CAF50; color: white; }
+                .severity-high { color: #f44336; font-weight: bold; }
+                .severity-medium { color: #ff9800; }
+                .severity-low { color: #2196F3; }
+                .metric { display: inline-block; margin: 10px; padding: 10px; background: white; border-radius: 3px; }
+            </style>
+        </head>
+        <body>
+            <h1>Performance Profile Report</h1>
+            <p>Generated: 2025-10-22 20:07:32</p>
+        
+            <div class="section">
+                <h2>💻 CPU Profile</h2>
+                <div class="metric">Total Calls: 729</div>
+                <div class="metric">Primitive Calls: 729</div>
+            
+                <h3>Top Functions by Time</h3>
+                <table>
+                    <tr>
+                        <th>Function</th>
+                        <th>File</th>
+                        <th>Calls</th>
+                        <th>Total Time (s)</th>
+                    </tr>
+                
+                    <tr>
+                        <td>stop</td>
+                        <td>C:\Users\17175\Desktop\fog-compute\src\scheduler\profiler.py:76</td>
+                        <td>1</td>
+                        <td>0.0001</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>stop</td>
+                        <td>C:\Users\17175\Desktop\fog-compute\src\scheduler\profiler.py:357</td>
+                        <td>1</td>
+                        <td>0.0001</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>start</td>
+                        <td>C:\Users\17175\Desktop\fog-compute\src\scheduler\profiler.py:184</td>
+                        <td>1</td>
+                        <td>0.0060</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>workload</td>
+                        <td>C:\Users\17175\Desktop\fog-compute\backend\tests\test_resource_optimization.py:542</td>
+                        <td>1</td>
+                        <td>0.1228</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>__init__</td>
+                        <td>C:\Python312\Lib\tracemalloc.py:312</td>
+                        <td>1</td>
+                        <td>0.0000</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>__init__</td>
+                        <td>C:\Python312\Lib\tracemalloc.py:420</td>
+                        <td>1</td>
+                        <td>0.0000</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>start</td>
+                        <td>C:\Users\17175\Desktop\fog-compute\src\scheduler\profiler.py:133</td>
+                        <td>1</td>
+                        <td>0.0005</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>take_snapshot</td>
+                        <td>C:\Python312\Lib\tracemalloc.py:551</td>
+                        <td>1</td>
+                        <td>0.0000</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>__hash__</td>
+                        <td>C:\Python312\Lib\enum.py:1267</td>
+                        <td>4</td>
+                        <td>0.0000</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>__get__</td>
+                        <td>C:\Python312\Lib\enum.py:202</td>
+                        <td>1</td>
+                        <td>0.0000</td>
+                    </tr>
+                    
+                </table>
+                </div>
+            <div class="section">
+                <h2>🧠 Memory Profile</h2>
+            
+                <h3>Top Memory Allocations</h3>
+                <table>
+                    <tr>
+                        <th>Location</th>
+                        <th>Size (KB)</th>
+                        <th>Size Diff (KB)</th>
+                        <th>Count</th>
+                    </tr>
+                
+                    <tr>
+                        <td>  File "C:\Python312\Lib\cProfile.py", line 89</td>
+                        <td>14.81</td>
+                        <td>14.81</td>
+                        <td>94</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>  File "C:\Python312\Lib\cProfile.py", line 57</td>
+                        <td>8.51</td>
+                        <td>8.51</td>
+                        <td>363</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>  File "C:\Python312\Lib\cProfile.py", line 69</td>
+                        <td>4.52</td>
+                        <td>4.52</td>
+                        <td>1</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>  File "C:\Python312\Lib\cProfile.py", line 67</td>
+                        <td>3.31</td>
+                        <td>3.31</td>
+                        <td>53</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>  File "C:\Users\17175\Desktop\fog-compute\src\scheduler\profiler.py", line 95</td>
+                        <td>2.66</td>
+                        <td>2.66</td>
+                        <td>19</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>  File "C:\Python312\Lib\cProfile.py", line 128</td>
+                        <td>2.50</td>
+                        <td>2.50</td>
+                        <td>80</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>  File "C:\Python312\Lib\pstats.py", line 230</td>
+                        <td>2.11</td>
+                        <td>2.11</td>
+                        <td>48</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>  File "C:\Python312\Lib\pstats.py", line 229</td>
+                        <td>1.48</td>
+                        <td>1.48</td>
+                        <td>1</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>  File "C:\Users\17175\AppData\Roaming\Python\Python312\site-packages\psutil\_pswindows.py", line 427</td>
+                        <td>1.11</td>
+                        <td>1.11</td>
+                        <td>25</td>
+                    </tr>
+                    
+                    <tr>
+                        <td>  File "C:\Python312\Lib\logging\__init__.py", line 1163</td>
+                        <td>1.09</td>
+                        <td>1.09</td>
+                        <td>2</td>
+                    </tr>
+                    
+                </table>
+                </div>
+            <div class="section">
+                <h2>📊 I/O Profile</h2>
+                <p>Duration: 0.13 seconds</p>
+            
+                <h3>Disk I/O</h3>
+                <div class="metric">Read: 0.06 MB (0.43 MB/s)</div>
+                <div class="metric">Write: 0.00 MB (0.00 MB/s)</div>
+                <div class="metric">Read Ops: 10</div>
+                <div class="metric">Write Ops: 4</div>
+                
+                <h3>Network I/O</h3>
+                <div class="metric">Sent: 0.00 MB (0.02 MB/s)</div>
+                <div class="metric">Received: 0.24 MB (1.79 MB/s)</div>
+                <div class="metric">Packets Sent: 57</div>
+                <div class="metric">Packets Received: 164</div>
+                </div>
+        </body>
+        </html>
+        

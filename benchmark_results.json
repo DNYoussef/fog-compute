@@ -1,0 +1,17 @@
+{
+  "vpn_circuit_creation_ms": 0.49877166748046875,
+  "vpn_circuit_success_rate": 1.0,
+  "vpn_throughput_1024b_mbps": 71.19868797069427,
+  "vpn_throughput_4096b_mbps": 226.47930701339422,
+  "vpn_throughput_16384b_mbps": 575.1072358778966,
+  "vpn_throughput_65536b_mbps": 923.9655683989585,
+  "resource_pool_reuse_rate": 99.1,
+  "resource_pool_acquisition_ms": 0.0,
+  "memory_arena_allocation_ms": 0.0,
+  "memory_arena_utilization": 0.0,
+  "scheduler_throughput_tasks_per_sec": 334260.75868664327,
+  "scheduler_submission_ms": 0.0029916763305664062,
+  "scheduler_execution_rate": 9.4,
+  "profiler_overhead_percent": 4.999536830907423,
+  "timestamp": "2025-10-22T20:21:12.562898"
+}

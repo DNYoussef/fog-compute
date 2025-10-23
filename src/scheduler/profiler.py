@@ -422,17 +422,17 @@ class PerformanceProfiler:
         <head>
             <title>Performance Profile Report</title>
             <style>
-                body { font-family: Arial, sans-serif; margin: 20px; }
-                h1 { color: #333; }
-                h2 { color: #666; margin-top: 30px; }
-                .section { margin: 20px 0; padding: 15px; background: #f5f5f5; border-radius: 5px; }
-                table { border-collapse: collapse; width: 100%; margin: 10px 0; }
-                th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
-                th { background-color: #4CAF50; color: white; }
-                .severity-high { color: #f44336; font-weight: bold; }
-                .severity-medium { color: #ff9800; }
-                .severity-low { color: #2196F3; }
-                .metric { display: inline-block; margin: 10px; padding: 10px; background: white; border-radius: 3px; }
+                body {{ font-family: Arial, sans-serif; margin: 20px; }}
+                h1 {{ color: #333; }}
+                h2 {{ color: #666; margin-top: 30px; }}
+                .section {{ margin: 20px 0; padding: 15px; background: #f5f5f5; border-radius: 5px; }}
+                table {{ border-collapse: collapse; width: 100%; margin: 10px 0; }}
+                th, td {{ padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }}
+                th {{ background-color: #4CAF50; color: white; }}
+                .severity-high {{ color: #f44336; font-weight: bold; }}
+                .severity-medium {{ color: #ff9800; }}
+                .severity-low {{ color: #2196F3; }}
+                .metric {{ display: inline-block; margin: 10px; padding: 10px; background: white; border-radius: 3px; }}
             </style>
         </head>
         <body>

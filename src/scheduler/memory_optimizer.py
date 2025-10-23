@@ -148,6 +148,12 @@ class MemoryArena:
             # Merge adjacent free blocks
             self._merge_free_blocks()
 
+            # Release the memoryview to prevent BufferError on shutdown
+            try:
+                view.release()
+            except Exception:
+                pass  # View may already be released
+
     def _merge_free_blocks(self) -> None:
         """Merge adjacent free blocks"""
         if len(self._free_blocks) < 2:
