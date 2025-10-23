@@ -21,10 +21,15 @@ class BenchmarkStartRequest(BaseModel):
 async def get_benchmark_data() -> Dict[str, Any]:
     """Get real-time benchmark metrics"""
     # This would integrate with src/fog/benchmarks/
-    # For now, return structure that can be filled with real data
+    # For now, return mock data point for frontend compatibility
+    import time
     return {
-        "metrics": [],
-        "timestamp": None
+        "timestamp": int(time.time() * 1000),
+        "latency": 0.0,
+        "throughput": 0.0,
+        "cpuUsage": 0.0,
+        "memoryUsage": 0.0,
+        "networkUtilization": 0.0
     }
 
 

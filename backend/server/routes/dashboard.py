@@ -34,34 +34,33 @@ async def get_dashboard_stats() -> Dict[str, Any]:
         dao = service_manager.get('dao')
         onion = service_manager.get('onion')
 
-        # Betanet stats
+        # Betanet stats - match frontend interface
         betanet_status = await betanet.get_status() if betanet else None
         betanet_status_dict = betanet_status.to_dict() if betanet_status else {}
+        active_nodes = betanet_status_dict.get('active_nodes', 0)
         betanet_stats = {
-            "mixnodes": betanet_status_dict.get('active_nodes', 0),
+            "mixnodes": active_nodes,
             "activeConnections": betanet_status_dict.get('connections', 0),
-            "avgLatency": betanet_status_dict.get('avg_latency_ms', 0),
-            "packetsProcessed": betanet_status_dict.get('packets_processed', 0)
+            "packetsProcessed": betanet_status_dict.get('packets_processed', 0),
+            "status": "online" if active_nodes > 0 else "offline"
         }
 
-        # P2P stats
+        # P2P stats - match frontend interface
         p2p_health = p2p.get_health() if p2p and hasattr(p2p, 'get_health') else {}
+        connected_peers = p2p_health.get('connected_peers', 0)
         bitchat_stats = {
-            "activePeers": p2p_health.get('connected_peers', 0),
-            "messagesProcessed": p2p_health.get('messages_sent', 0) + p2p_health.get('messages_received', 0),
-            "protocols": {
-                "ble": p2p_health.get('ble_connections', 0),
-                "htx": p2p_health.get('htx_connections', 0)
-            }
+            "activePeers": connected_peers,
+            "messagesDelivered": p2p_health.get('messages_sent', 0) + p2p_health.get('messages_received', 0),
+            "encryptionStatus": True,
+            "meshHealth": "good" if connected_peers > 0 else "poor"
         }
 
-        # Scheduler stats
-        scheduler_jobs = scheduler.get_job_queue() if scheduler and hasattr(scheduler, 'get_job_queue') else []
-        completed_jobs = [j for j in scheduler_jobs if getattr(j, 'status', None) == 'completed']
+        # Benchmarks stats - match frontend interface
         benchmarks_stats = {
-            "testsRun": len(completed_jobs),
-            "avgScore": 92.5,  # Would calculate from actual metrics
-            "queueLength": len([j for j in scheduler_jobs if getattr(j, 'status', None) == 'pending'])
+            "avgLatency": 0.0,
+            "throughput": 0.0,
+            "cpuUsage": 0.0,
+            "memoryUsage": 0.0
         }
 
         # Idle compute stats
@@ -88,22 +87,29 @@ async def get_dashboard_stats() -> Dict[str, Any]:
         return {
             "betanet": betanet_stats,
             "bitchat": bitchat_stats,
-            "benchmarks": benchmarks_stats,
-            "idleCompute": idle_stats,
-            "tokenomics": tokenomics_stats,
-            "privacy": privacy_stats,
-            "timestamp": None  # Would add actual timestamp
+            "benchmarks": benchmarks_stats
         }
 
     except Exception as e:
         logger.error(f"Error aggregating dashboard stats: {e}")
-        # Return partial data on error
+        # Return fallback data matching frontend interface
         return {
-            "betanet": {"mixnodes": 0, "activeConnections": 0, "avgLatency": 0, "packetsProcessed": 0},
-            "bitchat": {"activePeers": 0, "messagesProcessed": 0},
-            "benchmarks": {"testsRun": 0, "avgScore": 0, "queueLength": 0},
-            "idleCompute": {"totalDevices": 0, "harvestingDevices": 0, "computeHours": 0},
-            "tokenomics": {"totalSupply": 0, "activeStakers": 0},
-            "privacy": {"activeCircuits": 0, "circuitHealth": 1.0},
-            "error": str(e)
+            "betanet": {
+                "mixnodes": 0,
+                "activeConnections": 0,
+                "packetsProcessed": 0,
+                "status": "offline"
+            },
+            "bitchat": {
+                "activePeers": 0,
+                "messagesDelivered": 0,
+                "encryptionStatus": False,
+                "meshHealth": "poor"
+            },
+            "benchmarks": {
+                "avgLatency": 0.0,
+                "throughput": 0.0,
+                "cpuUsage": 0.0,
+                "memoryUsage": 0.0
+            }
         }

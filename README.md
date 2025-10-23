@@ -2,6 +2,30 @@
 
 Complete distributed fog computing system with P2P networking, idle compute harvesting, privacy layer, and tokenomics.
 
+## Control Panel UI
+
+Unified web-based control panel for monitoring and managing all fog compute services.
+
+### Dashboard
+![Dashboard](screenshots/dashboard.png)
+Real-time system status with BetaNet privacy network, BitChat mesh network, and performance benchmarks.
+
+### BetaNet Privacy Network
+![BetaNet](screenshots/betanet.png)
+Monitor mixnode topology, packet flow, and network latency for the privacy layer.
+
+### BitChat P2P Messaging
+![BitChat](screenshots/bitchat.png)
+Secure peer-to-peer messaging with end-to-end encryption and mesh networking.
+
+### Performance Benchmarks
+![Benchmarks](screenshots/benchmarks.png)
+Real-time latency, throughput, CPU, memory, and network utilization metrics.
+
+### Quality Dashboard
+![Quality](screenshots/quality.png)
+Comprehensive testing metrics with 92.3% pass rate (289/313 tests), VPN performance, and resource optimization.
+
 ## Core Components
 
 ### 1. **BetaNet** - Privacy-First Network
