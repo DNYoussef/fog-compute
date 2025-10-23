@@ -3,6 +3,7 @@ Backend API Server Configuration
 Centralized configuration for all services and connections
 """
 from pydantic_settings import BaseSettings
+from pydantic import field_validator
 from typing import Optional
 import os
 
@@ -20,9 +21,25 @@ class Settings(BaseSettings):
     CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
 
     # Database
-    DATABASE_URL: str = "postgresql+asyncpg://fog_user:fog_password@localhost:5432/fog_compute"
+    # Default uses standard postgres credentials and test database for easier local development
+    # Production should set DATABASE_URL environment variable
+    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/fog_compute_test"
     DATABASE_POOL_SIZE: int = 10
     DATABASE_MAX_OVERFLOW: int = 20
+
+    @field_validator('DATABASE_URL')
+    @classmethod
+    def normalize_database_url(cls, v: str) -> str:
+        """
+        Normalize DATABASE_URL to use asyncpg driver for async SQLAlchemy.
+        CI/GitHub Actions provides postgresql:// or postgres:// which defaults to psycopg2 (sync).
+        We need postgresql+asyncpg:// for async support.
+        """
+        if v.startswith('postgresql://') and '+asyncpg' not in v:
+            return v.replace('postgresql://', 'postgresql+asyncpg://', 1)
+        elif v.startswith('postgres://'):
+            return v.replace('postgres://', 'postgresql+asyncpg://', 1)
+        return v
 
     # Betanet (Rust service)
     BETANET_URL: str = "http://localhost:9000"

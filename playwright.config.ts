@@ -23,11 +23,14 @@ export default defineConfig({
   // Retry on CI only
   retries: process.env.CI ? 2 : 0,
 
-  // Opt out of parallel tests on CI
-  workers: process.env.CI ? 1 : undefined,
+  // Moderate parallelism on CI for better performance
+  workers: process.env.CI ? 2 : undefined,
 
-  // Reporter to use
-  reporter: [
+  // Reporter to use - blob reporter for sharded test merging in CI
+  reporter: process.env.CI ? [
+    ['blob'],  // Blob reporter for sharded test merging in CI
+    ['list'],  // Console output
+  ] : [
     ['html', { outputFolder: 'tests/output/playwright-report' }],
     ['json', { outputFile: 'tests/output/playwright-results.json' }],
     ['junit', { outputFile: 'tests/output/playwright-results.xml' }],
@@ -132,14 +135,18 @@ export default defineConfig({
 
   // Run local dev server before starting tests
   // CRITICAL: Start both backend AND frontend for E2E tests
+  // Playwright automatically manages server lifecycle (start before tests, stop after)
   webServer: [
     {
       command: 'cd backend && python -m uvicorn server.main:app --port 8000',
       url: 'http://localhost:8000/health',
       reuseExistingServer: !process.env.CI,
-      timeout: 60 * 1000,
+      timeout: 120 * 1000,  // Increased from 60s for database initialization
       stdout: 'pipe',
       stderr: 'pipe',
+      env: {
+        ...process.env,  // Pass through DATABASE_URL and other CI environment variables
+      },
     },
     {
       command: 'cd apps/control-panel && npm run dev',

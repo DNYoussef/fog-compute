@@ -19,11 +19,10 @@ struct BetanetStatus {
 }
 
 // Node deployment request
+#[allow(dead_code)]
 #[derive(Deserialize)]
 struct DeployRequest {
-    #[allow(dead_code)]
     node_type: String,
-    #[allow(dead_code)]
     region: Option<String>,
 }
 

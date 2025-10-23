@@ -9,6 +9,7 @@ Usage:
     await seed_all_data()
 """
 import asyncio
+import os
 import sys
 import uuid
 from pathlib import Path
@@ -26,8 +27,20 @@ from backend.server.models.database import (
 )
 
 
-# Database URL (use test database)
-DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/fog_compute_test"
+# Database URL - Read from environment (set by CI) or use local default
+# CI may provide postgres:// or postgresql://, normalize to postgresql+asyncpg://
+db_url = os.environ.get(
+    'DATABASE_URL',
+    "postgresql+asyncpg://postgres:postgres@localhost:5432/fog_compute_test"
+)
+
+# Ensure asyncpg driver is used (CI might provide postgres:// or postgresql:// without +asyncpg)
+if db_url.startswith('postgresql://') and '+asyncpg' not in db_url:
+    db_url = db_url.replace('postgresql://', 'postgresql+asyncpg://', 1)
+elif db_url.startswith('postgres://'):
+    db_url = db_url.replace('postgres://', 'postgresql+asyncpg://', 1)
+
+DATABASE_URL = db_url
 
 
 async def create_tables(engine):
