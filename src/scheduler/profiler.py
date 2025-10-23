@@ -88,7 +88,7 @@ class CPUProfiler:
 
         # Extract top functions
         top_functions = []
-        for func_info in self._stats.stats.items()[:10]:
+        for func_info in list(self._stats.stats.items())[:10]:
             func, stats = func_info
             filename, line, func_name = func
 

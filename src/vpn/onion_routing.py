@@ -236,9 +236,12 @@ class OnionRouter:
 
             example_nodes = []
             for i in range(20):
+                # Use different /16 subnets for family diversity
+                # Guards: 10.1.x.x, Middle: 10.2.x.x-10.4.x.x, Exit: 10.5.x.x-10.6.x.x
+                subnet = (i // 5) + 1  # 0-4=1, 5-9=2, 10-14=3, 15-19=4
                 node = OnionNode(
                     node_id=f"fog-relay-{i}",
-                    address=f"10.1.{i//256}.{i%256}:9001",
+                    address=f"10.{subnet}.{i%256}.{(i*7)%256}:9001",
                     node_types={NodeType.MIDDLE} if i < 15 else {NodeType.EXIT},
                     identity_key=ed25519.Ed25519PrivateKey.generate()
                     .public_key()
