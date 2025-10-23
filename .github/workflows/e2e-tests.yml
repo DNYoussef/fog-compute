@@ -67,104 +67,11 @@ jobs:
       - name: Install Playwright
         run: npx playwright install --with-deps ${{ matrix.browser }}
 
-      - name: Start Backend Server (Unix)
-        if: runner.os != 'Windows'
-        run: |
-          cd backend
-          python -m uvicorn server.main:app --port 8000 > backend.log 2>&1 &
-          echo $! > backend.pid
-        env:
-          DATABASE_URL: ${{ steps.postgres.outputs.connection-uri }}
-
-      - name: Start Backend Server (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          cd backend
-          Start-Process python -ArgumentList "-m", "uvicorn", "server.main:app", "--port", "8000" -RedirectStandardOutput backend.log -RedirectStandardError backend-error.log -NoNewWindow
-          Start-Sleep -Seconds 5
-        env:
-          DATABASE_URL: ${{ steps.postgres.outputs.connection-uri }}
-
-      - name: Start Frontend Server (Unix)
-        if: runner.os != 'Windows'
-        run: |
-          cd apps/control-panel
-          npm run dev > frontend.log 2>&1 &
-          echo $! > frontend.pid
-
-      - name: Start Frontend Server (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          cd apps/control-panel
-          Start-Process npm -ArgumentList "run", "dev" -RedirectStandardOutput frontend.log -RedirectStandardError frontend-error.log -NoNewWindow
-          Start-Sleep -Seconds 10
-
-      - name: Wait for servers to be ready (Unix)
-        if: runner.os != 'Windows'
-        run: |
-          echo "Waiting for backend health check..."
-          timeout 120 bash -c 'until curl -f http://localhost:8000/health; do sleep 2; done' || (echo "Backend failed to start" && cat backend/backend.log && exit 1)
-          echo "Waiting for frontend..."
-          timeout 120 bash -c 'until curl -f http://localhost:3000; do sleep 2; done' || (echo "Frontend failed to start" && cat apps/control-panel/frontend.log && exit 1)
-          echo "Both servers are ready!"
-
-      - name: Wait for servers to be ready (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          Write-Host "Waiting for backend health check..."
-          $maxAttempts = 60
-          $attempt = 0
-          while ($attempt -lt $maxAttempts) {
-            try {
-              $response = Invoke-WebRequest -Uri http://localhost:8000/health -UseBasicParsing -TimeoutSec 2
-              if ($response.StatusCode -eq 200) { break }
-            } catch { }
-            Start-Sleep -Seconds 2
-            $attempt++
-          }
-          if ($attempt -eq $maxAttempts) {
-            Write-Host "Backend failed to start"
-            Get-Content backend/backend.log -ErrorAction SilentlyContinue
-            exit 1
-          }
-          Write-Host "Waiting for frontend..."
-          $attempt = 0
-          while ($attempt -lt $maxAttempts) {
-            try {
-              $response = Invoke-WebRequest -Uri http://localhost:3000 -UseBasicParsing -TimeoutSec 2
-              if ($response.StatusCode -eq 200) { break }
-            } catch { }
-            Start-Sleep -Seconds 2
-            $attempt++
-          }
-          if ($attempt -eq $maxAttempts) {
-            Write-Host "Frontend failed to start"
-            Get-Content apps/control-panel/frontend.log -ErrorAction SilentlyContinue
-            exit 1
-          }
-          Write-Host "Both servers are ready!"
-
       - name: Run E2E tests (shard ${{ matrix.shard }}/4)
         run: npx playwright test --project=${{ matrix.browser }} --shard=${{ matrix.shard }}/4
         env:
           CI: true
           DATABASE_URL: ${{ steps.postgres.outputs.connection-uri }}
-
-      - name: Stop servers (Unix)
-        if: always() && runner.os != 'Windows'
-        run: |
-          if [ -f backend/backend.pid ]; then kill $(cat backend/backend.pid) || true; fi
-          if [ -f apps/control-panel/frontend.pid ]; then kill $(cat apps/control-panel/frontend.pid) || true; fi
-
-      - name: Stop servers (Windows)
-        if: always() && runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          Get-Process -Name python -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "*uvicorn*" } | Stop-Process -Force -ErrorAction SilentlyContinue
-          Get-Process -Name node -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like "*npm run dev*" } | Stop-Process -Force -ErrorAction SilentlyContinue
 
       - name: Upload blob report
         if: always()
@@ -178,7 +85,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        device: ['iPhone 12', 'Pixel 5', 'iPad']
+        project: ['Mobile Safari', 'Mobile Chrome', 'iPad']
 
     steps:
       - uses: actions/checkout@v4
@@ -220,110 +127,17 @@ jobs:
       - name: Install Playwright
         run: npx playwright install --with-deps
 
-      - name: Start Backend Server (Unix)
-        if: runner.os != 'Windows'
-        run: |
-          cd backend
-          python -m uvicorn server.main:app --port 8000 > backend.log 2>&1 &
-          echo $! > backend.pid
-        env:
-          DATABASE_URL: ${{ steps.postgres.outputs.connection-uri }}
-
-      - name: Start Backend Server (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          cd backend
-          Start-Process python -ArgumentList "-m", "uvicorn", "server.main:app", "--port", "8000" -RedirectStandardOutput backend.log -RedirectStandardError backend-error.log -NoNewWindow
-          Start-Sleep -Seconds 5
-        env:
-          DATABASE_URL: ${{ steps.postgres.outputs.connection-uri }}
-
-      - name: Start Frontend Server (Unix)
-        if: runner.os != 'Windows'
-        run: |
-          cd apps/control-panel
-          npm run dev > frontend.log 2>&1 &
-          echo $! > frontend.pid
-
-      - name: Start Frontend Server (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          cd apps/control-panel
-          Start-Process npm -ArgumentList "run", "dev" -RedirectStandardOutput frontend.log -RedirectStandardError frontend-error.log -NoNewWindow
-          Start-Sleep -Seconds 10
-
-      - name: Wait for servers to be ready (Unix)
-        if: runner.os != 'Windows'
-        run: |
-          echo "Waiting for backend health check..."
-          timeout 120 bash -c 'until curl -f http://localhost:8000/health; do sleep 2; done' || (echo "Backend failed to start" && cat backend/backend.log && exit 1)
-          echo "Waiting for frontend..."
-          timeout 120 bash -c 'until curl -f http://localhost:3000; do sleep 2; done' || (echo "Frontend failed to start" && cat apps/control-panel/frontend.log && exit 1)
-          echo "Both servers are ready!"
-
-      - name: Wait for servers to be ready (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          Write-Host "Waiting for backend health check..."
-          $maxAttempts = 60
-          $attempt = 0
-          while ($attempt -lt $maxAttempts) {
-            try {
-              $response = Invoke-WebRequest -Uri http://localhost:8000/health -UseBasicParsing -TimeoutSec 2
-              if ($response.StatusCode -eq 200) { break }
-            } catch { }
-            Start-Sleep -Seconds 2
-            $attempt++
-          }
-          if ($attempt -eq $maxAttempts) {
-            Write-Host "Backend failed to start"
-            Get-Content backend/backend.log -ErrorAction SilentlyContinue
-            exit 1
-          }
-          Write-Host "Waiting for frontend..."
-          $attempt = 0
-          while ($attempt -lt $maxAttempts) {
-            try {
-              $response = Invoke-WebRequest -Uri http://localhost:3000 -UseBasicParsing -TimeoutSec 2
-              if ($response.StatusCode -eq 200) { break }
-            } catch { }
-            Start-Sleep -Seconds 2
-            $attempt++
-          }
-          if ($attempt -eq $maxAttempts) {
-            Write-Host "Frontend failed to start"
-            Get-Content apps/control-panel/frontend.log -ErrorAction SilentlyContinue
-            exit 1
-          }
-          Write-Host "Both servers are ready!"
-
       - name: Run mobile tests
-        run: npx playwright test --project="Mobile ${{ matrix.device }}"
+        run: npx playwright test --project="${{ matrix.project }}"
         env:
           CI: true
           DATABASE_URL: ${{ steps.postgres.outputs.connection-uri }}
-
-      - name: Stop servers (Unix)
-        if: always() && runner.os != 'Windows'
-        run: |
-          if [ -f backend/backend.pid ]; then kill $(cat backend/backend.pid) || true; fi
-          if [ -f apps/control-panel/frontend.pid ]; then kill $(cat apps/control-panel/frontend.pid) || true; fi
-
-      - name: Stop servers (Windows)
-        if: always() && runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          Get-Process -Name python -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "*uvicorn*" } | Stop-Process -Force -ErrorAction SilentlyContinue
-          Get-Process -Name node -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like "*npm run dev*" } | Stop-Process -Force -ErrorAction SilentlyContinue
 
       - name: Upload mobile test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: mobile-results-${{ matrix.device }}
+          name: mobile-results-${{ matrix.project }}
           path: test-results/
 
   cross-browser:
@@ -368,104 +182,11 @@ jobs:
       - name: Install Playwright
         run: npx playwright install --with-deps
 
-      - name: Start Backend Server (Unix)
-        if: runner.os != 'Windows'
-        run: |
-          cd backend
-          python -m uvicorn server.main:app --port 8000 > backend.log 2>&1 &
-          echo $! > backend.pid
-        env:
-          DATABASE_URL: ${{ steps.postgres.outputs.connection-uri }}
-
-      - name: Start Backend Server (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          cd backend
-          Start-Process python -ArgumentList "-m", "uvicorn", "server.main:app", "--port", "8000" -RedirectStandardOutput backend.log -RedirectStandardError backend-error.log -NoNewWindow
-          Start-Sleep -Seconds 5
-        env:
-          DATABASE_URL: ${{ steps.postgres.outputs.connection-uri }}
-
-      - name: Start Frontend Server (Unix)
-        if: runner.os != 'Windows'
-        run: |
-          cd apps/control-panel
-          npm run dev > frontend.log 2>&1 &
-          echo $! > frontend.pid
-
-      - name: Start Frontend Server (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          cd apps/control-panel
-          Start-Process npm -ArgumentList "run", "dev" -RedirectStandardOutput frontend.log -RedirectStandardError frontend-error.log -NoNewWindow
-          Start-Sleep -Seconds 10
-
-      - name: Wait for servers to be ready (Unix)
-        if: runner.os != 'Windows'
-        run: |
-          echo "Waiting for backend health check..."
-          timeout 120 bash -c 'until curl -f http://localhost:8000/health; do sleep 2; done' || (echo "Backend failed to start" && cat backend/backend.log && exit 1)
-          echo "Waiting for frontend..."
-          timeout 120 bash -c 'until curl -f http://localhost:3000; do sleep 2; done' || (echo "Frontend failed to start" && cat apps/control-panel/frontend.log && exit 1)
-          echo "Both servers are ready!"
-
-      - name: Wait for servers to be ready (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          Write-Host "Waiting for backend health check..."
-          $maxAttempts = 60
-          $attempt = 0
-          while ($attempt -lt $maxAttempts) {
-            try {
-              $response = Invoke-WebRequest -Uri http://localhost:8000/health -UseBasicParsing -TimeoutSec 2
-              if ($response.StatusCode -eq 200) { break }
-            } catch { }
-            Start-Sleep -Seconds 2
-            $attempt++
-          }
-          if ($attempt -eq $maxAttempts) {
-            Write-Host "Backend failed to start"
-            Get-Content backend/backend.log -ErrorAction SilentlyContinue
-            exit 1
-          }
-          Write-Host "Waiting for frontend..."
-          $attempt = 0
-          while ($attempt -lt $maxAttempts) {
-            try {
-              $response = Invoke-WebRequest -Uri http://localhost:3000 -UseBasicParsing -TimeoutSec 2
-              if ($response.StatusCode -eq 200) { break }
-            } catch { }
-            Start-Sleep -Seconds 2
-            $attempt++
-          }
-          if ($attempt -eq $maxAttempts) {
-            Write-Host "Frontend failed to start"
-            Get-Content apps/control-panel/frontend.log -ErrorAction SilentlyContinue
-            exit 1
-          }
-          Write-Host "Both servers are ready!"
-
       - name: Run cross-browser tests
         run: npx playwright test tests/e2e/cross-platform.spec.ts
         env:
           CI: true
           DATABASE_URL: ${{ steps.postgres.outputs.connection-uri }}
-
-      - name: Stop servers (Unix)
-        if: always() && runner.os != 'Windows'
-        run: |
-          if [ -f backend/backend.pid ]; then kill $(cat backend/backend.pid) || true; fi
-          if [ -f apps/control-panel/frontend.pid ]; then kill $(cat apps/control-panel/frontend.pid) || true; fi
-
-      - name: Stop servers (Windows)
-        if: always() && runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          Get-Process -Name python -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "*uvicorn*" } | Stop-Process -Force -ErrorAction SilentlyContinue
-          Get-Process -Name node -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like "*npm run dev*" } | Stop-Process -Force -ErrorAction SilentlyContinue
 
       - name: Upload cross-browser report
         if: always()

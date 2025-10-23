@@ -20,7 +20,9 @@ class Settings(BaseSettings):
     CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
 
     # Database
-    DATABASE_URL: str = "postgresql+asyncpg://fog_user:fog_password@localhost:5432/fog_compute"
+    # Default uses standard postgres credentials and test database for easier local development
+    # Production should set DATABASE_URL environment variable
+    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/fog_compute_test"
     DATABASE_POOL_SIZE: int = 10
     DATABASE_MAX_OVERFLOW: int = 20
 

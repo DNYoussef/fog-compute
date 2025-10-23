@@ -35,6 +35,5 @@ jobs:
       if: hashFiles('src/betanet/Cargo.toml') != ''
 
     - name: Run clippy on Betanet
-      run: cargo clippy --manifest-path src/betanet/Cargo.toml -- -D warnings
+      run: cargo clippy --manifest-path src/betanet/Cargo.toml
       if: hashFiles('src/betanet/Cargo.toml') != ''
-      continue-on-error: true
