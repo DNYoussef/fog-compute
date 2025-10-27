@@ -138,21 +138,36 @@ export default defineConfig({
   // Playwright automatically manages server lifecycle (start before tests, stop after)
   webServer: [
     {
-      command: 'cd backend && python -m uvicorn server.main:app --port 8000',
+      // FIXED: Use cwd instead of shell "cd" command to avoid platform-specific issues
+      // Windows cmd.exe and Unix bash handle "cd && command" differently
+      command: 'python -m uvicorn server.main:app --port 8000',
+      cwd: 'backend',  // Playwright's native cwd support (cross-platform)
       url: 'http://localhost:8000/health',
       reuseExistingServer: !process.env.CI,
       timeout: 120 * 1000,  // Increased from 60s for database initialization
       stdout: 'pipe',
       stderr: 'pipe',
       env: {
-        ...process.env,
-        // Explicitly pass DATABASE_URL for CI subprocess (GitHub Actions env inheritance)
-        // This ensures the webServer subprocess receives the DATABASE_URL that was exported to $GITHUB_ENV
-        ...(process.env.DATABASE_URL ? { DATABASE_URL: process.env.DATABASE_URL } : {}),
+        // FIXED: Explicit environment object instead of spread operator
+        // Windows subprocess may not inherit process.env reliably via spread
+        // Only pass essential variables explicitly to ensure propagation
+        DATABASE_URL: process.env.DATABASE_URL || (() => {
+          if (process.env.CI === 'true') {
+            throw new Error('CRITICAL: DATABASE_URL not set in CI environment. Check GitHub Actions workflow export to $GITHUB_ENV');
+          }
+          // Local dev fallback (will be caught by backend validation if incorrect)
+          return '';
+        })(),
+        PATH: process.env.PATH || '',
+        PYTHONPATH: process.env.PYTHONPATH || '',
+        // Pass CI flag to backend for validation
+        CI: process.env.CI || '',
       },
     },
     {
-      command: 'cd apps/control-panel && npm run dev',
+      // Frontend server - use cwd for consistency
+      command: 'npm run dev',
+      cwd: 'apps/control-panel',
       url: 'http://localhost:3000',
       reuseExistingServer: !process.env.CI,
       timeout: 120 * 1000,

@@ -57,6 +57,17 @@ async def lifespan(app: FastAPI):
     logger.info(f"📍 API URL: http://{settings.API_HOST}:{settings.API_PORT}")
     logger.info(f"🔗 CORS Origins: {settings.CORS_ORIGINS}")
 
+    # Diagnostic logging for CI environment
+    import os
+    import re
+    if os.getenv('CI') == 'true':
+        logger.info("🔍 CI Environment Detected")
+        db_url = settings.DATABASE_URL
+        # Censor password: postgresql://user:PASSWORD@host/db → postgresql://user:***@host/db
+        censored_url = re.sub(r'://([^:]+):([^@]+)@', r'://\1:***@', db_url)
+        logger.info(f"🔍 DATABASE_URL: {censored_url}")
+        logger.info(f"🔍 Database driver: {'asyncpg' if 'asyncpg' in db_url else 'UNKNOWN (should be asyncpg!)'}")
+
     # Initialize database
     try:
         await init_db()

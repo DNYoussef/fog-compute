@@ -77,7 +77,11 @@ jobs:
         run: echo "DATABASE_URL=${{ steps.postgres.outputs.connection-uri }}" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Run E2E tests (shard ${{ matrix.shard }}/4)
-        run: npx playwright test --project=${{ matrix.browser }} --shard=${{ matrix.shard }}/4
+        run: |
+          # Sharding applies to TEST FILES, not projects
+          # Each shard runs the specified browser project for 1/4 of test files
+          # Example: Shard 1/4 with --project=chromium runs chromium tests for first 25% of test files
+          npx playwright test --project=${{ matrix.browser }} --shard=${{ matrix.shard }}/4
         env:
           CI: true
 

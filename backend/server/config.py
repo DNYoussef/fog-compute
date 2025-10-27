@@ -34,11 +34,31 @@ class Settings(BaseSettings):
         Normalize DATABASE_URL to use asyncpg driver for async SQLAlchemy.
         CI/GitHub Actions provides postgresql:// or postgres:// which defaults to psycopg2 (sync).
         We need postgresql+asyncpg:// for async support.
+
+        CRITICAL: In CI environment, validates that DATABASE_URL was properly inherited
+        from GitHub Actions to prevent silent fallback to default (which would fail).
         """
+        import os
+
+        # CI Validation: Ensure DATABASE_URL was passed from GitHub Actions
+        if os.getenv('CI') == 'true':
+            default_url = "postgresql+asyncpg://postgres:postgres@localhost:5432/fog_compute_test"
+
+            # If we're using the default in CI, it means env var wasn't inherited
+            if v == default_url or v == default_url.replace('+asyncpg', ''):
+                raise ValueError(
+                    "❌ DATABASE_URL not inherited from CI environment. "
+                    "Expected value from GitHub Actions $GITHUB_ENV. "
+                    "Check playwright.config.ts webServer env configuration. "
+                    "Current value matches default, indicating env var propagation failure."
+                )
+
+        # Normalize URL format (postgres:// → postgresql+asyncpg://)
         if v.startswith('postgresql://') and '+asyncpg' not in v:
             return v.replace('postgresql://', 'postgresql+asyncpg://', 1)
         elif v.startswith('postgres://'):
             return v.replace('postgres://', 'postgresql+asyncpg://', 1)
+
         return v
 
     # Betanet (Rust service)
