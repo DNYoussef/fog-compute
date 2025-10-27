@@ -22,6 +22,7 @@ requests==2.31.0
 # Data Validation
 pydantic==2.5.3
 pydantic-settings==2.1.0
+email-validator==2.1.0  # Required for Pydantic EmailStr type validation
 
 # CORS
 python-multipart==0.0.6
