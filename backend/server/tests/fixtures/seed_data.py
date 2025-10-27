@@ -48,7 +48,7 @@ async def create_tables(engine):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
-    print("✅ Database tables created")
+    print("[OK] Database tables created")
 
 
 async def seed_betanet_nodes(session: AsyncSession):
@@ -73,7 +73,7 @@ async def seed_betanet_nodes(session: AsyncSession):
 
     session.add_all(nodes)
     await session.commit()
-    print(f"✅ Created {len(nodes)} Betanet nodes")
+    print(f"[OK] Created {len(nodes)} Betanet nodes")
     return nodes
 
 
@@ -121,7 +121,7 @@ async def seed_jobs(session: AsyncSession):
 
     session.add_all(jobs)
     await session.commit()
-    print(f"✅ Created {len(jobs)} jobs")
+    print(f"[OK] Created {len(jobs)} jobs")
     return jobs
 
 
@@ -173,7 +173,7 @@ async def seed_devices(session: AsyncSession):
 
     session.add_all(devices)
     await session.commit()
-    print(f"✅ Created {len(devices)} devices")
+    print(f"[OK] Created {len(devices)} devices")
     return devices
 
 
@@ -194,7 +194,7 @@ async def seed_token_balances(session: AsyncSession):
 
     session.add_all(balances)
     await session.commit()
-    print(f"✅ Created {len(balances)} token balances")
+    print(f"[OK] Created {len(balances)} token balances")
     return balances
 
 
@@ -219,7 +219,7 @@ async def seed_circuits(session: AsyncSession):
 
     session.add_all(circuits)
     await session.commit()
-    print(f"✅ Created {len(circuits)} circuits")
+    print(f"[OK] Created {len(circuits)} circuits")
     return circuits
 
 
@@ -257,7 +257,7 @@ async def seed_dao_proposals(session: AsyncSession, balances):
 
     session.add_all(proposals)
     await session.commit()
-    print(f"✅ Created {len(proposals)} DAO proposals")
+    print(f"[OK] Created {len(proposals)} DAO proposals")
     return proposals
 
 
@@ -280,14 +280,14 @@ async def seed_stakes(session: AsyncSession, balances):
 
     session.add_all(stakes)
     await session.commit()
-    print(f"✅ Created {len(stakes)} stakes")
+    print(f"[OK] Created {len(stakes)} stakes")
     return stakes
 
 
 async def seed_all_data():
     """Main function to seed all test data"""
     print("\n" + "="*60)
-    print("🌱 SEEDING TEST DATABASE")
+    print("[SEED] SEEDING TEST DATABASE")
     print("="*60 + "\n")
 
     # Create async engine
@@ -303,7 +303,7 @@ async def seed_all_data():
 
     async with async_session() as session:
         # Seed all entities
-        print("\n📦 Seeding entities...\n")
+        print("\n[DATA] Seeding entities...\n")
 
         nodes = await seed_betanet_nodes(session)
         jobs = await seed_jobs(session)
@@ -314,15 +314,15 @@ async def seed_all_data():
         stakes = await seed_stakes(session, balances)
 
         print("\n" + "="*60)
-        print("✨ SEED COMPLETE - Summary:")
+        print("*** SEED COMPLETE - Summary:")
         print("="*60)
-        print(f"  • Betanet Nodes:  {len(nodes)}")
-        print(f"  • Jobs:           {len(jobs)}")
-        print(f"  • Devices:        {len(devices)}")
-        print(f"  • Token Balances: {len(balances)}")
-        print(f"  • Circuits:       {len(circuits)}")
-        print(f"  • DAO Proposals:  {len(proposals)}")
-        print(f"  • Stakes:         {len(stakes)}")
+        print(f"  * Betanet Nodes:  {len(nodes)}")
+        print(f"  * Jobs:           {len(jobs)}")
+        print(f"  * Devices:        {len(devices)}")
+        print(f"  * Token Balances: {len(balances)}")
+        print(f"  * Circuits:       {len(circuits)}")
+        print(f"  * DAO Proposals:  {len(proposals)}")
+        print(f"  * Stakes:         {len(stakes)}")
         print("="*60)
         print(f"  TOTAL RECORDS:    {len(nodes) + len(jobs) + len(devices) + len(balances) + len(circuits) + len(proposals) + len(stakes)}")
         print("="*60 + "\n")
@@ -333,7 +333,7 @@ async def seed_all_data():
 
 async def quick_seed():
     """Quick seed with minimal data for rapid testing"""
-    print("\n🚀 QUICK SEED MODE (Minimal data for rapid testing)\n")
+    print("\n>>> QUICK SEED MODE (Minimal data for rapid testing)\n")
 
     engine = create_async_engine(DATABASE_URL, echo=False)
     await create_tables(engine)
@@ -377,7 +377,7 @@ async def quick_seed():
         session.add_all(devices)
         await session.commit()
 
-        print(f"✅ Quick seed complete: {len(nodes)} nodes, {len(jobs)} jobs, {len(devices)} devices\n")
+        print(f"[OK] Quick seed complete: {len(nodes)} nodes, {len(jobs)} jobs, {len(devices)} devices\n")
 
     await engine.dispose()
     return True
