@@ -8,7 +8,7 @@ from typing import Dict, Any, List, Optional
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..services.service_manager import service_manager
+from ..services.enhanced_service_manager import enhanced_service_manager as service_manager
 from ..database import get_db
 from ..models.database import TokenBalance
 

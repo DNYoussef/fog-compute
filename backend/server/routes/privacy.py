@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from typing import Dict, Any, List
 import logging
 
-from ..services.service_manager import service_manager
+from ..services.enhanced_service_manager import enhanced_service_manager as service_manager
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/privacy", tags=["privacy"])
