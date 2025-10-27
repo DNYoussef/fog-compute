@@ -145,7 +145,10 @@ export default defineConfig({
       stdout: 'pipe',
       stderr: 'pipe',
       env: {
-        ...process.env,  // Pass through DATABASE_URL and other CI environment variables
+        ...process.env,
+        // Explicitly pass DATABASE_URL for CI subprocess (GitHub Actions env inheritance)
+        // This ensures the webServer subprocess receives the DATABASE_URL that was exported to $GITHUB_ENV
+        ...(process.env.DATABASE_URL ? { DATABASE_URL: process.env.DATABASE_URL } : {}),
       },
     },
     {
