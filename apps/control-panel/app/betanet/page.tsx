@@ -94,8 +94,18 @@ export default function BetanetPage() {
 
       {/* 3D Network Topology */}
       <div className="glass rounded-xl p-6">
-        <h2 className="text-xl font-semibold mb-4">Network Topology</h2>
-        <div className="h-[500px] rounded-lg overflow-hidden">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold">Network Topology</h2>
+          <div className="flex gap-2" data-testid="topology-controls">
+            <button className="px-3 py-1 text-sm bg-white/10 hover:bg-white/20 rounded">
+              Reset View
+            </button>
+            <button className="px-3 py-1 text-sm bg-white/10 hover:bg-white/20 rounded">
+              Auto Rotate
+            </button>
+          </div>
+        </div>
+        <div className="h-[500px] rounded-lg overflow-hidden" data-testid="betanet-topology">
           <BetanetTopology
             mixnodes={mixnodes}
             selectedNode={selectedNode}
@@ -108,15 +118,19 @@ export default function BetanetPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="glass rounded-xl p-6">
           <h2 className="text-xl font-semibold mb-4">Packet Flow Monitor</h2>
-          <PacketFlowMonitor mixnodes={mixnodes} />
+          <div data-testid="packet-flow-monitor">
+            <PacketFlowMonitor mixnodes={mixnodes} />
+          </div>
         </div>
         <div className="glass rounded-xl p-6">
           <h2 className="text-xl font-semibold mb-4">Mixnode Details</h2>
-          <MixnodeList
-            mixnodes={mixnodes}
-            selectedNode={selectedNode}
-            onNodeSelect={setSelectedNode}
-          />
+          <div data-testid="mixnode-list">
+            <MixnodeList
+              mixnodes={mixnodes}
+              selectedNode={selectedNode}
+              onNodeSelect={setSelectedNode}
+            />
+          </div>
         </div>
       </div>
     </div>

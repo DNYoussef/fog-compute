@@ -31,7 +31,7 @@ export function BenchmarkCharts({ data }: BenchmarkChartsProps) {
     <div className="space-y-6" data-testid="benchmark-charts">
       {/* Latency and Throughput */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div>
+        <div data-testid="latency-chart">
           <h3 className="text-sm font-semibold text-gray-400 mb-3">Latency (ms)</h3>
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={chartData}>
@@ -50,7 +50,7 @@ export function BenchmarkCharts({ data }: BenchmarkChartsProps) {
           </ResponsiveContainer>
         </div>
 
-        <div>
+        <div data-testid="throughput-chart">
           <h3 className="text-sm font-semibold text-gray-400 mb-3">Throughput (MB/s)</h3>
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={chartData}>
