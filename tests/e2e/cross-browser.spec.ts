@@ -255,11 +255,18 @@ test.describe('Performance Across Browsers', () => {
     });
 
     test(`memory usage is reasonable in ${name}`, async () => {
+      // Skip metrics test for WebKit as page.metrics() is not supported
+      if (name === 'WebKit') {
+        test.skip();
+        return;
+      }
+
       const browser = await launcher.launch();
       const page = await browser.newPage();
 
       await page.goto('http://localhost:3000/betanet');
 
+      // page.metrics() only supported in Chromium and Firefox
       const metrics = await page.metrics();
 
       // Memory usage should be reasonable

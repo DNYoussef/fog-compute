@@ -36,6 +36,10 @@ export default function TokenomicsPage() {
   const [userBalance, setUserBalance] = useState(0);
 
   useEffect(() => {
+    document.title = 'Tokenomics | Fog Compute';
+  }, []);
+
+  useEffect(() => {
     const fetchStats = async () => {
       try {
         const [statsRes, balanceRes] = await Promise.all([

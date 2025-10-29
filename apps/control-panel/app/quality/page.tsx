@@ -57,6 +57,10 @@ export default function QualityPage() {
   const [testOutput, setTestOutput] = useState<string[]>([]);
 
   // Fetch benchmark data from our Week 7 results
+
+  useEffect(() => {
+    document.title = 'Quality Testing | Fog Compute';
+  }, []);
   useEffect(() => {
     const fetchBenchmarkData = async () => {
       try {

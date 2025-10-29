@@ -34,6 +34,10 @@ export default function SchedulerPage() {
   const [optimizationMode, setOptimizationMode] = useState<'cost' | 'performance' | 'balanced'>('balanced');
 
   useEffect(() => {
+    document.title = 'Scheduler | Fog Compute';
+  }, []);
+
+  useEffect(() => {
     const fetchStats = async () => {
       try {
         const response = await fetch('/api/scheduler/stats');

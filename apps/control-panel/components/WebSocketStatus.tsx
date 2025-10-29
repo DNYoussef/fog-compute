@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import { Wifi, WifiOff, RefreshCw } from 'lucide-react';
 
 interface WebSocketStatusProps {
   url?: string;
@@ -10,15 +11,17 @@ interface WebSocketStatusProps {
 }
 
 type ConnectionStatus = 'connected' | 'disconnected' | 'connecting' | 'error';
+type ConnectionState = 'connected' | 'reconnecting' | 'offline';
 
 export function WebSocketStatus({
-  url = 'ws://localhost:8080',
+  url = 'ws://localhost:8000/ws/metrics',
   maxRetries = 10,
-  initialReconnectDelay = 1000,
+  initialReconnectDelay = 5000,
   maxReconnectDelay = 30000
 }: WebSocketStatusProps) {
   const [status, setStatus] = useState<ConnectionStatus>('disconnected');
   const [lastMessage, setLastMessage] = useState<string>('');
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
@@ -41,8 +44,10 @@ export function WebSocketStatus({
         wsRef.current.onopen = () => {
           setStatus('connected');
           setLastMessage('Connected to server');
+          setLastUpdate(new Date());
           setRetryCount(0);
           reconnectDelayRef.current = initialReconnectDelay; // Reset backoff
+          console.log('✅ WebSocket connected');
         };
 
         wsRef.current.onclose = (event) => {
@@ -79,6 +84,7 @@ export function WebSocketStatus({
         };
 
         wsRef.current.onmessage = (event) => {
+          setLastUpdate(new Date());
           setLastMessage(`Received: ${event.data.substring(0, 50)}${event.data.length > 50 ? '...' : ''}`);
         };
       } catch (error) {
@@ -139,56 +145,107 @@ export function WebSocketStatus({
     }, 100);
   };
 
-  const statusConfig = {
-    connected: {
-      color: 'bg-green-500',
-      text: 'Connected',
-      icon: '●',
-    },
-    disconnected: {
-      color: 'bg-gray-500',
-      text: 'Disconnected',
-      icon: '●',
-    },
-    connecting: {
-      color: 'bg-yellow-500',
-      text: 'Connecting...',
-      icon: '◐',
-    },
-    error: {
-      color: 'bg-red-500',
-      text: 'Error',
-      icon: '●',
-    },
+  const getConnectionState = (): ConnectionState => {
+    if (status === 'connected') return 'connected';
+    if (status === 'connecting') return 'reconnecting';
+    return 'offline';
   };
 
-  const config = statusConfig[status];
+  const state = getConnectionState();
+
+  const getStatusConfig = () => {
+    switch (state) {
+      case 'connected':
+        return {
+          icon: Wifi,
+          text: 'Connected',
+          color: 'text-green-500',
+          bgColor: 'bg-green-500',
+          testId: 'ws-status',
+        };
+      case 'reconnecting':
+        return {
+          icon: RefreshCw,
+          text: status === 'error' ? 'Connection Error' : 'Reconnecting...',
+          color: 'text-yellow-500',
+          bgColor: 'bg-yellow-500',
+          testId: 'ws-status',
+        };
+      case 'offline':
+        return {
+          icon: WifiOff,
+          text: 'Offline',
+          color: 'text-red-500',
+          bgColor: 'bg-red-500',
+          testId: 'offline-indicator',
+        };
+    }
+  };
+
+  const config = getStatusConfig();
+  const Icon = config.icon;
+
+  const formatLastUpdate = () => {
+    if (!lastUpdate) return 'Never';
+    const seconds = Math.floor((new Date().getTime() - lastUpdate.getTime()) / 1000);
+    if (seconds < 60) return `${seconds}s ago`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    return `${hours}h ago`;
+  };
 
   return (
     <div
-      className="flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-lg"
-      data-testid="websocket-status"
+      data-testid={config.testId}
+      className="flex items-center gap-3 px-3 py-2 bg-gray-900 border border-gray-800 rounded-lg"
     >
-      <span className={`w-2 h-2 rounded-full ${config.color} ${status === 'connecting' ? 'animate-pulse' : ''}`} />
-      <span className="text-sm text-gray-300">{config.text}</span>
-      {lastMessage && (
-        <span className="text-xs text-gray-500 ml-2 max-w-[200px] truncate" title={lastMessage}>
-          {lastMessage}
+      {/* Animated Status Dot */}
+      <div className="relative flex-shrink-0">
+        <div className={`w-2 h-2 ${config.bgColor} rounded-full ${state === 'connected' ? 'animate-pulse' : ''}`} />
+        {state === 'connected' && (
+          <div className={`absolute inset-0 w-2 h-2 ${config.bgColor} rounded-full animate-ping opacity-75`} />
+        )}
+      </div>
+
+      {/* Icon */}
+      <Icon className={`w-4 h-4 ${config.color} flex-shrink-0 ${state === 'reconnecting' ? 'animate-spin' : ''}`} />
+
+      {/* Status Text */}
+      <span className={`text-sm font-medium ${config.color}`}>
+        {config.text}
+      </span>
+
+      {/* Last Update Timestamp */}
+      {lastUpdate && state === 'connected' && (
+        <span className="text-xs text-gray-500 ml-auto" data-testid="last-update-timestamp">
+          {formatLastUpdate()}
         </span>
       )}
-      {(status === 'disconnected' || status === 'error') && retryCount < maxRetries && (
+
+      {/* Reconnection Info */}
+      {state === 'reconnecting' && retryCount > 0 && (
+        <span className="text-xs text-gray-500 ml-auto">
+          Attempt {retryCount}/{maxRetries}
+        </span>
+      )}
+
+      {/* Manual Reconnect Button */}
+      {state === 'offline' && retryCount < maxRetries && (
         <button
           onClick={handleManualReconnect}
-          className="ml-2 px-2 py-0.5 text-xs bg-fog-cyan/20 hover:bg-fog-cyan/30 text-fog-cyan rounded transition-colors"
+          className="ml-auto px-2 py-1 text-xs bg-fog-cyan/20 hover:bg-fog-cyan/30 text-fog-cyan rounded transition-colors"
           data-testid="websocket-reconnect-button"
         >
           Reconnect
         </button>
       )}
+
+      {/* Reload Button (Max Retries Exceeded) */}
       {retryCount >= maxRetries && (
         <button
           onClick={() => window.location.reload()}
-          className="ml-2 px-2 py-0.5 text-xs bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded transition-colors"
+          className="ml-auto px-2 py-1 text-xs bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded transition-colors"
           data-testid="websocket-reload-button"
         >
           Reload Page

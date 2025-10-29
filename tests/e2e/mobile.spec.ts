@@ -20,9 +20,10 @@ test.describe('Mobile Responsiveness', () => {
     // Open menu
     await menuButton.click();
 
-    // Navigation links should appear
-    await expect(page.getByRole('link', { name: /dashboard/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: /betanet/i })).toBeVisible();
+    // Navigation links should appear - scope to mobile menu to avoid strict mode violations
+    const mobileMenu = page.locator('[role="navigation"], nav');
+    await expect(mobileMenu.getByRole('link', { name: /dashboard/i })).toBeVisible();
+    await expect(mobileMenu.getByRole('link', { name: /betanet/i })).toBeVisible();
   });
 
   test('dashboard adapts to mobile', async ({ page }) => {

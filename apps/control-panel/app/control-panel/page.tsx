@@ -145,6 +145,10 @@ export default function ControlPanelPage() {
   };
 
   useEffect(() => {
+    document.title = 'Control Panel | Fog Compute';
+  }, []);
+
+  useEffect(() => {
     fetchHealth();
 
     // Auto-refresh every 10 seconds

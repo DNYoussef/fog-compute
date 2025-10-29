@@ -1,6 +1,7 @@
 'use client';
 
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { MultiChartSkeleton } from './skeletons/ChartSkeleton';
 
 interface BenchmarkData {
   timestamp: number;
@@ -16,6 +17,11 @@ interface BenchmarkChartsProps {
 }
 
 export function BenchmarkCharts({ data }: BenchmarkChartsProps) {
+  // Show skeleton while waiting for initial data
+  if (data.length === 0) {
+    return <MultiChartSkeleton count={3} />;
+  }
+
   const chartData = data.map(d => ({
     time: new Date(d.timestamp).toLocaleTimeString(),
     ...d,

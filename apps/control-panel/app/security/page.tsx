@@ -75,6 +75,10 @@ export default function SecurityPage() {
       name: formData.get('role-name') as string,
       permissions
     };
+
+  useEffect(() => {
+    document.title = 'Security | Fog Compute';
+  }, []);
     setRoles([...roles, newRole]);
     setShowRoleModal(false);
   };

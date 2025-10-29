@@ -17,6 +17,7 @@ interface JobQueueProps {
 
 export function JobQueue({ stats }: JobQueueProps) {
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchJobs = async () => {
@@ -24,8 +25,10 @@ export function JobQueue({ stats }: JobQueueProps) {
         const response = await fetch('/api/scheduler/jobs');
         const data = await response.json();
         setJobs(data.jobs || []);
+        setIsLoading(false);
       } catch (error) {
         console.error('Failed to fetch jobs:', error);
+        setIsLoading(false);
       }
     };
 
@@ -52,6 +55,25 @@ export function JobQueue({ stats }: JobQueueProps) {
       default: return 'text-gray-400';
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-fog-cyan"></div>
+          <p className="mt-2 text-gray-400">Loading job queue...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (jobs.length === 0) {
+    return (
+      <div className="text-center py-12 text-gray-400">
+        No jobs in queue
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">

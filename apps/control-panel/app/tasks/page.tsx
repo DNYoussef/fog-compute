@@ -66,6 +66,10 @@ export default function TasksPage() {
   };
 
   useEffect(() => {
+    document.title = 'Tasks | Fog Compute';
+  }, []);
+
+  useEffect(() => {
     const status = activeTab === "all" ? undefined : activeTab;
     fetchTasks(status);
     const interval = setInterval(() => fetchTasks(status), 5000); // Refresh every 5s

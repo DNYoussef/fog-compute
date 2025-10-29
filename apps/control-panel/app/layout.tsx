@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { Navigation } from '@/components/Navigation';
 import { Toaster } from 'react-hot-toast';
+import { BottomNavigation } from '@/components/mobile/BottomNavigation';
 
 export const metadata: Metadata = {
   title: 'Fog Compute Control Panel',
@@ -38,7 +39,7 @@ export default function RootLayout({
             },
           }}
         />
-        <div className="min-h-screen flex flex-col" data-testid="main-layout">
+        <div className="min-h-screen flex flex-col pb-16 md:pb-0" data-testid="main-layout">
           <Navigation />
           <main className="flex-1 container mx-auto px-4 py-6" data-testid="main-content">
             <div data-testid="main-grid">
@@ -46,6 +47,7 @@ export default function RootLayout({
             </div>
           </main>
         </div>
+        <BottomNavigation />
       </body>
     </html>
   );

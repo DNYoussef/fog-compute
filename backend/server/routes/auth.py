@@ -148,18 +148,58 @@ async def get_current_user_info(current_user: User = Depends(get_current_active_
 
 
 @router.post("/logout")
-async def logout(current_user: User = Depends(get_current_active_user)):
+async def logout():
     """
-    Logout current user (token invalidation would happen client-side)
+    Logout user (idempotent operation)
 
-    **Requires:** Valid JWT token in Authorization header
+    **Authentication:** Optional - logout succeeds with or without valid token
 
     **Returns:**
-    - Success message
+    - 200: Logout successful (always succeeds)
 
-    **Note:** JWTs are stateless. Actual token invalidation should be
-    handled client-side by deleting the token. For server-side invalidation,
-    implement a token blacklist or use shorter token expiration times.
+    **Design Rationale:**
+    Logout is idempotent and follows senior-grade API standards:
+    - Always returns 200 OK regardless of token validity
+    - No token required (already logged out scenario)
+    - Invalid token accepted (token expired/revoked scenario)
+    - Fail-safe design (errors don't block logout)
+
+    **Security Model:**
+    JWTs are stateless and client-side managed. Logout is primarily a
+    client-side operation (delete token from storage). For server-side
+    token revocation, implement:
+    - Token blacklist with Redis cache
+    - Refresh token revocation in database
+    - Shorter token expiration times (current: 30min)
+
+    **Future Enhancements:**
+    - Clear refresh token cookie if using cookie-based sessions
+    - Revoke refresh tokens from database
+    - Clear user sessions from cache
+    - Emit logout event for audit logging
     """
-    logger.info(f"User logged out: {current_user.username}")
-    return {"message": "Successfully logged out"}
+    try:
+        # Log successful logout attempt (no user context required)
+        # If we had refresh token cookies, clear them here:
+        # response.delete_cookie(
+        #     key="refresh_token",
+        #     path="/",
+        #     secure=True,
+        #     httponly=True,
+        #     samesite="lax"
+        # )
+
+        logger.info("Logout request processed successfully")
+
+        return {
+            "success": True,
+            "message": "Successfully logged out"
+        }
+
+    except Exception as e:
+        # Even on error, return 200 (logout is idempotent and fail-safe)
+        logger.error(f"Logout error (non-blocking): {e}", exc_info=True)
+        return {
+            "success": True,
+            "message": "Successfully logged out"
+        }

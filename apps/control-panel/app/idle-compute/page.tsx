@@ -34,6 +34,10 @@ export default function IdleComputePage() {
   const [harvestMode, setHarvestMode] = useState<'conservative' | 'balanced' | 'aggressive'>('balanced');
 
   useEffect(() => {
+    document.title = 'Idle Compute | Fog Compute';
+  }, []);
+
+  useEffect(() => {
     const fetchStats = async () => {
       try {
         const response = await fetch('/api/idle-compute/stats');

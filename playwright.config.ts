@@ -155,8 +155,8 @@ export default defineConfig({
           if (process.env.CI === 'true') {
             throw new Error('CRITICAL: DATABASE_URL not set in CI environment. Check GitHub Actions workflow export to $GITHUB_ENV');
           }
-          // Local dev fallback (will be caught by backend validation if incorrect)
-          return '';
+          // Local dev fallback - use same default as backend config.py
+          return 'postgresql+asyncpg://postgres:postgres@localhost:5432/fog_compute_test';
         })(),
         PATH: process.env.PATH || '',
         PYTHONPATH: process.env.PYTHONPATH || '',

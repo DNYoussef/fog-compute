@@ -28,6 +28,10 @@ export default function P2PNetworkPage() {
   const [selectedProtocol, setSelectedProtocol] = useState<'all' | 'ble' | 'htx' | 'mesh'>('all');
 
   useEffect(() => {
+    document.title = 'P2P Network | Fog Compute';
+  }, []);
+
+  useEffect(() => {
     const fetchStats = async () => {
       try {
         const response = await fetch('/api/p2p/stats');

@@ -19,6 +19,10 @@ export default function BenchmarksPage() {
   const [testType, setTestType] = useState<'latency' | 'throughput' | 'stress'>('latency');
 
   useEffect(() => {
+    document.title = 'Benchmarks | Fog Compute';
+  }, []);
+
+  useEffect(() => {
     const fetchBenchmarkData = async () => {
       try {
         const response = await fetch('/api/benchmarks/data');
@@ -29,7 +33,7 @@ export default function BenchmarksPage() {
       }
     };
 
-    const interval = setInterval(fetchBenchmarkData, 1000);
+    const interval = setInterval(fetchBenchmarkData, 2000);
     return () => clearInterval(interval);
   }, []);
 
@@ -126,7 +130,7 @@ export default function BenchmarksPage() {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Sample Rate:</span>
-              <span className="font-semibold">1 second</span>
+              <span className="font-semibold">2 seconds</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Data Points:</span>

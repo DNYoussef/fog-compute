@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { BetanetTopology } from '@/components/BetanetTopology';
 import { PacketFlowMonitor } from '@/components/PacketFlowMonitor';
 import { MixnodeList } from '@/components/MixnodeList';
+import { NodeManagementPanel } from '@/components/betanet/NodeManagementPanel';
 
 interface MixnodeInfo {
   id: string;
@@ -20,6 +21,10 @@ export default function BetanetPage() {
   const [mixnodes, setMixnodes] = useState<MixnodeInfo[]>([]);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [networkHealth, setNetworkHealth] = useState<number>(0);
+
+  useEffect(() => {
+    document.title = 'Betanet Network | Fog Compute';
+  }, []);
 
   useEffect(() => {
     const fetchBetanetData = async () => {
@@ -81,6 +86,11 @@ export default function BetanetPage() {
           <div className="text-sm text-gray-400">Total Packets</div>
         </div>
       </div>
+      {/* Node Management Panel */}
+      <div className="glass rounded-xl p-6">
+        <NodeManagementPanel />
+      </div>
+
 
       {/* 3D Network Topology */}
       <div className="glass rounded-xl p-6">

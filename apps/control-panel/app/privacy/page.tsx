@@ -35,6 +35,10 @@ export default function PrivacyPage() {
   const [selectedCircuit, setSelectedCircuit] = useState<string | null>(null);
 
   useEffect(() => {
+    document.title = 'Privacy | Fog Compute';
+  }, []);
+
+  useEffect(() => {
     const fetchStats = async () => {
       try {
         const response = await fetch('/api/privacy/stats');

@@ -15,10 +15,11 @@ test.describe('Control Panel Dashboard', () => {
     await expect(page.locator('h1')).toContainText('Fog Compute Dashboard');
 
     // Verify navigation
-    await expect(page.locator('nav')).toBeVisible();
-    await expect(page.getByRole('link', { name: /dashboard/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: /betanet/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: /benchmarks/i })).toBeVisible();
+    const nav = page.locator('nav');
+    await expect(nav).toBeVisible();
+    await expect(nav.getByRole('link', { name: /dashboard/i })).toBeVisible();
+    await expect(nav.getByRole('link', { name: /betanet/i })).toBeVisible();
+    await expect(nav.getByRole('link', { name: /benchmarks/i })).toBeVisible();
   });
 
   test('shows system metrics', async ({ page }) => {

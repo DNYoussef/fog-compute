@@ -14,6 +14,7 @@ interface Device {
 
 export function DeviceList() {
   const [devices, setDevices] = useState<Device[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchDevices = async () => {
@@ -21,8 +22,10 @@ export function DeviceList() {
         const response = await fetch('/api/idle-compute/devices');
         const data = await response.json();
         setDevices(data.devices || []);
+        setIsLoading(false);
       } catch (error) {
         console.error('Failed to fetch devices:', error);
+        setIsLoading(false);
       }
     };
 
@@ -43,6 +46,25 @@ export function DeviceList() {
   const getPlatformIcon = (platform: string) => {
     return platform === 'android' ? '🤖' : '🍎';
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-fog-cyan"></div>
+          <p className="mt-2 text-gray-400">Loading devices...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (devices.length === 0) {
+    return (
+      <div className="text-center py-12 text-gray-400">
+        No devices connected
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">

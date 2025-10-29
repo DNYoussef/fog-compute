@@ -36,7 +36,8 @@ from .routes import (
     auth,
     bitchat,
     orchestration,
-    websocket as websocket_routes
+    websocket as websocket_routes,
+    deployment
 )
 
 # Import WebSocket handlers
@@ -165,6 +166,7 @@ app.include_router(benchmarks.router)
 app.include_router(bitchat.router)  # BitChat messaging
 app.include_router(orchestration.router)  # Service orchestration
 app.include_router(websocket_routes.router)  # WebSocket management
+app.include_router(deployment.router)  # Deployment orchestration
 
 
 # WebSocket for real-time metrics
@@ -218,6 +220,9 @@ async def root():
             "orchestration": "/api/orchestration/services",
             "orchestration_health": "/api/orchestration/health",
             "orchestration_dependencies": "/api/orchestration/dependencies",
+            "deployment": "/api/deployment/deploy",
+            "deployment_list": "/api/deployment/list",
+            "deployment_status": "/api/deployment/status/{deployment_id}",
             "websocket": "ws://localhost:8000/ws/metrics",
             "bitchat_ws": "ws://localhost:8000/api/bitchat/ws/{peer_id}"
         },

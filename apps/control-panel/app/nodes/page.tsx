@@ -54,6 +54,10 @@ export default function NodesPage() {
   };
 
   useEffect(() => {
+    document.title = 'Nodes | Fog Compute';
+  }, []);
+
+  useEffect(() => {
     fetchNodes();
     const interval = setInterval(fetchNodes, 10000); // Refresh every 10s
     return () => clearInterval(interval);

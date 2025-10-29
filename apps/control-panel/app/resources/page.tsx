@@ -41,6 +41,10 @@ export default function ResourcesPage() {
   const handleSaveAutoScaling = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+
+  useEffect(() => {
+    document.title = 'Resources | Fog Compute';
+  }, []);
     setAutoScalingConfig({
       scaleUpThreshold: parseInt(formData.get('scale-up-threshold') as string),
       scaleDownThreshold: parseInt(formData.get('scale-down-threshold') as string),

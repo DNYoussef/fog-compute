@@ -14,6 +14,10 @@ export default function BitChatPage() {
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
+    document.title = 'BitChat | Fog Compute';
+  }, []);
+
+  useEffect(() => {
     // Generate or retrieve user ID
     const storedUserId = localStorage.getItem('bitchat-user-id');
     if (storedUserId) {
