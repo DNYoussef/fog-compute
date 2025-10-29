@@ -118,19 +118,15 @@ export default function BetanetPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="glass rounded-xl p-6">
           <h2 className="text-xl font-semibold mb-4">Packet Flow Monitor</h2>
-          <div data-testid="packet-flow-monitor">
-            <PacketFlowMonitor mixnodes={mixnodes} />
-          </div>
+          <PacketFlowMonitor mixnodes={mixnodes} />
         </div>
         <div className="glass rounded-xl p-6">
           <h2 className="text-xl font-semibold mb-4">Mixnode Details</h2>
-          <div data-testid="mixnode-list">
-            <MixnodeList
-              mixnodes={mixnodes}
-              selectedNode={selectedNode}
-              onNodeSelect={setSelectedNode}
-            />
-          </div>
+          <MixnodeList
+            mixnodes={mixnodes}
+            selectedNode={selectedNode}
+            onNodeSelect={setSelectedNode}
+          />
         </div>
       </div>
     </div>

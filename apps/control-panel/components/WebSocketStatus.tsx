@@ -198,6 +198,7 @@ export function WebSocketStatus({
   return (
     <div
       data-testid={config.testId}
+      data-status={state}
       className="flex items-center gap-3 px-3 py-2 bg-gray-900 border border-gray-800 rounded-lg"
     >
       {/* Animated Status Dot */}
