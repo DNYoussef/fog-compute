@@ -105,7 +105,7 @@ export default function BetanetPage() {
             </button>
           </div>
         </div>
-        <div className="h-[500px] rounded-lg overflow-hidden" data-testid="betanet-topology">
+        <div className="h-[500px] rounded-lg overflow-hidden">
           <BetanetTopology
             mixnodes={mixnodes}
             selectedNode={selectedNode}
