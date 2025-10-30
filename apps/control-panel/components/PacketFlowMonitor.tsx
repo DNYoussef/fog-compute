@@ -44,13 +44,22 @@ export function PacketFlowMonitor({ mixnodes }: { mixnodes: MixnodeInfo[] }) {
     return () => clearInterval(interval);
   }, [mixnodes]);
 
+  const totalPackets = flows.reduce((acc, flow) => acc + flow.packets, 0);
+  const throughput = (totalPackets * 1500 * 8) / (1024 * 1024 * (flows.length * 2)); // Rough estimate in Mbps
+
   return (
-    <div className="h-[300px] overflow-y-auto space-y-2" data-testid="packet-flow-monitor">
-      {flows.length === 0 ? (
-        <div className="text-center text-gray-400 py-8">
-          Waiting for packet flows...
+    <div className="space-y-4" data-testid="packet-flow-monitor">
+      <div className="flex justify-between items-center">
+        <div className="text-sm text-gray-400">
+          Throughput: <span className="font-semibold text-white" data-testid="throughput-value">{throughput.toFixed(2)} Mbps</span>
         </div>
-      ) : (
+      </div>
+      <div className="h-[260px] overflow-y-auto space-y-2">
+        {flows.length === 0 ? (
+          <div className="text-center text-gray-400 py-8">
+            Waiting for packet flows...
+          </div>
+        ) : (
         flows.slice().reverse().map((flow, index) => (
           <div
             key={`${flow.timestamp}-${index}`}
@@ -72,7 +81,8 @@ export function PacketFlowMonitor({ mixnodes }: { mixnodes: MixnodeInfo[] }) {
             </div>
           </div>
         ))
-      )}
+        )}
+      </div>
     </div>
   );
 }

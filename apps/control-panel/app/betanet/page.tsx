@@ -94,7 +94,17 @@ export default function BetanetPage() {
 
       {/* 3D Network Topology */}
       <div className="glass rounded-xl p-6">
-        <h2 className="text-xl font-semibold mb-4">Network Topology</h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold">Network Topology</h2>
+          <div className="flex gap-2" data-testid="topology-controls">
+            <button className="px-3 py-1 text-sm bg-white/10 hover:bg-white/20 rounded">
+              Reset View
+            </button>
+            <button className="px-3 py-1 text-sm bg-white/10 hover:bg-white/20 rounded">
+              Auto Rotate
+            </button>
+          </div>
+        </div>
         <div className="h-[500px] rounded-lg overflow-hidden">
           <BetanetTopology
             mixnodes={mixnodes}

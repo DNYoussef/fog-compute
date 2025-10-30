@@ -120,7 +120,7 @@ export default function BenchmarksPage() {
       </div>
 
       {/* System Info */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6" data-testid="benchmark-results">
         <div className="glass rounded-xl p-6">
           <h3 className="text-lg font-semibold mb-4">Test Configuration</h3>
           <div className="space-y-2 text-sm">

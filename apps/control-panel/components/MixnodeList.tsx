@@ -29,6 +29,7 @@ export function MixnodeList({
         mixnodes.map((node) => (
           <div
             key={node.id}
+            data-testid={`mixnode-${node.id}`}
             onClick={() => onNodeSelect(node.id)}
             className={`glass-dark rounded-lg p-3 cursor-pointer transition-all duration-200 ${
               selectedNode === node.id ? 'ring-2 ring-fog-cyan' : 'hover:bg-white/10'

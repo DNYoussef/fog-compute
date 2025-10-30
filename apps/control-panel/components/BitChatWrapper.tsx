@@ -68,11 +68,12 @@ export default function BitChatWrapper({ userId }: { userId: string }) {
           </button>
         </div>
 
-        <div className="space-y-2">
-          <h3 className="text-sm font-semibold text-gray-400 mb-2">Available Peers ({peers.length})</h3>
+        <div className="space-y-2" data-testid="peer-list">
+          <h3 className="text-sm font-semibold text-gray-400 mb-2" data-testid="peer-status">Available Peers ({peers.length})</h3>
           {peers.map(peer => (
             <div
               key={peer.id}
+              data-testid={`peer-${peer.id}`}
               onClick={() => setSelectedPeer(peer.id)}
               className={`p-3 rounded-lg cursor-pointer transition-all ${
                 selectedPeer === peer.id ? 'bg-fog-purple/20 ring-2 ring-fog-purple' : 'bg-white/5 hover:bg-white/10'
