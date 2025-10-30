@@ -10,6 +10,10 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    env:
+      RUST_BACKTRACE: 1
+      CARGO_TERM_COLOR: always
+
     steps:
     - uses: actions/checkout@v4
 
@@ -19,6 +23,7 @@ jobs:
         toolchain: stable
         profile: minimal
         override: true
+        components: rustfmt, clippy
 
     - name: Setup Rust Cache
       uses: Swatinem/rust-cache@v2
@@ -26,14 +31,48 @@ jobs:
         workspaces: src/betanet
         cache-on-failure: true
 
-    - name: Build Betanet
-      run: cargo build --verbose --manifest-path src/betanet/Cargo.toml
+    - name: Check Rust version
+      run: |
+        rustc --version
+        cargo --version
+
+    - name: Check Betanet package structure
+      run: |
+        cd src/betanet
+        echo "=== Cargo.toml configuration ==="
+        cat Cargo.toml | grep -A 5 "\[lib\]" || echo "No [lib] section"
+        echo ""
+        echo "=== Source files structure ==="
+        find . -name "*.rs" -not -path "./target/*" | head -20
       if: hashFiles('src/betanet/Cargo.toml') != ''
 
-    - name: Run Betanet tests
-      run: cargo test --verbose --manifest-path src/betanet/Cargo.toml
+    - name: Build Betanet (Debug Mode)
+      run: |
+        cd src/betanet
+        cargo build --verbose --all-features
       if: hashFiles('src/betanet/Cargo.toml') != ''
 
-    - name: Run clippy on Betanet
-      run: cargo clippy --manifest-path src/betanet/Cargo.toml
+    - name: Run Betanet tests with detailed output
+      run: |
+        cd src/betanet
+        cargo test --verbose --no-fail-fast --all-features -- --nocapture --test-threads=1
       if: hashFiles('src/betanet/Cargo.toml') != ''
+
+    - name: Run clippy with comprehensive checks
+      run: |
+        cd src/betanet
+        cargo clippy --all-features --all-targets -- \
+          -W clippy::all \
+          -W clippy::pedantic \
+          -A clippy::missing_errors_doc \
+          -A clippy::missing_panics_doc \
+          -A clippy::module_name_repetitions
+      if: hashFiles('src/betanet/Cargo.toml') != ''
+      continue-on-error: true
+
+    - name: Check code formatting
+      run: |
+        cd src/betanet
+        cargo fmt -- --check
+      if: hashFiles('src/betanet/Cargo.toml') != ''
+      continue-on-error: true

@@ -1,189 +1,131 @@
 /**
  * Cross-Browser Compatibility Tests
+ *
+ * These tests use Playwright's project-based execution model.
+ * Each test runs once per configured browser project (chromium, firefox, webkit).
+ * The { page } fixture is automatically provided with the correct browser.
+ *
+ * Configuration: playwright.config.ts defines projects for each browser.
+ * Usage: npx playwright test cross-browser.spec.ts --project=chromium
  */
 
-import { test, expect, chromium, firefox, webkit } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 
-test.describe('Chromium Browser', () => {
-  test('renders correctly in Chrome', async () => {
-    const browser = await chromium.launch();
-    const page = await browser.newPage();
-
-    await page.goto('http://localhost:3000');
+test.describe('Basic Browser Rendering', () => {
+  test('renders correctly across all browsers', async ({ page, browserName }) => {
+    // This test runs once per browser project (chromium, firefox, webkit)
+    // Playwright handles browser instantiation through projects
+    await page.goto('/');
 
     await expect(page.locator('h1')).toBeVisible();
     await expect(page.locator('nav')).toBeVisible();
-
-    await browser.close();
   });
 
-  test('3D topology works in Chrome', async () => {
-    const browser = await chromium.launch();
-    const page = await browser.newPage();
+  test('3D topology works across browsers', async ({ page, browserName }) => {
+    // Each browser project runs this test with its own browser instance
+    await page.goto('/betanet');
 
-    await page.goto('http://localhost:3000/betanet');
+    // For Chromium, check canvas element
+    if (browserName === 'chromium') {
+      const canvas = page.locator('canvas');
+      await expect(canvas).toBeVisible();
 
-    const canvas = page.locator('canvas');
-    await expect(canvas).toBeVisible();
+      // Check WebGL support in Chromium
+      const hasWebGL = await page.evaluate(() => {
+        const canvas = document.createElement('canvas');
+        return !!(canvas.getContext('webgl') || canvas.getContext('experimental-webgl'));
+      });
 
-    // Check WebGL support
-    const hasWebGL = await page.evaluate(() => {
-      const canvas = document.createElement('canvas');
-      return !!(canvas.getContext('webgl') || canvas.getContext('experimental-webgl'));
-    });
-
-    expect(hasWebGL).toBe(true);
-
-    await browser.close();
+      expect(hasWebGL).toBe(true);
+    } else {
+      // For Firefox and WebKit, check topology element
+      const topology = page.locator('[data-testid="betanet-topology"]');
+      await expect(topology).toBeVisible();
+    }
   });
 });
 
-test.describe('Firefox Browser', () => {
-  test('renders correctly in Firefox', async () => {
-    const browser = await firefox.launch();
-    const page = await browser.newPage();
-
-    await page.goto('http://localhost:3000');
-
-    await expect(page.locator('h1')).toBeVisible();
-    await expect(page.locator('nav')).toBeVisible();
-
-    await browser.close();
-  });
-
-  test('charts render in Firefox', async () => {
-    const browser = await firefox.launch();
-    const page = await browser.newPage();
-
-    await page.goto('http://localhost:3000/benchmarks');
+test.describe('Browser-Specific Features', () => {
+  test('charts render correctly', async ({ page }) => {
+    await page.goto('/benchmarks');
 
     const charts = page.locator('[data-testid="benchmark-charts"]');
     await expect(charts).toBeVisible();
-
-    await browser.close();
   });
 
-  test('WebSocket works in Firefox', async () => {
-    const browser = await firefox.launch();
-    const page = await browser.newPage();
-
-    await page.goto('http://localhost:3000');
+  test('WebSocket connection works', async ({ page }) => {
+    await page.goto('/');
 
     const wsStatus = page.locator('[data-testid="ws-status"]');
     await expect(wsStatus).toBeVisible();
-
-    await browser.close();
-  });
-});
-
-test.describe('WebKit/Safari Browser', () => {
-  test('renders correctly in Safari', async () => {
-    const browser = await webkit.launch();
-    const page = await browser.newPage();
-
-    await page.goto('http://localhost:3000');
-
-    await expect(page.locator('h1')).toBeVisible();
-    await expect(page.locator('nav')).toBeVisible();
-
-    await browser.close();
   });
 
-  test('3D topology works in Safari', async () => {
-    const browser = await webkit.launch();
-    const page = await browser.newPage();
-
-    await page.goto('http://localhost:3000/betanet');
-
-    const topology = page.locator('[data-testid="betanet-topology"]');
-    await expect(topology).toBeVisible();
-
-    await browser.close();
-  });
-
-  test('touch events work in Safari', async () => {
-    const browser = await webkit.launch();
-    const context = await browser.newContext({
-      hasTouch: true,
-    });
-    const page = await context.newPage();
-
-    await page.goto('http://localhost:3000/betanet');
+  test('touch events work on mobile browsers', async ({ page, browserName, context }) => {
+    // Touch events are primarily for WebKit/Safari
+    // Use context to enable touch if needed
+    await page.goto('/betanet');
 
     const firstNode = page.locator('[data-testid^="mixnode-"]').first();
-    await firstNode.tap();
+
+    // Use tap for touch-enabled browsers, click for others
+    if (browserName === 'webkit') {
+      await firstNode.tap();
+    } else {
+      await firstNode.click();
+    }
 
     await expect(page.locator('[data-testid="node-details"]')).toBeVisible();
-
-    await browser.close();
   });
 });
 
 test.describe('Cross-Browser Feature Parity', () => {
-  const browsers = [
-    { name: 'Chromium', launcher: chromium },
-    { name: 'Firefox', launcher: firefox },
-    { name: 'WebKit', launcher: webkit },
-  ];
+  // These tests run once per browser project (chromium, firefox, webkit)
+  // No need for browser loops - Playwright handles this via project configuration
 
-  browsers.forEach(({ name, launcher }) => {
-    test(`benchmark execution works in ${name}`, async () => {
-      const browser = await launcher.launch();
-      const page = await browser.newPage();
+  test('benchmark execution works across all browsers', async ({ page, browserName }) => {
+    // This test runs on all browser projects automatically
+    await page.goto('/benchmarks');
 
-      await page.goto('http://localhost:3000/benchmarks');
+    // Start benchmark
+    await page.getByRole('button', { name: /start/i }).click();
 
-      // Start benchmark
-      await page.getByRole('button', { name: /start/i }).click();
+    // Should show running state
+    await expect(page.getByText(/running/i)).toBeVisible();
 
-      // Should show running state
-      await expect(page.getByText(/running/i)).toBeVisible();
+    // Stop benchmark
+    await page.getByRole('button', { name: /stop/i }).click();
+  });
 
-      // Stop benchmark
-      await page.getByRole('button', { name: /stop/i }).click();
+  test('real-time updates work across all browsers', async ({ page, browserName }) => {
+    // Each browser project runs this test independently
+    await page.goto('/');
 
-      await browser.close();
+    // Check for metric updates
+    const metrics = page.locator('[data-testid="system-metrics"]');
+    await expect(metrics).toBeVisible();
+  });
+
+  test('API calls work across all browsers', async ({ page, browserName }) => {
+    // Monitor network requests
+    let apiCallMade = false;
+    page.on('request', (request) => {
+      if (request.url().includes('/api/')) {
+        apiCallMade = true;
+      }
     });
 
-    test(`real-time updates work in ${name}`, async () => {
-      const browser = await launcher.launch();
-      const page = await browser.newPage();
+    await page.goto('/betanet');
 
-      await page.goto('http://localhost:3000');
+    await page.waitForLoadState('networkidle');
 
-      // Check for metric updates
-      const metrics = page.locator('[data-testid="system-metrics"]');
-      await expect(metrics).toBeVisible();
-
-      await browser.close();
-    });
-
-    test(`API calls work in ${name}`, async () => {
-      const browser = await launcher.launch();
-      const page = await browser.newPage();
-
-      // Monitor network requests
-      let apiCallMade = false;
-      page.on('request', (request) => {
-        if (request.url().includes('/api/')) {
-          apiCallMade = true;
-        }
-      });
-
-      await page.goto('http://localhost:3000/betanet');
-
-      await page.waitForLoadState('networkidle');
-
-      expect(apiCallMade).toBe(true);
-
-      await browser.close();
-    });
+    expect(apiCallMade).toBe(true);
   });
 });
 
 test.describe('Browser-Specific Optimizations', () => {
   test('uses requestAnimationFrame in all browsers', async ({ page }) => {
-    await page.goto('http://localhost:3000/betanet');
+    // Uses relative path with baseURL from playwright.config.ts
+    await page.goto('/betanet');
 
     const hasRAF = await page.evaluate(() => {
       return typeof window.requestAnimationFrame === 'function';
@@ -193,7 +135,7 @@ test.describe('Browser-Specific Optimizations', () => {
   });
 
   test('Canvas 2D fallback works', async ({ page }) => {
-    await page.goto('http://localhost:3000/benchmarks');
+    await page.goto('/benchmarks');
 
     const canvas2DSupport = await page.evaluate(() => {
       const canvas = document.createElement('canvas');
@@ -204,7 +146,7 @@ test.describe('Browser-Specific Optimizations', () => {
   });
 
   test('localStorage works across browsers', async ({ page }) => {
-    await page.goto('http://localhost:3000');
+    await page.goto('/');
 
     await page.evaluate(() => {
       localStorage.setItem('test', 'value');
@@ -218,7 +160,7 @@ test.describe('Browser-Specific Optimizations', () => {
   });
 
   test('sessionStorage works across browsers', async ({ page }) => {
-    await page.goto('http://localhost:3000');
+    await page.goto('/');
 
     await page.evaluate(() => {
       sessionStorage.setItem('session-test', 'session-value');
@@ -233,46 +175,32 @@ test.describe('Browser-Specific Optimizations', () => {
 });
 
 test.describe('Performance Across Browsers', () => {
-  const browsers = [
-    { name: 'Chromium', launcher: chromium },
-    { name: 'Firefox', launcher: firefox },
-    { name: 'WebKit', launcher: webkit },
-  ];
+  // These tests run once per browser project
+  // Playwright's project configuration handles browser instantiation
 
-  browsers.forEach(({ name, launcher }) => {
-    test(`page load time is acceptable in ${name}`, async () => {
-      const browser = await launcher.launch();
-      const page = await browser.newPage();
+  test('page load time is acceptable across all browsers', async ({ page, browserName }) => {
+    // Each browser project runs this test independently
+    const startTime = Date.now();
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    const loadTime = Date.now() - startTime;
 
-      const startTime = Date.now();
-      await page.goto('http://localhost:3000');
-      await page.waitForLoadState('networkidle');
-      const loadTime = Date.now() - startTime;
+    expect(loadTime).toBeLessThan(5000); // < 5 seconds
+  });
 
-      expect(loadTime).toBeLessThan(5000); // < 5 seconds
+  test('memory usage is reasonable', async ({ page, browserName }) => {
+    // Skip metrics test for WebKit as page.metrics() is not supported
+    // page.metrics() only supported in Chromium and Firefox
+    if (browserName === 'webkit') {
+      test.skip();
+      return;
+    }
 
-      await browser.close();
-    });
+    await page.goto('/betanet');
 
-    test(`memory usage is reasonable in ${name}`, async () => {
-      // Skip metrics test for WebKit as page.metrics() is not supported
-      if (name === 'WebKit') {
-        test.skip();
-        return;
-      }
+    const metrics = await page.metrics();
 
-      const browser = await launcher.launch();
-      const page = await browser.newPage();
-
-      await page.goto('http://localhost:3000/betanet');
-
-      // page.metrics() only supported in Chromium and Firefox
-      const metrics = await page.metrics();
-
-      // Memory usage should be reasonable
-      expect(metrics.JSHeapUsedSize).toBeLessThan(100 * 1024 * 1024); // < 100MB
-
-      await browser.close();
-    });
+    // Memory usage should be reasonable
+    expect(metrics.JSHeapUsedSize).toBeLessThan(100 * 1024 * 1024); // < 100MB
   });
 });

@@ -236,8 +236,8 @@ impl Default for PerformanceTargets {
 
 pub mod server;
 
-#[cfg(test)]
-mod tests;
+// Note: Integration tests are in the tests/ directory
+// They are separate compilation units that test the public API
 
 #[cfg(test)]
 mod unit_tests {

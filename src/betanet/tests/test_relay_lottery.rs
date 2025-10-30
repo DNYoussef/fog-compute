@@ -9,8 +9,8 @@ mod tests {
     use std::net::SocketAddr;
     use std::time::Instant;
 
-    use crate::core::relay_lottery::{RelayLottery, WeightedRelay};
-    use crate::core::reputation::{PenaltyType, RewardType};
+    use betanet::core::relay_lottery::{RelayLottery, WeightedRelay};
+    use betanet::core::reputation::{PenaltyType, RewardType};
 
     /// Helper to create test relays
     fn create_test_relays(count: usize) -> Vec<WeightedRelay> {
@@ -212,7 +212,7 @@ mod tests {
         let _lottery = RelayLottery::with_config(true, 1000);
 
         // Manually add reputation manager for testing
-        let mut rep_manager = crate::core::reputation::ReputationManager::default();
+        let mut rep_manager = betanet::core::reputation::ReputationManager::default();
 
         let addr1: SocketAddr = "127.0.0.1:8080".parse().unwrap();
         let addr2: SocketAddr = "127.0.0.1:8081".parse().unwrap();
