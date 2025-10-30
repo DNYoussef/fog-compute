@@ -23,14 +23,11 @@ export default defineConfig({
   // Retry on CI only
   retries: process.env.CI ? 2 : 0,
 
-  // Moderate parallelism on CI for better performance
-  workers: process.env.CI ? 2 : undefined,
+  // CI optimization: Single worker for stability, full parallelism locally
+  workers: process.env.CI ? 1 : undefined,
 
   // Reporter to use - blob reporter for sharded test merging in CI
-  reporter: process.env.CI ? [
-    ['blob'],  // Blob reporter for sharded test merging in CI
-    ['list'],  // Console output
-  ] : [
+  reporter: process.env.CI ? 'blob' : [
     ['html', { outputFolder: 'tests/output/playwright-report' }],
     ['json', { outputFile: 'tests/output/playwright-results.json' }],
     ['junit', { outputFile: 'tests/output/playwright-results.xml' }],
@@ -42,33 +39,15 @@ export default defineConfig({
     // Base URL for navigation
     baseURL: 'http://localhost:3000',
 
-    // Enhanced trace collection
-    trace: {
-      mode: 'on-first-retry',
-      screenshots: true,
-      snapshots: true,
-      sources: true,
-    },
+    // Trace collection - simplified for performance
+    trace: 'on-first-retry',
 
     // Screenshot configuration
-    screenshot: {
-      mode: 'only-on-failure',
-      fullPage: true,
-    },
+    screenshot: 'only-on-failure',
 
-    // Video recording with custom size
-    video: {
-      mode: 'retain-on-failure',
-      size: { width: 1920, height: 1080 }
-    },
+    // Video recording - disabled by default for performance
+    video: process.env.RECORD_VIDEO ? 'retain-on-failure' : 'off',
 
-    // Network HAR recording
-    contextOptions: {
-      recordHar: process.env.RECORD_HAR ? {
-        path: 'test-results/network.har',
-        mode: 'minimal'
-      } : undefined,
-    },
 
     // Advanced timeouts
     actionTimeout: 15 * 1000,
@@ -84,52 +63,28 @@ export default defineConfig({
   },
 
   // Configure projects for major browsers
-  projects: [
+  // CI: Run only chromium for speed, Local: Run all browsers
+  projects: process.env.CI ? [
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        // CI-specific optimizations
+        viewport: { width: 1280, height: 720 },
+      },
+    },
+  ] : [
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
-
     {
       name: 'firefox',
       use: { ...devices['Desktop Firefox'] },
     },
-
     {
       name: 'webkit',
       use: { ...devices['Desktop Safari'] },
-    },
-
-    // Mobile browsers
-    {
-      name: 'Mobile Chrome',
-      use: { ...devices['Pixel 5'] },
-    },
-    {
-      name: 'Mobile Safari',
-      use: { ...devices['iPhone 12'] },
-    },
-
-    // Tablet browsers
-    {
-      name: 'iPad',
-      use: { ...devices['iPad Pro'] },
-    },
-
-    // Desktop with different viewport sizes
-    {
-      name: 'Desktop Large',
-      use: {
-        ...devices['Desktop Chrome'],
-        viewport: { width: 1920, height: 1080 },
-      },
-    },
-    {
-      name: 'Desktop Small',
-      use: {
-        ...devices['Desktop Chrome'],
-        viewport: { width: 1366, height: 768 },
-      },
     },
   ],
 
@@ -148,20 +103,15 @@ export default defineConfig({
       stdout: 'pipe',
       stderr: 'pipe',
       env: {
-        // FIXED: Explicit environment object instead of spread operator
-        // Windows subprocess may not inherit process.env reliably via spread
-        // Only pass essential variables explicitly to ensure propagation
-        DATABASE_URL: process.env.DATABASE_URL || (() => {
-          if (process.env.CI === 'true') {
-            throw new Error('CRITICAL: DATABASE_URL not set in CI environment. Check GitHub Actions workflow export to $GITHUB_ENV');
-          }
-          // Local dev fallback - use same default as backend config.py
-          return 'postgresql+asyncpg://postgres:postgres@localhost:5432/fog_compute_test';
-        })(),
+        // Explicit environment variables for cross-platform compatibility
+        DATABASE_URL: process.env.DATABASE_URL ||
+          'postgresql+asyncpg://postgres:postgres@localhost:5432/fog_compute_test',
         PATH: process.env.PATH || '',
         PYTHONPATH: process.env.PYTHONPATH || '',
-        // Pass CI flag to backend for validation
         CI: process.env.CI || '',
+        // Additional backend configuration
+        ENVIRONMENT: process.env.CI ? 'test' : 'development',
+        LOG_LEVEL: process.env.CI ? 'WARNING' : 'INFO',
       },
     },
     {

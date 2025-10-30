@@ -45,7 +45,7 @@ jobs:
         with:
           username: postgres
           password: postgres
-          database: fog_compute_test
+          database: fog_compute_test_shard_${{ matrix.shard }}
           port: 5432
         id: postgres
 
@@ -76,6 +76,50 @@ jobs:
         shell: pwsh
         run: echo "DATABASE_URL=${{ steps.postgres.outputs.connection-uri }}" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
+      - name: Start Backend Server (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cd backend
+          DATABASE_URL="${{ steps.postgres.outputs.connection-uri }}" nohup python -m uvicorn server.main:app --host 0.0.0.0 --port 8000 > backend.log 2>&1 &
+          echo $! > backend.pid
+
+      - name: Start Backend Server (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cd backend
+          $env:DATABASE_URL = "${{ steps.postgres.outputs.connection-uri }}"
+          Start-Process python -ArgumentList "-m", "uvicorn", "server.main:app", "--host", "0.0.0.0", "--port", "8000" -NoNewWindow -RedirectStandardOutput backend.log -RedirectStandardError backend-error.log
+          Get-Process python | Select-Object -Last 1 | Select-Object -ExpandProperty Id | Out-File -FilePath backend.pid
+
+      - name: Start Frontend Server (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cd apps/control-panel
+          nohup npm run dev > frontend.log 2>&1 &
+          echo $! > frontend.pid
+
+      - name: Start Frontend Server (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cd apps/control-panel
+          Start-Process npm -ArgumentList "run", "dev" -NoNewWindow -RedirectStandardOutput frontend.log -RedirectStandardError frontend-error.log
+          Get-Process node | Select-Object -Last 1 | Select-Object -ExpandProperty Id | Out-File -FilePath frontend.pid
+
+      - name: Wait for Services
+        run: |
+          echo "Waiting for backend and frontend to be ready..."
+          for i in {1..30}; do
+            if curl -f http://localhost:8000/health 2>/dev/null && curl -f http://localhost:3000 2>/dev/null; then
+              echo "Services are ready!"
+              break
+            fi
+            echo "Attempt $i/30: Services not ready yet, waiting..."
+            sleep 2
+          done
+        shell: bash
+
       - name: Run E2E tests (shard ${{ matrix.shard }}/4)
         run: |
           # Sharding applies to TEST FILES, not projects
@@ -92,6 +136,29 @@ jobs:
           name: blob-report-${{ matrix.os }}-${{ matrix.browser }}-${{ matrix.shard }}
           path: blob-report/
           retention-days: 1
+
+      - name: Cleanup Servers (Linux)
+        if: always() && runner.os == 'Linux'
+        run: |
+          if [ -f backend/backend.pid ]; then
+            kill $(cat backend/backend.pid) 2>/dev/null || true
+          fi
+          if [ -f apps/control-panel/frontend.pid ]; then
+            kill $(cat apps/control-panel/frontend.pid) 2>/dev/null || true
+          fi
+
+      - name: Cleanup Servers (Windows)
+        if: always() && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if (Test-Path backend/backend.pid) {
+            $pid = Get-Content backend/backend.pid
+            Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
+          }
+          if (Test-Path apps/control-panel/frontend.pid) {
+            $pid = Get-Content apps/control-panel/frontend.pid
+            Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
+          }
 
   mobile-tests:
     runs-on: ubuntu-latest
@@ -142,6 +209,30 @@ jobs:
       - name: Set DATABASE_URL environment variable
         run: echo "DATABASE_URL=${{ steps.postgres.outputs.connection-uri }}" >> $GITHUB_ENV
 
+      - name: Start Backend Server
+        run: |
+          cd backend
+          DATABASE_URL="${{ steps.postgres.outputs.connection-uri }}" nohup python -m uvicorn server.main:app --host 0.0.0.0 --port 8000 > backend.log 2>&1 &
+          echo $! > backend.pid
+
+      - name: Start Frontend Server
+        run: |
+          cd apps/control-panel
+          nohup npm run dev > frontend.log 2>&1 &
+          echo $! > frontend.pid
+
+      - name: Wait for Services
+        run: |
+          echo "Waiting for backend and frontend to be ready..."
+          for i in {1..30}; do
+            if curl -f http://localhost:8000/health 2>/dev/null && curl -f http://localhost:3000 2>/dev/null; then
+              echo "Services are ready!"
+              break
+            fi
+            echo "Attempt $i/30: Services not ready yet, waiting..."
+            sleep 2
+          done
+
       - name: Run mobile tests
         run: npx playwright test --project="${{ matrix.project }}"
         env:
@@ -153,6 +244,16 @@ jobs:
         with:
           name: mobile-results-${{ matrix.project }}
           path: test-results/
+
+      - name: Cleanup Servers
+        if: always()
+        run: |
+          if [ -f backend/backend.pid ]; then
+            kill $(cat backend/backend.pid) 2>/dev/null || true
+          fi
+          if [ -f apps/control-panel/frontend.pid ]; then
+            kill $(cat apps/control-panel/frontend.pid) 2>/dev/null || true
+          fi
 
   cross-browser:
     runs-on: ubuntu-latest
@@ -199,6 +300,30 @@ jobs:
       - name: Set DATABASE_URL environment variable
         run: echo "DATABASE_URL=${{ steps.postgres.outputs.connection-uri }}" >> $GITHUB_ENV
 
+      - name: Start Backend Server
+        run: |
+          cd backend
+          DATABASE_URL="${{ steps.postgres.outputs.connection-uri }}" nohup python -m uvicorn server.main:app --host 0.0.0.0 --port 8000 > backend.log 2>&1 &
+          echo $! > backend.pid
+
+      - name: Start Frontend Server
+        run: |
+          cd apps/control-panel
+          nohup npm run dev > frontend.log 2>&1 &
+          echo $! > frontend.pid
+
+      - name: Wait for Services
+        run: |
+          echo "Waiting for backend and frontend to be ready..."
+          for i in {1..30}; do
+            if curl -f http://localhost:8000/health 2>/dev/null && curl -f http://localhost:3000 2>/dev/null; then
+              echo "Services are ready!"
+              break
+            fi
+            echo "Attempt $i/30: Services not ready yet, waiting..."
+            sleep 2
+          done
+
       - name: Run cross-browser tests
         run: npx playwright test tests/e2e/cross-platform.spec.ts
         env:
@@ -210,6 +335,16 @@ jobs:
         with:
           name: cross-browser-report
           path: test-results/
+
+      - name: Cleanup Servers
+        if: always()
+        run: |
+          if [ -f backend/backend.pid ]; then
+            kill $(cat backend/backend.pid) 2>/dev/null || true
+          fi
+          if [ -f apps/control-panel/frontend.pid ]; then
+            kill $(cat apps/control-panel/frontend.pid) 2>/dev/null || true
+          fi
 
   merge-reports:
     if: always()
@@ -233,9 +368,18 @@ jobs:
           path: all-blob-reports
           pattern: blob-report-*
           merge-multiple: true
+        continue-on-error: true
 
       - name: Merge reports
-        run: npx playwright merge-reports --reporter html ./all-blob-reports
+        run: |
+          if [ -d "all-blob-reports" ] && [ "$(ls -A all-blob-reports 2>/dev/null)" ]; then
+            echo "Merging blob reports into HTML report..."
+            npx playwright merge-reports --reporter html ./all-blob-reports
+          else
+            echo "No blob reports found, creating placeholder report..."
+            mkdir -p playwright-report
+            echo "<html><head><title>No Test Reports</title></head><body><h1>No test reports available</h1><p>All test jobs may have failed or no artifacts were uploaded.</p></body></html>" > playwright-report/index.html
+          fi
 
       - name: Upload combined HTML report
         uses: actions/upload-artifact@v4

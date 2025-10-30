@@ -8,10 +8,10 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::Barrier;
 
-use crate::core::config::MixnodeConfig;
-use crate::pipeline::PacketPipeline;
-use crate::server::tcp::{TcpClient, TcpServer};
-use crate::utils::packet::Packet;
+use betanet::core::config::MixnodeConfig;
+use betanet::pipeline::PacketPipeline;
+use betanet::server::tcp::{TcpClient, TcpServer};
+use betanet::utils::packet::Packet;
 
 /// Test basic TCP send/receive functionality
 #[tokio::test]

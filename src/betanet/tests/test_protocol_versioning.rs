@@ -5,7 +5,7 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::core::{
+    use betanet::core::{
         compatibility::{Feature, PacketAdapter, PacketFormat, TranslationContext},
         protocol_version::{
             FeatureFlags, NegotiationResult, ProtocolAdvertisement, ProtocolVersion,
@@ -23,7 +23,7 @@ mod tests {
         let v1_1 = ProtocolVersion::V1_1_0;
 
         // v1.2 can talk to v1.1 (backward compatible)
-        match crate::core::protocol_version::negotiate_version(v1_2, v1_1) {
+        match betanet::core::protocol_version::negotiate_version(v1_2, v1_1) {
             NegotiationResult::Compatible(negotiated) => {
                 assert_eq!(negotiated, v1_1, "Should negotiate to lower version");
             }
@@ -37,7 +37,7 @@ mod tests {
         let v2_0 = ProtocolVersion::new(2, 0, 0);
 
         // Different major versions are incompatible
-        match crate::core::protocol_version::negotiate_version(v1_2, v2_0) {
+        match betanet::core::protocol_version::negotiate_version(v1_2, v2_0) {
             NegotiationResult::Incompatible { .. } => {
                 // Expected
             }
@@ -51,7 +51,7 @@ mod tests {
         let v1_2 = ProtocolVersion::V1_2_0;
 
         // v1.1 cannot talk to v1.2 (missing features)
-        match crate::core::protocol_version::negotiate_version(v1_1, v1_2) {
+        match betanet::core::protocol_version::negotiate_version(v1_1, v1_2) {
             NegotiationResult::Incompatible { .. } => {
                 // Expected - older version can't support newer features
             }
@@ -63,7 +63,7 @@ mod tests {
     fn test_version_negotiation_same_version() {
         let v1_2 = ProtocolVersion::V1_2_0;
 
-        match crate::core::protocol_version::negotiate_version(v1_2, v1_2) {
+        match betanet::core::protocol_version::negotiate_version(v1_2, v1_2) {
             NegotiationResult::Compatible(negotiated) => {
                 assert_eq!(negotiated, v1_2);
             }
@@ -403,7 +403,7 @@ mod tests {
         assert!(node1_ad.is_compatible_with(&node2_ad));
 
         // Negotiate version
-        match crate::core::protocol_version::negotiate_version(node1_version, node2_version) {
+        match betanet::core::protocol_version::negotiate_version(node1_version, node2_version) {
             NegotiationResult::Compatible(negotiated) => {
                 assert_eq!(negotiated, node2_version, "Should negotiate to v1.1");
 
