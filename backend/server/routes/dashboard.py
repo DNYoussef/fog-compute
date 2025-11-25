@@ -1,10 +1,47 @@
 """
 Dashboard API Routes
 Aggregates statistics from all services for dashboard display
+
+API Response Schema:
+{
+    "betanet": {
+        "mixnodes": int,              # Active Betanet mixnodes
+        "activeConnections": int,      # Active network connections
+        "packetsProcessed": int,       # Total packets processed
+        "status": str                  # "online" | "offline"
+    },
+    "bitchat": {
+        "activePeers": int,            # Connected P2P peers
+        "messagesDelivered": int,      # Total messages sent/received
+        "encryptionStatus": bool,      # E2E encryption enabled
+        "meshHealth": str              # "good" | "fair" | "poor"
+    },
+    "benchmarks": {
+        "avgLatency": float,           # Average network latency (ms)
+        "throughput": float,           # Network throughput (Mbps)
+        "networkUtilization": float,   # Network usage percentage (0-100)
+        "cpuUsage": float,             # CPU usage percentage (0-100)
+        "memoryUsage": float           # Memory usage percentage (0-100)
+    },
+    "idle": {
+        "totalDevices": int,           # Total registered devices
+        "harvestingDevices": int,      # Devices actively harvesting
+        "computeHours": float          # Total compute hours contributed
+    },
+    "tokenomics": {
+        "totalSupply": float,          # Total token supply
+        "activeStakers": int           # Number of active stakers
+    },
+    "privacy": {
+        "activeCircuits": int,         # Active onion routing circuits
+        "circuitHealth": float         # Average circuit health (0.0-1.0)
+    }
+}
 """
 from fastapi import APIRouter, HTTPException
 from typing import Dict, Any
 import logging
+import psutil
 
 from ..services.enhanced_service_manager import enhanced_service_manager as service_manager
 
@@ -55,13 +92,32 @@ async def get_dashboard_stats() -> Dict[str, Any]:
             "meshHealth": "good" if connected_peers > 0 else "poor"
         }
 
-        # Benchmarks stats - match frontend interface
-        benchmarks_stats = {
-            "avgLatency": 0.0,
-            "throughput": 0.0,
-            "cpuUsage": 0.0,
-            "memoryUsage": 0.0
-        }
+        # Benchmarks stats - match frontend interface with real system metrics
+        try:
+            cpu_percent = psutil.cpu_percent(interval=0.1)
+            memory_info = psutil.virtual_memory()
+            net_io = psutil.net_io_counters()
+
+            # Calculate network utilization as percentage of typical gigabit capacity
+            # Using simple heuristic: (bytes_sent + bytes_recv) as indicator
+            network_util = min(100.0, (net_io.bytes_sent + net_io.bytes_recv) / (1024 * 1024 * 100) * 10)
+
+            benchmarks_stats = {
+                "avgLatency": scheduler.get_avg_latency() if scheduler and hasattr(scheduler, 'get_avg_latency') else 0.0,
+                "throughput": (net_io.bytes_sent + net_io.bytes_recv) / (1024 * 1024) if net_io else 0.0,  # MB
+                "networkUtilization": network_util,
+                "cpuUsage": cpu_percent,
+                "memoryUsage": memory_info.percent
+            }
+        except Exception as e:
+            logger.warning(f"Error getting system metrics: {e}")
+            benchmarks_stats = {
+                "avgLatency": 0.0,
+                "throughput": 0.0,
+                "networkUtilization": 0.0,
+                "cpuUsage": 0.0,
+                "memoryUsage": 0.0
+            }
 
         # Idle compute stats
         devices = edge.get_registered_devices() if edge and hasattr(edge, 'get_registered_devices') else []
@@ -84,15 +140,19 @@ async def get_dashboard_stats() -> Dict[str, Any]:
             "circuitHealth": sum(1 for c in circuits if getattr(c, 'health', 0) > 0.8) / len(circuits) if circuits else 1.0
         }
 
+        # Return ALL calculated sections - no data drop
         return {
             "betanet": betanet_stats,
             "bitchat": bitchat_stats,
-            "benchmarks": benchmarks_stats
+            "benchmarks": benchmarks_stats,
+            "idle": idle_stats,
+            "tokenomics": tokenomics_stats,
+            "privacy": privacy_stats
         }
 
     except Exception as e:
         logger.error(f"Error aggregating dashboard stats: {e}")
-        # Return fallback data matching frontend interface
+        # Return complete fallback data matching full schema
         return {
             "betanet": {
                 "mixnodes": 0,
@@ -109,7 +169,21 @@ async def get_dashboard_stats() -> Dict[str, Any]:
             "benchmarks": {
                 "avgLatency": 0.0,
                 "throughput": 0.0,
+                "networkUtilization": 0.0,
                 "cpuUsage": 0.0,
                 "memoryUsage": 0.0
+            },
+            "idle": {
+                "totalDevices": 0,
+                "harvestingDevices": 0,
+                "computeHours": 0.0
+            },
+            "tokenomics": {
+                "totalSupply": 0.0,
+                "activeStakers": 0
+            },
+            "privacy": {
+                "activeCircuits": 0,
+                "circuitHealth": 0.0
             }
         }

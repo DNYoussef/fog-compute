@@ -289,11 +289,25 @@ class EnhancedServiceManager:
             data_dir.mkdir(parents=True, exist_ok=True)
             config.database_path = str(data_dir / "dao_tokenomics.db")
 
-            self.services['dao'].instance = UnifiedDAOTokenomicsSystem(config)
+            # Instantiate the system
+            system = UnifiedDAOTokenomicsSystem(config)
+
+            # CRITICAL: Await the initialize() coroutine to open SQLite connections
+            initialization_success = await system.initialize()
+
+            if not initialization_success:
+                raise RuntimeError("Tokenomics system initialization returned False")
+
+            # Only set instance after successful initialization
+            self.services['dao'].instance = system
+            logger.info("Tokenomics system initialized successfully with database connections")
+
         except Exception as e:
             logger.error(f"Failed to initialize tokenomics: {e}")
             self.services['dao'].instance = None
-            self.services['dao'].is_critical = False  # Non-critical for now
+            # Fail fast: Mark as critical and re-raise to stop initialization
+            self.services['dao'].is_critical = True
+            raise RuntimeError(f"Critical service 'dao' failed to initialize: {e}") from e
 
     async def _init_scheduler(self) -> None:
         """Initialize batch job scheduler (NSGA-II)"""
@@ -403,17 +417,29 @@ class EnhancedServiceManager:
         """Initialize unified P2P system"""
         try:
             from p2p.unified_p2p_system import UnifiedDecentralizedSystem
-            from p2p.unified_p2p_config import UnifiedP2PConfig
             import socket
             import uuid
 
-            config = UnifiedP2PConfig()
             node_id = f"fog-backend-{socket.gethostname()}-{uuid.uuid4().hex[:8]}"
 
-            self.services['p2p'].instance = UnifiedDecentralizedSystem(
+            # Create P2P system instance
+            p2p_system = UnifiedDecentralizedSystem(
                 node_id=node_id,
-                config=config
+                device_name=f"fog-backend-{socket.gethostname()}",
+                enable_bitchat=True,
+                enable_betanet=True,
+                enable_mobile_bridge=False,
+                enable_fog_bridge=True
             )
+
+            # Start the P2P system
+            started = await p2p_system.start()
+            if not started:
+                logger.warning("P2P system failed to start, but continuing with limited functionality")
+
+            self.services['p2p'].instance = p2p_system
+            logger.info(f"P2P system initialized and started for node {node_id}")
+
         except Exception as e:
             logger.error(f"Failed to initialize P2P: {e}")
             self.services['p2p'].instance = None
@@ -421,8 +447,9 @@ class EnhancedServiceManager:
     async def _init_betanet(self) -> None:
         """Initialize Betanet privacy network"""
         try:
-            from .betanet import betanet_service
-            self.services['betanet'].instance = betanet_service
+            from .betanet_client import BetanetClient
+            betanet_client = BetanetClient(url="http://localhost:9000", timeout=5)
+            self.services['betanet'].instance = betanet_client
         except Exception as e:
             logger.error(f"Failed to initialize Betanet: {e}")
             self.services['betanet'].instance = None
@@ -541,6 +568,11 @@ class EnhancedServiceManager:
         """Get a service instance by name"""
         state = self.services.get(service_name)
         return state.instance if state else None
+
+    @property
+    def betanet_client(self) -> Optional[Any]:
+        """Get Betanet client instance"""
+        return self.get('betanet')
 
     def is_ready(self) -> bool:
         """Check if all critical services are running"""

@@ -48,6 +48,71 @@ class NodeResponse(BaseModel):
     last_heartbeat: str
 
 
+@router.get("/health")
+async def check_betanet_health() -> Dict[str, Any]:
+    """
+    Health check endpoint that reports actual Betanet Rust server connectivity.
+
+    Returns:
+        Health status with connectivity information
+
+    Status values:
+        - healthy: Rust server is running and responding
+        - degraded: Client initialized but server not reachable
+        - unavailable: Client not initialized
+    """
+    betanet_client = service_manager.betanet_client
+
+    if betanet_client is None:
+        return {
+            "status": "unavailable",
+            "message": "Betanet client not initialized",
+            "server_url": None,
+            "server_reachable": False
+        }
+
+    try:
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            response = await client.get(f"{betanet_client.url}/status")
+
+            if response.status_code == 200:
+                return {
+                    "status": "healthy",
+                    "message": "Betanet Rust server is running and responding",
+                    "server_url": betanet_client.url,
+                    "server_reachable": True
+                }
+            else:
+                return {
+                    "status": "degraded",
+                    "message": f"Betanet server returned status {response.status_code}",
+                    "server_url": betanet_client.url,
+                    "server_reachable": True
+                }
+
+    except httpx.ConnectError:
+        return {
+            "status": "degraded",
+            "message": "Betanet Rust server not running at localhost:9000",
+            "server_url": betanet_client.url,
+            "server_reachable": False
+        }
+    except httpx.TimeoutException:
+        return {
+            "status": "degraded",
+            "message": "Betanet server request timed out",
+            "server_url": betanet_client.url,
+            "server_reachable": False
+        }
+    except Exception as e:
+        return {
+            "status": "degraded",
+            "message": f"Health check failed: {str(e)}",
+            "server_url": betanet_client.url,
+            "server_reachable": False
+        }
+
+
 @router.get("/status")
 async def get_betanet_status() -> Dict[str, Any]:
     """Get Betanet network status"""
@@ -119,10 +184,17 @@ async def list_nodes():
     Raises:
         HTTPException 503: Betanet service unavailable
     """
+    betanet_client = service_manager.betanet_client
+
+    if betanet_client is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Betanet service unavailable - client not initialized"
+        )
+
     try:
-        # Call Betanet Rust service
         async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.get("http://localhost:9000/nodes")
+            response = await client.get(f"{betanet_client.url}/nodes")
 
             if response.status_code != 200:
                 raise HTTPException(
@@ -133,6 +205,18 @@ async def list_nodes():
             nodes_data = response.json()
             return nodes_data
 
+    except httpx.ConnectError as e:
+        logger.error(f"Failed to connect to Betanet server: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail="Betanet Rust server not running at localhost:9000"
+        )
+    except httpx.TimeoutException as e:
+        logger.error(f"Betanet request timed out: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail="Betanet service request timed out"
+        )
     except httpx.RequestError as e:
         logger.error(f"Failed to fetch nodes from Betanet: {e}")
         raise HTTPException(
@@ -156,6 +240,14 @@ async def create_node(request: NodeCreateRequest):
         HTTPException 400: Invalid node type
         HTTPException 503: Betanet service unavailable
     """
+    betanet_client = service_manager.betanet_client
+
+    if betanet_client is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Betanet service unavailable - client not initialized"
+        )
+
     # Validate node type
     valid_types = ["mixnode", "gateway", "client"]
     if request.node_type not in valid_types:
@@ -168,7 +260,7 @@ async def create_node(request: NodeCreateRequest):
         # Call Betanet Rust service deploy endpoint
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.post(
-                "http://localhost:9000/deploy",
+                f"{betanet_client.url}/deploy",
                 json={
                     "node_type": request.node_type,
                     "region": request.region,
@@ -193,10 +285,22 @@ async def create_node(request: NodeCreateRequest):
 
             # Fetch the newly created node details
             node_id = deploy_result.get("node_id")
-            node_response = await client.get(f"http://localhost:9000/nodes/{node_id}")
+            node_response = await client.get(f"{betanet_client.url}/nodes/{node_id}")
 
             return node_response.json()
 
+    except httpx.ConnectError as e:
+        logger.error(f"Failed to connect to Betanet server: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail="Betanet Rust server not running at localhost:9000"
+        )
+    except httpx.TimeoutException as e:
+        logger.error(f"Betanet request timed out: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail="Betanet service request timed out"
+        )
     except httpx.RequestError as e:
         logger.error(f"Failed to create node: {e}")
         raise HTTPException(
@@ -220,9 +324,17 @@ async def get_node(node_id: str):
         HTTPException 404: Node not found
         HTTPException 503: Betanet service unavailable
     """
+    betanet_client = service_manager.betanet_client
+
+    if betanet_client is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Betanet service unavailable - client not initialized"
+        )
+
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.get(f"http://localhost:9000/nodes/{node_id}")
+            response = await client.get(f"{betanet_client.url}/nodes/{node_id}")
 
             if response.status_code == 404:
                 raise HTTPException(
@@ -238,6 +350,18 @@ async def get_node(node_id: str):
 
             return response.json()
 
+    except httpx.ConnectError as e:
+        logger.error(f"Failed to connect to Betanet server: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail="Betanet Rust server not running at localhost:9000"
+        )
+    except httpx.TimeoutException as e:
+        logger.error(f"Betanet request timed out: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail="Betanet service request timed out"
+        )
     except httpx.RequestError as e:
         logger.error(f"Failed to fetch node {node_id}: {e}")
         raise HTTPException(
@@ -262,6 +386,14 @@ async def update_node(node_id: str, request: NodeUpdateRequest):
         HTTPException 404: Node not found
         HTTPException 503: Betanet service unavailable
     """
+    betanet_client = service_manager.betanet_client
+
+    if betanet_client is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Betanet service unavailable - client not initialized"
+        )
+
     try:
         # Only send non-None fields
         update_data = request.model_dump(exclude_none=True)
@@ -274,7 +406,7 @@ async def update_node(node_id: str, request: NodeUpdateRequest):
 
         async with httpx.AsyncClient(timeout=5.0) as client:
             response = await client.put(
-                f"http://localhost:9000/nodes/{node_id}",
+                f"{betanet_client.url}/nodes/{node_id}",
                 json=update_data
             )
 
@@ -292,6 +424,18 @@ async def update_node(node_id: str, request: NodeUpdateRequest):
 
             return response.json()
 
+    except httpx.ConnectError as e:
+        logger.error(f"Failed to connect to Betanet server: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail="Betanet Rust server not running at localhost:9000"
+        )
+    except httpx.TimeoutException as e:
+        logger.error(f"Betanet request timed out: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail="Betanet service request timed out"
+        )
     except httpx.RequestError as e:
         logger.error(f"Failed to update node {node_id}: {e}")
         raise HTTPException(
@@ -315,9 +459,17 @@ async def delete_node(node_id: str):
         HTTPException 404: Node not found
         HTTPException 503: Betanet service unavailable
     """
+    betanet_client = service_manager.betanet_client
+
+    if betanet_client is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Betanet service unavailable - client not initialized"
+        )
+
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.delete(f"http://localhost:9000/nodes/{node_id}")
+            response = await client.delete(f"{betanet_client.url}/nodes/{node_id}")
 
             if response.status_code == 404:
                 raise HTTPException(
@@ -333,6 +485,18 @@ async def delete_node(node_id: str):
 
             return None  # 204 No Content
 
+    except httpx.ConnectError as e:
+        logger.error(f"Failed to connect to Betanet server: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail="Betanet Rust server not running at localhost:9000"
+        )
+    except httpx.TimeoutException as e:
+        logger.error(f"Betanet request timed out: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail="Betanet service request timed out"
+        )
     except httpx.RequestError as e:
         logger.error(f"Failed to delete node {node_id}: {e}")
         raise HTTPException(

@@ -12,11 +12,11 @@ export function ThroughputChart() {
   const [data, setData] = useState<ThroughputDataPoint[]>([]);
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
+  const [reconnectAttempts, setReconnectAttempts] = useState<number>(0);
 
   useEffect(() => {
     let websocket: WebSocket | null = null;
     let reconnectTimeout: NodeJS.Timeout;
-    let mockInterval: NodeJS.Timeout;
     let isUnmounted = false;
 
     const connect = () => {
@@ -24,11 +24,12 @@ export function ThroughputChart() {
 
       try {
         setConnectionStatus('connecting');
-        websocket = new WebSocket('ws://localhost:8000/ws');
+        websocket = new WebSocket('ws://localhost:8000/ws/metrics');
 
         websocket.onopen = () => {
           console.log('✅ ThroughputChart WebSocket connected');
           setConnectionStatus('connected');
+          setReconnectAttempts(0);
 
           websocket?.send(JSON.stringify({
             type: 'subscribe',
@@ -70,9 +71,15 @@ export function ThroughputChart() {
           setWs(null);
 
           if (!isUnmounted) {
-            reconnectTimeout = setTimeout(() => {
-              connect();
-            }, 5000);
+            setReconnectAttempts(prev => {
+              const attempts = prev + 1;
+              const delay = Math.min(5000 * Math.pow(2, Math.min(attempts, 5)), 30000);
+              console.log(`Reconnecting in ${delay}ms (attempt ${attempts})`);
+              reconnectTimeout = setTimeout(() => {
+                connect();
+              }, delay);
+              return attempts;
+            });
           }
         };
 
@@ -82,18 +89,14 @@ export function ThroughputChart() {
         setConnectionStatus('disconnected');
 
         if (!isUnmounted) {
-          mockInterval = setInterval(() => {
-            setData((prevData) => {
-              const newData = [
-                ...prevData,
-                {
-                  time: new Date().toLocaleTimeString(),
-                  value: Math.random() * 100 + 50,
-                },
-              ];
-              return newData.slice(-20);
-            });
-          }, 2000);
+          setReconnectAttempts(prev => {
+            const attempts = prev + 1;
+            const delay = Math.min(5000 * Math.pow(2, Math.min(attempts, 5)), 30000);
+            reconnectTimeout = setTimeout(() => {
+              connect();
+            }, delay);
+            return attempts;
+          });
         }
       }
     };
@@ -103,7 +106,6 @@ export function ThroughputChart() {
     return () => {
       isUnmounted = true;
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
-      if (mockInterval) clearInterval(mockInterval);
       if (websocket && websocket.readyState === WebSocket.OPEN) {
         websocket.close();
       }

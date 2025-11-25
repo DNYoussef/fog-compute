@@ -9,7 +9,10 @@ import asyncio
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import Enum
+import hashlib
+import hmac
 import logging
+import os
 from typing import TYPE_CHECKING, Any
 
 # NymMixnetClient not yet implemented - skip for now
@@ -22,6 +25,48 @@ if TYPE_CHECKING:
     from .fog_coordinator import FogCoordinator
 
 logger = logging.getLogger(__name__)
+
+
+# Stub class for NymMixnetClient until real implementation is available
+class NymMixnetClient:
+    """Stub implementation of NymMixnetClient for forward compatibility."""
+
+    def __init__(self, client_id: str):
+        self.client_id = client_id
+        self._running = False
+        logger.warning(f"Using stub NymMixnetClient for {client_id}")
+
+    async def start(self) -> bool:
+        """Start the mixnet client."""
+        self._running = True
+        logger.info(f"Stub mixnet client {self.client_id} started")
+        return True
+
+    async def stop(self):
+        """Stop the mixnet client."""
+        self._running = False
+        logger.info(f"Stub mixnet client {self.client_id} stopped")
+
+    async def send_anonymous_message(
+        self,
+        destination: str,
+        message: bytes,
+    ) -> str | None:
+        """Send anonymous message through mixnet."""
+        if not self._running:
+            return None
+        logger.debug(f"Stub mixnet sending {len(message)} bytes to {destination}")
+        return f"packet_{hashlib.sha256(message).hexdigest()[:16]}"
+
+    async def get_mixnet_stats(self) -> dict[str, Any]:
+        """Get mixnet statistics."""
+        return {
+            "client_id": self.client_id,
+            "running": self._running,
+            "packets_sent": 0,
+            "packets_received": 0,
+            "stub_implementation": True,
+        }
 
 
 class PrivacyLevel(Enum):
@@ -125,6 +170,9 @@ class FogOnionCoordinator:
         self.privacy_services: dict[str, PrivacyAwareService] = {}
         self.task_circuits: dict[str, OnionCircuit] = {}
         self.service_circuits: dict[str, OnionCircuit] = {}
+
+        # Security: Generate secret key for HMAC token generation
+        self._token_secret = os.urandom(32)
 
         # Statistics
         self.stats = {
@@ -234,8 +282,8 @@ class FogOnionCoordinator:
             # Get circuit from circuit service
             circuit_privacy_level = self._convert_privacy_level(task.privacy_level)
             if self.circuit_service:
-                # Authenticate client with simple token
-                auth_token = f"auth_{task.client_id}_token"
+                # Authenticate client with secure HMAC-based token
+                auth_token = self._generate_secure_token(task.client_id)
                 self.circuit_service.authenticate_client(task.client_id, auth_token)
 
                 circuit = await self.circuit_service.get_circuit(
@@ -310,8 +358,8 @@ class FogOnionCoordinator:
             # Create dedicated circuit for CONFIDENTIAL and above
             if privacy_level in [PrivacyLevel.CONFIDENTIAL, PrivacyLevel.SECRET] and self.circuit_service:
                 circuit_privacy_level = self._convert_privacy_level(privacy_level)
-                # Authenticate service
-                auth_token = f"auth_{service_id}_token"
+                # Authenticate service with secure HMAC-based token
+                auth_token = self._generate_secure_token(service_id)
                 self.circuit_service.authenticate_client(service_id, auth_token)
 
                 circuit = await self.circuit_service.get_circuit(
@@ -361,8 +409,8 @@ class FogOnionCoordinator:
                 # Use onion routing via circuit service
                 if self.circuit_service:
                     circuit_privacy_level = self._convert_privacy_level(privacy_level)
-                    # Use a system client ID for gossip
-                    auth_token = "auth_system_gossip_token"  # nosec B105 - token identifier, not password
+                    # Use a system client ID for gossip with secure token
+                    auth_token = self._generate_secure_token("system_gossip")
                     self.circuit_service.authenticate_client("system_gossip", auth_token)
 
                     circuit = await self.circuit_service.get_circuit(
@@ -413,6 +461,33 @@ class FogOnionCoordinator:
     # ============================================================================
     # PRIVATE HELPER METHODS
     # ============================================================================
+
+    def _generate_secure_token(self, identifier: str) -> str:
+        """
+        Generate a secure authentication token using HMAC.
+
+        Uses HMAC-SHA256 with a randomly generated secret key to create
+        cryptographically secure tokens that are unpredictable and unique
+        per identifier.
+
+        Args:
+            identifier: The identifier (client_id, service_id, etc.) to generate token for
+
+        Returns:
+            Secure HMAC-based token as hexadecimal string
+        """
+        if not identifier:
+            raise ValueError("Identifier cannot be empty")
+
+        # Use HMAC-SHA256 for secure token generation
+        token_bytes = hmac.new(
+            key=self._token_secret,
+            msg=identifier.encode('utf-8'),
+            digestmod=hashlib.sha256
+        ).digest()
+
+        # Return as hex string
+        return token_bytes.hex()
 
     def _convert_privacy_level(self, privacy_level: PrivacyLevel) -> CircuitPrivacyLevel:
         """Convert fog privacy level to circuit service privacy level."""

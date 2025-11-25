@@ -732,6 +732,7 @@ class UnifiedDAOTokenomicsSystem:
         # Check daily limits
         if rule.daily_limit:
             # Reference implementation: daily limit validation disabled
+            # TODO: Implement daily limit tracking when usage metrics are available
             pass
 
         # Award tokens
@@ -865,10 +866,9 @@ class UnifiedDAOTokenomicsSystem:
         # Check proposer has sufficient voting power
         voting_power = self.get_voting_power(proposer_id)
         if voting_power < self.config.min_proposal_power:
-            self.logger.warning(
-                f"Insufficient voting power for proposal: {voting_power} < {self.config.min_proposal_power}"
-            )
-            return None
+            error_msg = f"Insufficient voting power for proposal: {voting_power} < {self.config.min_proposal_power}"
+            self.logger.warning(error_msg)
+            raise ValueError(error_msg)
 
         # Create proposal
         proposal = GovernanceProposal(
@@ -961,6 +961,7 @@ class UnifiedDAOTokenomicsSystem:
         """Check if proposal has passed or failed"""
 
         if proposal_id not in self.active_proposals:
+            self.logger.warning(f"Proposal not found: {proposal_id}")
             return None
 
         proposal = self.active_proposals[proposal_id]

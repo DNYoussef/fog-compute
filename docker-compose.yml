@@ -1,5 +1,10 @@
 # FOG Compute - Production Base Configuration
 # This is the production-ready base configuration with multi-network support
+#
+# REQUIRED: Create a .env file from .env.example before running
+#   cp .env.example .env
+#   Then edit .env with secure credentials
+#
 # Usage: docker-compose up (production)
 #        docker-compose -f docker-compose.yml -f docker-compose.dev.yml up (development)
 #        docker-compose -f docker-compose.yml -f docker-compose.betanet.yml up (with betanet)
@@ -12,13 +17,13 @@ services:
     image: postgres:15-alpine
     container_name: fog-postgres
     environment:
-      POSTGRES_USER: fog_user
-      POSTGRES_PASSWORD: fog_password
-      POSTGRES_DB: fog_compute
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U fog_user"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -35,7 +40,7 @@ services:
       target: production
     container_name: fog-backend
     environment:
-      DATABASE_URL: postgresql+asyncpg://fog_user:fog_password@postgres:5432/fog_compute
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       API_HOST: 0.0.0.0
       API_PORT: 8000
       PYTHONPATH: /app

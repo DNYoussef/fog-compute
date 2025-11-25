@@ -84,7 +84,7 @@ class FogTokenomicsService(BaseFogService):
         try:
             # Process any pending rewards
             if self.token_system:
-                # Implementation would handle pending reward distributions
+                # TODO: Implement pending reward distribution before cleanup
                 pass
 
             self.logger.info("Fog tokenomics service cleaned up")

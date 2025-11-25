@@ -345,8 +345,9 @@ class OnionRouter:
         # Select path
         path_nodes = self._select_path_nodes(path_length)
         if len(path_nodes) < path_length:
-            logger.warning(f"Insufficient nodes for {path_length}-hop circuit")
-            return None
+            error_msg = f"Insufficient nodes for {path_length}-hop circuit (available: {len(path_nodes)}, required: {path_length})"
+            logger.warning(error_msg)
+            raise RuntimeError(error_msg)
 
         circuit = OnionCircuit(circuit_id=circuit_id, state=CircuitState.BUILDING, hops=[])
 
@@ -355,8 +356,9 @@ class OnionRouter:
             hop = await self._extend_circuit(circuit, node, position)
             if not hop:
                 circuit.state = CircuitState.FAILED
-                logger.error(f"Failed to extend circuit at hop {position}")
-                return None
+                error_msg = f"Failed to extend circuit at hop {position} to node {node.node_id}"
+                logger.error(error_msg)
+                raise RuntimeError(error_msg)
 
             circuit.hops.append(hop)
 
@@ -568,13 +570,16 @@ class OnionRouter:
 
         # Parse onion address
         if not onion_address.endswith(".fog"):
-            logger.error(f"Invalid onion address: {onion_address}")
-            return None
+            error_msg = f"Invalid onion address format: {onion_address} (must end with .fog)"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
 
         # Build circuit to rendezvous point
         rendezvous_circuit = await self.build_circuit(purpose="rendezvous")
         if not rendezvous_circuit:
-            return None
+            error_msg = f"Failed to build rendezvous circuit for {onion_address}"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
 
         # Generate rendezvous cookie
         rendezvous_cookie = secrets.token_bytes(20)

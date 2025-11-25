@@ -202,8 +202,9 @@ class TokenomicsIntegration:
         """Create escrow for auction deposit"""
 
         if not self.token_system:
-            logger.error("Token system not available for escrow")
-            return None
+            error_msg = "Token system not available for escrow"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
 
         # Calculate deposit amount
         deposit_amount = bid_amount * self.config["auction_deposit_percentage"]
@@ -211,9 +212,14 @@ class TokenomicsIntegration:
 
         # Check account balance
         account_info = self.token_system.get_account_balance(account_id)
-        if account_info.get("error") or account_info.get("balance", 0) < float(deposit_amount):
-            logger.error(f"Insufficient balance for deposit: {account_id}")
-            return None
+        if account_info.get("error"):
+            error_msg = f"Error retrieving balance for account {account_id}: {account_info.get('error')}"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
+        if account_info.get("balance", 0) < float(deposit_amount):
+            error_msg = f"Insufficient balance for deposit: {account_id} (required: {deposit_amount}, available: {account_info.get('balance', 0)})"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
 
         # Create escrow
         escrow_id = f"escrow_{uuid.uuid4().hex[:8]}"
@@ -244,8 +250,9 @@ class TokenomicsIntegration:
 
             return escrow_id
         else:
-            logger.error(f"Failed to hold tokens for escrow {escrow_id}")
-            return None
+            error_msg = f"Failed to hold tokens for escrow {escrow_id}"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
 
     async def release_auction_deposit(
         self, escrow_id: str, auction_result: dict[str, Any], winner: bool = False
@@ -285,8 +292,9 @@ class TokenomicsIntegration:
         """Process market-based payment between accounts"""
 
         if not self.token_system:
-            logger.error("Token system not available for payments")
-            return None
+            error_msg = "Token system not available for payments"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
 
         # Calculate transaction fee
         transaction_fee = amount * self.config["transaction_fee_rate"]
@@ -319,8 +327,9 @@ class TokenomicsIntegration:
 
             return tx_id
         else:
-            logger.error(f"Market payment failed: {payer_id} -> {payee_id}")
-            return None
+            error_msg = f"Market payment failed: {payer_id} -> {payee_id} (amount: {amount})"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
 
     async def calculate_market_reward(
         self, provider_id: str, market_activity: dict[str, Any], base_contribution_reward: Decimal
@@ -368,6 +377,7 @@ class TokenomicsIntegration:
         """Distribute daily quality bonus pool based on market performance"""
 
         if not self.auction_engine:
+            logger.warning("Auction engine not available for quality bonus distribution")
             return {}
 
         # Get recent auction results for quality scoring

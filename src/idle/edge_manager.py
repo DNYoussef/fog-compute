@@ -258,6 +258,7 @@ class EdgeManager:
                     battery_percent = int(battery.percent)
                     battery_charging = battery.power_plugged
             except (AttributeError, OSError):
+                # Battery sensors not available on this platform
                 pass
 
             # Thermal detection (if available)
@@ -271,6 +272,7 @@ class EdgeManager:
                             cpu_temp = sensor_list[0].current
                             break
             except (AttributeError, OSError):
+                # Temperature sensors not available on this platform
                 pass
 
             # Platform-specific detection
@@ -581,6 +583,15 @@ class EdgeManager:
         """Process distributed fog computing tasks"""
         # Placeholder for fog computing coordination
         self.stats["fog_compute_tasks"] += len(self.devices)
+
+    def get_registered_devices(self) -> list["EdgeDevice"]:
+        """
+        Get list of all registered edge devices.
+
+        Returns:
+            List of EdgeDevice objects with device information, capabilities, and status.
+        """
+        return list(self.devices.values())
 
     def get_device_status(self, device_id: str) -> dict[str, Any]:
         """Get comprehensive device status"""

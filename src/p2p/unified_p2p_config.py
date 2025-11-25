@@ -538,6 +538,7 @@ class UnifiedP2PConfigManager:
             else:
                 return int(value)
         except ValueError:
+            # Not a numeric value, will be treated as string
             pass
 
         # String (default)

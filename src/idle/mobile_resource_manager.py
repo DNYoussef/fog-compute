@@ -857,7 +857,8 @@ class MobileResourceManager:
         """Start a compute harvesting session"""
 
         if not await self.evaluate_harvest_eligibility(device_id, profile):
-            return None
+            logger.warning(f"Device {device_id} not eligible for harvest session")
+            raise ValueError(f"Device {device_id} not eligible for harvest session")
 
         # Don't start if already harvesting
         if device_id in self.harvesting_sessions:
@@ -939,7 +940,8 @@ class MobileResourceManager:
         """Stop a harvesting session and finalize contributions"""
 
         if device_id not in self.harvesting_sessions:
-            return None
+            logger.warning(f"No active harvest session found for device {device_id}")
+            return None  # Acceptable return None: session doesn't exist
 
         session = self.harvesting_sessions[device_id]
         session["end_time"] = time.time()

@@ -16,6 +16,22 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/tokenomics", tags=["tokenomics"])
 
 
+def get_tokenomics_service():
+    """
+    Helper function to get and verify tokenomics service
+    Raises HTTPException if service is unavailable or not initialized
+    """
+    dao = service_manager.get('dao')
+
+    if dao is None:
+        raise HTTPException(status_code=503, detail="Tokenomics service unavailable")
+
+    if not getattr(dao, 'initialized', False):
+        raise HTTPException(status_code=503, detail="Tokenomics service not initialized")
+
+    return dao
+
+
 class StakeRequest(BaseModel):
     address: str
     amount: float
@@ -46,10 +62,7 @@ async def get_tokenomics_stats() -> Dict[str, Any]:
         - Active proposals
         - Market cap
     """
-    dao = service_manager.get('dao')
-
-    if dao is None:
-        raise HTTPException(status_code=503, detail="Tokenomics service unavailable")
+    dao = get_tokenomics_service()
 
     try:
         # Get data from UnifiedDAOTokenomicsSystem
@@ -141,10 +154,7 @@ async def stake_tokens(request: StakeRequest) -> Dict[str, Any]:
     Returns:
         Success status and new stake amount
     """
-    dao = service_manager.get('dao')
-
-    if dao is None:
-        raise HTTPException(status_code=503, detail="Tokenomics service unavailable")
+    dao = get_tokenomics_service()
 
     try:
         # Call stake method
@@ -164,10 +174,7 @@ async def stake_tokens(request: StakeRequest) -> Dict[str, Any]:
 @router.post("/unstake")
 async def unstake_tokens(request: StakeRequest) -> Dict[str, Any]:
     """Unstake tokens"""
-    dao = service_manager.get('dao')
-
-    if dao is None:
-        raise HTTPException(status_code=503, detail="Tokenomics service unavailable")
+    dao = get_tokenomics_service()
 
     try:
         result = dao.token_manager.unstake(request.address, request.amount)
@@ -186,10 +193,7 @@ async def unstake_tokens(request: StakeRequest) -> Dict[str, Any]:
 @router.get("/proposals")
 async def get_proposals() -> Dict[str, Any]:
     """Get all DAO proposals"""
-    dao = service_manager.get('dao')
-
-    if dao is None:
-        raise HTTPException(status_code=503, detail="Tokenomics service unavailable")
+    dao = get_tokenomics_service()
 
     try:
         proposals = dao.proposals
@@ -217,10 +221,7 @@ async def get_proposals() -> Dict[str, Any]:
 @router.post("/proposals")
 async def create_proposal(request: ProposalRequest) -> Dict[str, Any]:
     """Create a new DAO proposal"""
-    dao = service_manager.get('dao')
-
-    if dao is None:
-        raise HTTPException(status_code=503, detail="Tokenomics service unavailable")
+    dao = get_tokenomics_service()
 
     try:
         proposal_id = dao.create_proposal(
@@ -241,10 +242,7 @@ async def create_proposal(request: ProposalRequest) -> Dict[str, Any]:
 @router.post("/vote")
 async def vote_on_proposal(request: VoteRequest) -> Dict[str, Any]:
     """Vote on a DAO proposal"""
-    dao = service_manager.get('dao')
-
-    if dao is None:
-        raise HTTPException(status_code=503, detail="Tokenomics service unavailable")
+    dao = get_tokenomics_service()
 
     try:
         dao.vote(
@@ -266,10 +264,7 @@ async def vote_on_proposal(request: VoteRequest) -> Dict[str, Any]:
 @router.get("/rewards")
 async def get_rewards(address: str) -> Dict[str, Any]:
     """Get pending rewards for an address"""
-    dao = service_manager.get('dao')
-
-    if dao is None:
-        raise HTTPException(status_code=503, detail="Tokenomics service unavailable")
+    dao = get_tokenomics_service()
 
     try:
         rewards = dao.token_manager.get_pending_rewards(address)

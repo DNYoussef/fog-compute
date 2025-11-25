@@ -63,7 +63,7 @@ export default defineConfig({
   },
 
   // Configure projects for major browsers
-  // CI: Run only chromium for speed, Local: Run all browsers
+  // CI and Local: Run all browsers to catch browser-specific bugs
   projects: process.env.CI ? [
     {
       name: 'chromium',
@@ -72,6 +72,33 @@ export default defineConfig({
         // CI-specific optimizations
         viewport: { width: 1280, height: 720 },
       },
+    },
+    {
+      name: 'firefox',
+      use: {
+        ...devices['Desktop Firefox'],
+        viewport: { width: 1280, height: 720 },
+      },
+    },
+    {
+      name: 'webkit',
+      use: {
+        ...devices['Desktop Safari'],
+        viewport: { width: 1280, height: 720 },
+      },
+    },
+    // Mobile projects for mobile-tests job
+    {
+      name: 'Mobile Chrome',
+      use: { ...devices['Pixel 5'] },
+    },
+    {
+      name: 'Mobile Safari',
+      use: { ...devices['iPhone 12'] },
+    },
+    {
+      name: 'iPad',
+      use: { ...devices['iPad Pro'] },
     },
   ] : [
     {
@@ -98,7 +125,7 @@ export default defineConfig({
       command: 'python -m uvicorn server.main:app --port 8000',
       cwd: 'backend',  // Playwright's native cwd support (cross-platform)
       url: 'http://localhost:8000/health',
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,  // Always start fresh servers for each test run to avoid port conflicts
       timeout: 120 * 1000,  // Increased from 60s for database initialization
       stdout: 'pipe',
       stderr: 'pipe',
@@ -119,7 +146,7 @@ export default defineConfig({
       command: 'npm run dev',
       cwd: 'apps/control-panel',
       url: 'http://localhost:3000',
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,  // Always start fresh servers for each test run
       timeout: 120 * 1000,
       stdout: 'pipe',
       stderr: 'pipe',

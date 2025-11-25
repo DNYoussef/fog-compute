@@ -1,0 +1,201 @@
+diff --git a/backend/server/routes/tokenomics.py b/backend/server/routes/tokenomics.py
+index 94d9bd7..e9f6f37 100644
+--- a/backend/server/routes/tokenomics.py
++++ b/backend/server/routes/tokenomics.py
+@@ -16,6 +16,22 @@ logger = logging.getLogger(__name__)
+ router = APIRouter(prefix="/api/tokenomics", tags=["tokenomics"])
+ 
+ 
++def get_tokenomics_service():
++    """
++    Helper function to get and verify tokenomics service
++    Raises HTTPException if service is unavailable or not initialized
++    """
++    dao = service_manager.get('dao')
++
++    if dao is None:
++        raise HTTPException(status_code=503, detail="Tokenomics service unavailable")
++
++    if not getattr(dao, 'initialized', False):
++        raise HTTPException(status_code=503, detail="Tokenomics service not initialized")
++
++    return dao
++
++
+ class StakeRequest(BaseModel):
+     address: str
+     amount: float
+@@ -46,10 +62,7 @@ async def get_tokenomics_stats() -> Dict[str, Any]:
+         - Active proposals
+         - Market cap
+     """
+-    dao = service_manager.get('dao')
+-
+-    if dao is None:
+-        raise HTTPException(status_code=503, detail="Tokenomics service unavailable")
++    dao = get_tokenomics_service()
+ 
+     try:
+         # Get data from UnifiedDAOTokenomicsSystem
+@@ -141,10 +154,7 @@ async def stake_tokens(request: StakeRequest) -> Dict[str, Any]:
+     Returns:
+         Success status and new stake amount
+     """
+-    dao = service_manager.get('dao')
+-
+-    if dao is None:
+-        raise HTTPException(status_code=503, detail="Tokenomics service unavailable")
++    dao = get_tokenomics_service()
+ 
+     try:
+         # Call stake method
+@@ -164,10 +174,7 @@ async def stake_tokens(request: StakeRequest) -> Dict[str, Any]:
+ @router.post("/unstake")
+ async def unstake_tokens(request: StakeRequest) -> Dict[str, Any]:
+     """Unstake tokens"""
+-    dao = service_manager.get('dao')
+-
+-    if dao is None:
+-        raise HTTPException(status_code=503, detail="Tokenomics service unavailable")
++    dao = get_tokenomics_service()
+ 
+     try:
+         result = dao.token_manager.unstake(request.address, request.amount)
+@@ -186,10 +193,7 @@ async def unstake_tokens(request: StakeRequest) -> Dict[str, Any]:
+ @router.get("/proposals")
+ async def get_proposals() -> Dict[str, Any]:
+     """Get all DAO proposals"""
+-    dao = service_manager.get('dao')
+-
+-    if dao is None:
+-        raise HTTPException(status_code=503, detail="Tokenomics service unavailable")
++    dao = get_tokenomics_service()
+ 
+     try:
+         proposals = dao.proposals
+@@ -217,10 +221,7 @@ async def get_proposals() -> Dict[str, Any]:
+ @router.post("/proposals")
+ async def create_proposal(request: ProposalRequest) -> Dict[str, Any]:
+     """Create a new DAO proposal"""
+-    dao = service_manager.get('dao')
+-
+-    if dao is None:
+-        raise HTTPException(status_code=503, detail="Tokenomics service unavailable")
++    dao = get_tokenomics_service()
+ 
+     try:
+         proposal_id = dao.create_proposal(
+@@ -241,10 +242,7 @@ async def create_proposal(request: ProposalRequest) -> Dict[str, Any]:
+ @router.post("/vote")
+ async def vote_on_proposal(request: VoteRequest) -> Dict[str, Any]:
+     """Vote on a DAO proposal"""
+-    dao = service_manager.get('dao')
+-
+-    if dao is None:
+-        raise HTTPException(status_code=503, detail="Tokenomics service unavailable")
++    dao = get_tokenomics_service()
+ 
+     try:
+         dao.vote(
+@@ -266,10 +264,7 @@ async def vote_on_proposal(request: VoteRequest) -> Dict[str, Any]:
+ @router.get("/rewards")
+ async def get_rewards(address: str) -> Dict[str, Any]:
+     """Get pending rewards for an address"""
+-    dao = service_manager.get('dao')
+-
+-    if dao is None:
+-        raise HTTPException(status_code=503, detail="Tokenomics service unavailable")
++    dao = get_tokenomics_service()
+ 
+     try:
+         rewards = dao.token_manager.get_pending_rewards(address)
+diff --git a/backend/server/services/enhanced_service_manager.py b/backend/server/services/enhanced_service_manager.py
+index 8a63395..68dad4f 100644
+--- a/backend/server/services/enhanced_service_manager.py
++++ b/backend/server/services/enhanced_service_manager.py
+@@ -289,11 +289,25 @@ class EnhancedServiceManager:
+             data_dir.mkdir(parents=True, exist_ok=True)
+             config.database_path = str(data_dir / "dao_tokenomics.db")
+ 
+-            self.services['dao'].instance = UnifiedDAOTokenomicsSystem(config)
++            # Instantiate the system
++            system = UnifiedDAOTokenomicsSystem(config)
++
++            # CRITICAL: Await the initialize() coroutine to open SQLite connections
++            initialization_success = await system.initialize()
++
++            if not initialization_success:
++                raise RuntimeError("Tokenomics system initialization returned False")
++
++            # Only set instance after successful initialization
++            self.services['dao'].instance = system
++            logger.info("Tokenomics system initialized successfully with database connections")
++
+         except Exception as e:
+             logger.error(f"Failed to initialize tokenomics: {e}")
+             self.services['dao'].instance = None
+-            self.services['dao'].is_critical = False  # Non-critical for now
++            # Fail fast: Mark as critical and re-raise to stop initialization
++            self.services['dao'].is_critical = True
++            raise RuntimeError(f"Critical service 'dao' failed to initialize: {e}") from e
+ 
+     async def _init_scheduler(self) -> None:
+         """Initialize batch job scheduler (NSGA-II)"""
+@@ -403,17 +417,29 @@ class EnhancedServiceManager:
+         """Initialize unified P2P system"""
+         try:
+             from p2p.unified_p2p_system import UnifiedDecentralizedSystem
+-            from p2p.unified_p2p_config import UnifiedP2PConfig
+             import socket
+             import uuid
+ 
+-            config = UnifiedP2PConfig()
+             node_id = f"fog-backend-{socket.gethostname()}-{uuid.uuid4().hex[:8]}"
+ 
+-            self.services['p2p'].instance = UnifiedDecentralizedSystem(
++            # Create P2P system instance
++            p2p_system = UnifiedDecentralizedSystem(
+                 node_id=node_id,
+-                config=config
++                device_name=f"fog-backend-{socket.gethostname()}",
++                enable_bitchat=True,
++                enable_betanet=True,
++                enable_mobile_bridge=False,
++                enable_fog_bridge=True
+             )
++
++            # Start the P2P system
++            started = await p2p_system.start()
++            if not started:
++                logger.warning("P2P system failed to start, but continuing with limited functionality")
++
++            self.services['p2p'].instance = p2p_system
++            logger.info(f"P2P system initialized and started for node {node_id}")
++
+         except Exception as e:
+             logger.error(f"Failed to initialize P2P: {e}")
+             self.services['p2p'].instance = None
+@@ -421,8 +447,9 @@ class EnhancedServiceManager:
+     async def _init_betanet(self) -> None:
+         """Initialize Betanet privacy network"""
+         try:
+-            from .betanet import betanet_service
+-            self.services['betanet'].instance = betanet_service
++            from .betanet_client import BetanetClient
++            betanet_client = BetanetClient(url="http://localhost:9000", timeout=5)
++            self.services['betanet'].instance = betanet_client
+         except Exception as e:
+             logger.error(f"Failed to initialize Betanet: {e}")
+             self.services['betanet'].instance = None
+@@ -542,6 +569,11 @@ class EnhancedServiceManager:
+         state = self.services.get(service_name)
+         return state.instance if state else None
+ 
++    @property
++    def betanet_client(self) -> Optional[Any]:
++        """Get Betanet client instance"""
++        return self.get('betanet')
++
+     def is_ready(self) -> bool:
+         """Check if all critical services are running"""
+         critical_services = [

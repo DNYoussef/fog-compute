@@ -77,8 +77,25 @@ class Settings(BaseSettings):
     PROMETHEUS_PORT: int = 9090
 
     # Security
-    SECRET_KEY: str = "your-secret-key-change-in-production"
+    # CRITICAL: SECRET_KEY must be set via environment variable in production
+    # Generate with: python -c "import secrets; print(secrets.token_urlsafe(32))"
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+
+    @field_validator('SECRET_KEY')
+    @classmethod
+    def validate_secret_key(cls, v: str) -> str:
+        """Validate SECRET_KEY is set and secure in production."""
+        if os.getenv('CI') == 'true' or os.getenv('TESTING') == 'true':
+            # Allow empty/default in CI/testing
+            return v or "test-secret-key-for-ci-only"
+
+        if not v or len(v) < 32:
+            raise ValueError(
+                "SECRET_KEY must be set via environment variable and be at least 32 characters. "
+                "Generate with: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+            )
+        return v
 
     # Performance
     ENABLE_CACHE: bool = True

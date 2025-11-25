@@ -9,7 +9,11 @@ import asyncio
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import Enum
+import hashlib
+import hmac
 import logging
+import os
+import secrets
 from typing import Any
 
 from .onion_routing import OnionCircuit, OnionRouter
@@ -339,11 +343,101 @@ class OnionCircuitService:
 
         return sum(health_scores) / len(health_scores) if health_scores else 0.0
 
+    def generate_auth_token(self, client_id: str) -> str:
+        """
+        Generate a secure authentication token for a client.
+
+        Uses HMAC-SHA256 with a secret key and timestamp to create
+        cryptographically secure, non-predictable tokens.
+
+        Args:
+            client_id: Unique identifier for the client
+
+        Returns:
+            Secure authentication token string
+
+        Raises:
+            RuntimeError: If AUTH_SECRET_KEY environment variable is not set
+        """
+        secret_key = os.environ.get('AUTH_SECRET_KEY')
+        if not secret_key:
+            raise RuntimeError(
+                "AUTH_SECRET_KEY environment variable must be set for secure token generation"
+            )
+
+        # Add timestamp and random nonce for uniqueness
+        timestamp = str(int(datetime.now(UTC).timestamp()))
+        nonce = secrets.token_hex(16)
+
+        # Create message combining client_id, timestamp, and nonce
+        message = f"{client_id}:{timestamp}:{nonce}"
+
+        # Generate HMAC signature
+        signature = hmac.new(
+            secret_key.encode('utf-8'),
+            message.encode('utf-8'),
+            hashlib.sha256
+        ).hexdigest()
+
+        # Return token as message:signature
+        return f"{message}:{signature}"
+
     def _validate_auth_token(self, client_id: str, auth_token: str) -> bool:
-        """Validate authentication token for client."""
-        # Simple validation - in production, use proper cryptographic validation
-        expected_token = f"auth_{client_id}_token"
-        return auth_token == expected_token
+        """
+        Validate authentication token for client using HMAC-based verification.
+
+        Implements secure token validation with:
+        - HMAC-SHA256 cryptographic verification
+        - Timing-safe comparison to prevent timing attacks
+        - Environment-based secret key management
+
+        Args:
+            client_id: Unique identifier for the client
+            auth_token: Token to validate (format: client_id:timestamp:nonce:signature)
+
+        Returns:
+            True if token is valid, False otherwise
+        """
+        try:
+            secret_key = os.environ.get('AUTH_SECRET_KEY')
+            if not secret_key:
+                logger.error("AUTH_SECRET_KEY environment variable not set")
+                return False
+
+            # Parse token components
+            parts = auth_token.split(':')
+            if len(parts) != 4:
+                logger.warning(f"Invalid token format for client {client_id}")
+                return False
+
+            token_client_id, timestamp, nonce, provided_signature = parts
+
+            # Verify client_id matches
+            if token_client_id != client_id:
+                logger.warning(f"Client ID mismatch in token for {client_id}")
+                return False
+
+            # Reconstruct message
+            message = f"{token_client_id}:{timestamp}:{nonce}"
+
+            # Calculate expected signature
+            expected_signature = hmac.new(
+                secret_key.encode('utf-8'),
+                message.encode('utf-8'),
+                hashlib.sha256
+            ).hexdigest()
+
+            # Use timing-safe comparison to prevent timing attacks
+            is_valid = hmac.compare_digest(expected_signature, provided_signature)
+
+            if not is_valid:
+                logger.warning(f"Invalid token signature for client {client_id}")
+
+            return is_valid
+
+        except Exception as e:
+            logger.error(f"Error validating auth token for client {client_id}: {e}")
+            return False
 
     async def _start_background_tasks(self):
         """Start background maintenance tasks."""

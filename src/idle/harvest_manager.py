@@ -334,8 +334,9 @@ class FogHarvestManager:
 
         # Verify device is registered
         if device_id not in self.registered_devices:
-            logger.warning(f"Unknown device attempted harvesting: {device_id}")
-            return None
+            error_msg = f"Unknown device attempted harvesting: {device_id}"
+            logger.warning(error_msg)
+            raise ValueError(error_msg)
 
         # Check eligibility
         harvest_state = await self._evaluate_harvest_eligibility(device_id, state)
@@ -343,7 +344,7 @@ class FogHarvestManager:
 
         if harvest_state != HarvestState.HARVESTING:
             logger.info(f"Device {device_id} not eligible for harvesting: {harvest_state.value}")
-            return None
+            raise ValueError(f"Device {device_id} not eligible for harvesting: {harvest_state.value}")
 
         # Check for existing session
         if device_id in self.active_sessions:
@@ -398,7 +399,7 @@ class FogHarvestManager:
 
         if device_id not in self.active_sessions:
             logger.warning(f"No active session to stop for device {device_id}")
-            return None
+            raise ValueError(f"No active session to stop for device {device_id}")
 
         session = self.active_sessions[device_id]
         session.end_time = datetime.now(UTC)
@@ -429,9 +430,9 @@ class FogHarvestManager:
         ]
 
         if not eligible_devices:
-            logger.warning("No eligible devices for task assignment")
+            logger.warning("No eligible devices for task assignment - task queued as pending")
             self.pending_tasks.append(task)
-            return None
+            return None  # Acceptable return None: task queued for later assignment
 
         # Select device based on capabilities and current load
         if preferred_device and preferred_device in eligible_devices:

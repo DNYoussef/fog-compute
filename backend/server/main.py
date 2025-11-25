@@ -47,7 +47,7 @@ from .websocket.publishers import publisher_manager
 from .services.metrics_aggregator import metrics_aggregator
 
 # Import middleware
-from .middleware import RateLimitMiddleware
+from .middleware import RateLimitMiddleware, CSRFMiddleware
 
 
 @asynccontextmanager
@@ -131,6 +131,14 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# CSRF protection middleware (after CORS, before rate limiting)
+app.add_middleware(
+    CSRFMiddleware,
+    cookie_secure=settings.API_HOST != "localhost",  # Use secure cookies in production
+    cookie_httponly=True,
+    cookie_samesite="strict"
 )
 
 # Rate limiting middleware

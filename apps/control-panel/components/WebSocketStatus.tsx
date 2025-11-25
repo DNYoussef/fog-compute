@@ -135,14 +135,63 @@ export function WebSocketStatus({
     // Reset state and reconnect
     setRetryCount(0);
     reconnectDelayRef.current = initialReconnectDelay;
+    setStatus('connecting');
+    setLastMessage('Manually reconnecting...');
     isManualDisconnectRef.current = false;
 
-    // Trigger reconnection
-    setStatus('connecting');
-    setTimeout(() => {
-      // Force re-mount of useEffect by changing a dependency
-      window.location.reload();
-    }, 100);
+    // Trigger reconnection by creating new connection
+    try {
+      const ws = new WebSocket(url);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        setStatus('connected');
+        setLastMessage('Connected to server');
+        setLastUpdate(new Date());
+        setRetryCount(0);
+        reconnectDelayRef.current = initialReconnectDelay;
+        console.log('Manual reconnect successful');
+      };
+
+      ws.onclose = (event) => {
+        wsRef.current = null;
+
+        if (isManualDisconnectRef.current) {
+          setStatus('disconnected');
+          setLastMessage('Manually disconnected');
+          return;
+        }
+
+        setStatus('disconnected');
+        const reason = event.reason || 'Unknown reason';
+        setLastMessage(`Disconnected: ${reason}`);
+
+        const jitter = Math.random() * 1000;
+        const delay = Math.min(reconnectDelayRef.current + jitter, maxReconnectDelay);
+
+        setLastMessage(`Reconnecting in ${(delay / 1000).toFixed(1)}s... (attempt ${retryCount + 1}/${maxRetries})`);
+
+        reconnectTimeoutRef.current = setTimeout(() => {
+          reconnectDelayRef.current = Math.min(reconnectDelayRef.current * 2, maxReconnectDelay);
+          setRetryCount(prev => prev + 1);
+          handleManualReconnect();
+        }, delay);
+      };
+
+      ws.onerror = (error) => {
+        setStatus('error');
+        setLastMessage('Connection error occurred');
+        console.error('WebSocket error:', error);
+      };
+
+      ws.onmessage = (event) => {
+        setLastUpdate(new Date());
+        setLastMessage(`Received: ${event.data.substring(0, 50)}${event.data.length > 50 ? '...' : ''}`);
+      };
+    } catch (error) {
+      setStatus('error');
+      setLastMessage(`Failed to reconnect: ${error instanceof Error ? error.message : String(error)}`);
+    }
   };
 
   const getConnectionState = (): ConnectionState => {
@@ -242,15 +291,25 @@ export function WebSocketStatus({
         </button>
       )}
 
-      {/* Reload Button (Max Retries Exceeded) */}
+      {/* Error State - Try Again or Reload */}
       {retryCount >= maxRetries && (
-        <button
-          onClick={() => window.location.reload()}
-          className="ml-auto px-2 py-1 text-xs bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded transition-colors"
-          data-testid="websocket-reload-button"
-        >
-          Reload Page
-        </button>
+        <div className="ml-auto flex gap-2">
+          <button
+            onClick={handleManualReconnect}
+            className="px-2 py-1 text-xs bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400 rounded transition-colors"
+            data-testid="websocket-retry-button"
+          >
+            Try Again
+          </button>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-2 py-1 text-xs bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded transition-colors"
+            data-testid="websocket-reload-button"
+            title="Last resort: Reload entire page"
+          >
+            Reload
+          </button>
+        </div>
       )}
     </div>
   );
