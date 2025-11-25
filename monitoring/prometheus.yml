@@ -14,6 +14,7 @@ alerting:
 # Load rules
 rule_files:
   - '/etc/prometheus/rules.yml'
+  - '/etc/prometheus/memory_alerts.yml'
 
 # Scrape configurations
 scrape_configs:
@@ -105,6 +106,15 @@ scrape_configs:
   - job_name: 'grafana'
     static_configs:
       - targets: ['grafana:3000']
+
+  # Memory Profiler exporter
+  - job_name: 'memory-profiler'
+    static_configs:
+      - targets: ['memory-exporter:9202']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'fog-compute-backend'
 
 # Remote write for long-term storage (optional)
 # remote_write:

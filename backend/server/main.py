@@ -21,6 +21,11 @@ logger = logging.getLogger(__name__)
 # Import configuration and services
 from .config import settings
 from .services.enhanced_service_manager import enhanced_service_manager
+from .services.scheduler import scheduler
+from .services.usage_scheduler import usage_scheduler
+from .services.usage_tracking import usage_tracking_service
+from .services.cache_service import cache_service
+from .services.redis_service import redis_service
 from .database import init_db, close_db
 
 # Import all route modules
@@ -38,7 +43,8 @@ from .routes import (
     bitchat,
     orchestration,
     websocket as websocket_routes,
-    deployment
+    deployment,
+    usage
 )
 
 # Import WebSocket handlers
@@ -78,6 +84,15 @@ async def lifespan(app: FastAPI):
         logger.error(f"❌ Database initialization failed: {e}")
         logger.warning("⚠️  Database may be unavailable")
 
+    # Initialize Redis and cache service
+    try:
+        await redis_service.connect()
+        await cache_service.initialize()
+        logger.info("✅ Redis and cache service initialized successfully")
+    except Exception as e:
+        logger.error(f"❌ Redis/cache initialization failed: {e}")
+        logger.warning("⚠️  Caching may be unavailable")
+
     # Initialize all services with enhanced orchestration
     try:
         await enhanced_service_manager.initialize()
@@ -99,10 +114,75 @@ async def lifespan(app: FastAPI):
         logger.error(f"❌ WebSocket initialization failed: {e}")
         logger.warning("⚠️  Real-time updates may be unavailable")
 
+    # Initialize deployment scheduler
+    try:
+        await scheduler.start()
+        logger.info("✅ Deployment scheduler started successfully")
+    except Exception as e:
+        logger.error(f"❌ Scheduler initialization failed: {e}")
+        logger.warning("⚠️  Deployment scheduling may be unavailable")
+
+    # Initialize usage tracking service
+    try:
+        await usage_tracking_service.initialize()
+        logger.info("✅ Usage tracking service initialized successfully")
+    except Exception as e:
+        logger.error(f"❌ Usage tracking initialization failed: {e}")
+        logger.warning("⚠️  Usage tracking may be unavailable")
+
+    # Initialize usage scheduler for daily resets
+    try:
+        await usage_scheduler.start()
+        logger.info("✅ Usage scheduler started successfully")
+    except Exception as e:
+        logger.error(f"❌ Usage scheduler initialization failed: {e}")
+        logger.warning("⚠️  Daily usage resets may not occur automatically")
+
+    # Warm cache with critical data
+    try:
+        from .services.cache_warmers import get_cache_warmers
+        warmers = get_cache_warmers()
+        warming_result = await cache_service.warm_cache(warmers)
+
+        if warming_result['success']:
+            logger.info(
+                f"✅ Cache warmed successfully: "
+                f"{warming_result['warmers_run']} warmers in {warming_result['duration_seconds']}s"
+            )
+        else:
+            logger.warning(
+                f"⚠️  Cache warming partially failed: "
+                f"{warming_result['warmers_failed']} failures"
+            )
+    except Exception as e:
+        logger.error(f"❌ Cache warming failed: {e}")
+        logger.warning("⚠️  Cache may have reduced hit rate on startup")
+
     yield
 
     # Shutdown
     logger.info("🛑 Shutting down Fog Compute Backend API Server...")
+
+    # Stop usage scheduler
+    try:
+        await usage_scheduler.stop()
+        logger.info("✅ Usage scheduler stopped")
+    except Exception as e:
+        logger.error(f"Error stopping usage scheduler: {e}")
+
+    # Disconnect Redis
+    try:
+        await redis_service.disconnect()
+        logger.info("✅ Redis disconnected")
+    except Exception as e:
+        logger.error(f"Error disconnecting Redis: {e}")
+
+    # Stop deployment scheduler
+    try:
+        await scheduler.stop()
+        logger.info("✅ Deployment scheduler stopped")
+    except Exception as e:
+        logger.error(f"Error stopping scheduler: {e}")
 
     # Stop WebSocket infrastructure
     try:
@@ -180,6 +260,7 @@ app.include_router(bitchat.router)  # BitChat messaging
 app.include_router(orchestration.router)  # Service orchestration
 app.include_router(websocket_routes.router)  # WebSocket management
 app.include_router(deployment.router)  # Deployment orchestration
+app.include_router(usage.router)  # Usage tracking and limits
 
 
 # WebSocket for real-time metrics
@@ -236,6 +317,9 @@ async def root():
             "deployment": "/api/deployment/deploy",
             "deployment_list": "/api/deployment/list",
             "deployment_status": "/api/deployment/status/{deployment_id}",
+            "usage_status": "/api/usage/status",
+            "usage_check_limit": "/api/usage/check-limit",
+            "usage_limits": "/api/usage/all-limits",
             "websocket": "ws://localhost:8000/ws/metrics",
             "bitchat_ws": "ws://localhost:8000/api/bitchat/ws/{peer_id}"
         },

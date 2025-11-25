@@ -477,21 +477,52 @@ impl RelayLottery {
         }
     }
 
-    /// Integrate with reputation manager
-    /// Note: Reputation system is a stub - full implementation planned for Week 7
+    /// Integrate with reputation manager - FUNC-10 Full Implementation
+    /// Syncs relay weights with reputation scores and applies decay
     pub fn sync_with_reputation_manager(&mut self) {
-        if let Some(_reputation_manager) = &mut self.reputation_manager {
-            // TODO: Implement full reputation integration in Week 7
-            // Current reputation.rs is a stub implementation
-            // reputation_manager.apply_decay_all();
+        if let Some(reputation_manager) = &mut self.reputation_manager {
+            // Apply time-based decay to all nodes
+            reputation_manager.apply_decay_all();
 
-            // Update relay weights based on reputation
-            // for relay in &mut self.relays {
-            //     if let Some(node_rep) = reputation_manager.get_reputation(&relay.address.to_string()) {
-            //         relay.weight *= node_rep.score;
-            //     }
-            // }
+            // Update relay weights based on reputation scores
+            for relay in &mut self.relays {
+                if let Some(node_rep) = reputation_manager.get_reputation(&relay.address) {
+                    // Update relay reputation from manager
+                    relay.reputation = node_rep.reputation;
+
+                    // Recalculate weight with new reputation
+                    let stake_score = (relay.stake as f64).ln() / 20.0;
+                    relay.weight = relay.reputation * 0.5
+                        + relay.performance * 0.3
+                        + stake_score.min(1.0) * 0.2;
+                    relay.weight = relay.weight.max(0.01);
+                }
+            }
+
+            // Invalidate cached weighted index after sync
+            self.weighted_index = None;
         }
+    }
+
+    /// Update relay reputation via reputation manager
+    pub fn update_relay_reputation_via_manager(
+        &mut self,
+        address: &SocketAddr,
+        action: crate::core::reputation::ReputationAction
+    ) -> crate::Result<()> {
+        if let Some(reputation_manager) = &mut self.reputation_manager {
+            reputation_manager.update_reputation(address, action)
+                .map_err(|e| crate::MixnodeError::Config(e))?;
+
+            // Sync relay weights after update
+            self.sync_with_reputation_manager();
+        }
+        Ok(())
+    }
+
+    /// Get reputation statistics from manager
+    pub fn get_reputation_statistics(&self) -> Option<crate::core::reputation::ReputationStatistics> {
+        self.reputation_manager.as_ref().map(|rm| rm.statistics())
     }
 
 

@@ -1,0 +1,262 @@
+groups:
+  - name: memory_profiling_critical
+    interval: 30s
+    rules:
+      # High heap usage alerts
+      - alert: MemoryHeapCritical
+        expr: fogcompute_memory_heap_percent > 90
+        for: 5m
+        labels:
+          severity: critical
+          component: memory_profiler
+          category: performance
+        annotations:
+          summary: "Critical heap memory usage"
+          description: "Heap usage is {{ $value | humanizePercentage }} on {{ $labels.instance }}"
+          runbook_url: "https://docs.example.com/runbooks/memory-heap-critical"
+
+      - alert: MemoryHeapWarning
+        expr: fogcompute_memory_heap_percent > 80
+        for: 10m
+        labels:
+          severity: warning
+          component: memory_profiler
+          category: performance
+        annotations:
+          summary: "High heap memory usage"
+          description: "Heap usage is {{ $value | humanizePercentage }} on {{ $labels.instance }}"
+          runbook_url: "https://docs.example.com/runbooks/memory-heap-warning"
+
+      # Memory leak detection
+      - alert: MemoryLeakDetected
+        expr: fogcompute_memory_active_leaks > 0
+        for: 15m
+        labels:
+          severity: critical
+          component: memory_profiler
+          category: reliability
+        annotations:
+          summary: "Memory leak detected"
+          description: "{{ $value }} memory leak(s) detected on {{ $labels.instance }}"
+          runbook_url: "https://docs.example.com/runbooks/memory-leak"
+
+      # Object count explosion
+      - alert: MemoryObjectCountHigh
+        expr: fogcompute_memory_total_objects > 1000000
+        for: 10m
+        labels:
+          severity: warning
+          component: memory_profiler
+          category: performance
+        annotations:
+          summary: "High object count"
+          description: "{{ $value }} objects in memory on {{ $labels.instance }}"
+          runbook_url: "https://docs.example.com/runbooks/memory-objects"
+
+      # GC frequency spike
+      - alert: MemoryGCSpike
+        expr: rate(fogcompute_memory_gc_collections_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: memory_profiler
+          category: performance
+        annotations:
+          summary: "High garbage collection frequency"
+          description: "GC running {{ $value | humanize }} times per second on {{ $labels.instance }}"
+          runbook_url: "https://docs.example.com/runbooks/gc-spike"
+
+      # Process memory critical
+      - alert: MemoryRSSCritical
+        expr: fogcompute_memory_rss_mb > 8192
+        for: 5m
+        labels:
+          severity: critical
+          component: memory_profiler
+          category: performance
+        annotations:
+          summary: "Critical process memory usage"
+          description: "Process RSS is {{ $value | humanize }}MB on {{ $labels.instance }}"
+          runbook_url: "https://docs.example.com/runbooks/memory-rss-critical"
+
+  - name: memory_profiling_growth
+    interval: 60s
+    rules:
+      # Memory growth rate alerts
+      - alert: MemoryGrowthRateHigh
+        expr: rate(fogcompute_memory_heap_used_mb[1h]) > 100
+        for: 1h
+        labels:
+          severity: warning
+          component: memory_profiler
+          category: capacity
+        annotations:
+          summary: "High memory growth rate"
+          description: "Memory growing at {{ $value | humanize }}MB/hour on {{ $labels.instance }}"
+          runbook_url: "https://docs.example.com/runbooks/memory-growth"
+
+      - alert: MemoryGrowthRateCritical
+        expr: rate(fogcompute_memory_heap_used_mb[1h]) > 500
+        for: 30m
+        labels:
+          severity: critical
+          component: memory_profiler
+          category: capacity
+        annotations:
+          summary: "Critical memory growth rate"
+          description: "Memory growing rapidly at {{ $value | humanize }}MB/hour on {{ $labels.instance }}"
+          runbook_url: "https://docs.example.com/runbooks/memory-growth-critical"
+
+      # Object growth without release
+      - alert: MemoryObjectGrowthUnreleased
+        expr: rate(fogcompute_memory_total_objects[1h]) > 10000
+        for: 2h
+        labels:
+          severity: warning
+          component: memory_profiler
+          category: reliability
+        annotations:
+          summary: "Objects growing without release"
+          description: "Object count growing at {{ $value | humanize }}/hour on {{ $labels.instance }}"
+          runbook_url: "https://docs.example.com/runbooks/object-growth"
+
+  - name: memory_profiling_gc
+    interval: 60s
+    rules:
+      # GC generation 2 (full GC) alerts
+      - alert: MemoryGCGen2High
+        expr: rate(fogcompute_memory_gc_collections_gen2[5m]) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+          component: memory_profiler
+          category: performance
+        annotations:
+          summary: "High full garbage collection frequency"
+          description: "Full GC (gen2) running {{ $value | humanize }} times per second on {{ $labels.instance }}"
+          runbook_url: "https://docs.example.com/runbooks/gc-gen2"
+
+      # GC pause time (if available)
+      - alert: MemoryGCPauseHigh
+        expr: histogram_quantile(0.95, rate(fogcompute_memory_gc_pause_seconds_bucket[5m])) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          component: memory_profiler
+          category: performance
+        annotations:
+          summary: "High GC pause time"
+          description: "95th percentile GC pause is {{ $value | humanizeDuration }} on {{ $labels.instance }}"
+          runbook_url: "https://docs.example.com/runbooks/gc-pause"
+
+  - name: memory_profiling_tracemalloc
+    interval: 60s
+    rules:
+      # Tracemalloc peak growing
+      - alert: MemoryTracemallocPeakGrowing
+        expr: rate(fogcompute_memory_tracemalloc_peak_mb[1h]) > 50
+        for: 2h
+        labels:
+          severity: warning
+          component: memory_profiler
+          category: capacity
+        annotations:
+          summary: "Tracemalloc peak memory growing"
+          description: "Peak traced memory growing at {{ $value | humanize }}MB/hour on {{ $labels.instance }}"
+          runbook_url: "https://docs.example.com/runbooks/tracemalloc-peak"
+
+      # Current vs peak divergence
+      - alert: MemoryTracemallocDivergence
+        expr: (fogcompute_memory_tracemalloc_peak_mb - fogcompute_memory_tracemalloc_current_mb) > 1024
+        for: 30m
+        labels:
+          severity: info
+          component: memory_profiler
+          category: capacity
+        annotations:
+          summary: "Large tracemalloc peak/current divergence"
+          description: "Peak is {{ $value | humanize }}MB higher than current on {{ $labels.instance }}"
+          runbook_url: "https://docs.example.com/runbooks/tracemalloc-divergence"
+
+  - name: memory_profiling_baseline_drift
+    interval: 300s
+    rules:
+      # Baseline drift alerts (requires custom metrics from drift report)
+      - alert: MemoryBaselineDriftHigh
+        expr: fogcompute_memory_baseline_drift_percent > 50
+        for: 1h
+        labels:
+          severity: warning
+          component: memory_profiler
+          category: capacity
+        annotations:
+          summary: "Memory baseline drift high"
+          description: "Memory usage is {{ $value | humanizePercentage }} above baseline on {{ $labels.instance }}"
+          runbook_url: "https://docs.example.com/runbooks/baseline-drift"
+
+      - alert: MemoryBaselineDriftCritical
+        expr: fogcompute_memory_baseline_drift_percent > 100
+        for: 30m
+        labels:
+          severity: critical
+          component: memory_profiler
+          category: capacity
+        annotations:
+          summary: "Memory baseline drift critical"
+          description: "Memory usage is {{ $value | humanizePercentage }} above baseline on {{ $labels.instance }}"
+          runbook_url: "https://docs.example.com/runbooks/baseline-drift-critical"
+
+  - name: memory_profiling_capacity
+    interval: 300s
+    rules:
+      # Capacity planning alerts
+      - alert: MemoryCapacityWarning
+        expr: predict_linear(fogcompute_memory_heap_used_mb[1h], 24*3600) > 8192
+        labels:
+          severity: warning
+          component: memory_profiler
+          category: capacity
+        annotations:
+          summary: "Memory capacity warning"
+          description: "Memory predicted to reach 8GB in next 24 hours on {{ $labels.instance }}"
+          runbook_url: "https://docs.example.com/runbooks/capacity-warning"
+
+      - alert: MemoryExhaustionRisk
+        expr: predict_linear(fogcompute_memory_heap_percent[1h], 3600) > 95
+        labels:
+          severity: critical
+          component: memory_profiler
+          category: capacity
+        annotations:
+          summary: "Memory exhaustion risk"
+          description: "Memory predicted to reach 95% in next hour on {{ $labels.instance }}"
+          runbook_url: "https://docs.example.com/runbooks/memory-exhaustion"
+
+  - name: memory_profiling_anomalies
+    interval: 60s
+    rules:
+      # Anomaly detection (using statistical methods)
+      - alert: MemoryUsageAnomaly
+        expr: abs(fogcompute_memory_heap_used_mb - avg_over_time(fogcompute_memory_heap_used_mb[1h])) > 2 * stddev_over_time(fogcompute_memory_heap_used_mb[1h])
+        for: 10m
+        labels:
+          severity: info
+          component: memory_profiler
+          category: anomaly
+        annotations:
+          summary: "Memory usage anomaly detected"
+          description: "Memory usage deviates significantly from average on {{ $labels.instance }}"
+          runbook_url: "https://docs.example.com/runbooks/memory-anomaly"
+
+      # Sudden drops (possible crash/restart)
+      - alert: MemorySuddenDrop
+        expr: rate(fogcompute_memory_heap_used_mb[1m]) < -1000
+        for: 1m
+        labels:
+          severity: warning
+          component: memory_profiler
+          category: reliability
+        annotations:
+          summary: "Sudden memory drop detected"
+          description: "Memory dropped by {{ $value | humanize }}MB/min on {{ $labels.instance }}"
+          runbook_url: "https://docs.example.com/runbooks/memory-drop"

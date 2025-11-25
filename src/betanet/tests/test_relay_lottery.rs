@@ -119,12 +119,9 @@ mod tests {
 
     #[test]
     fn test_sybil_resistance() {
-        // Test that cost-of-forgery increases with attacker stake
+        // Test that cost-of-forgery increases with attacker stake - FUNC-10 ENABLED
 
-        let lottery = RelayLottery::with_config(true, 1000);
-
-        // Note: cost_of_forgery not implemented in minimal reputation system
-        // Test adjusted to check that Sybil resistance is configured
+        let mut lottery = RelayLottery::with_config(true, 1000);
 
         let stats = lottery.get_statistics();
         println!("Sybil resistance enabled: {}", stats.sybil_resistance);
@@ -134,11 +131,54 @@ mod tests {
         assert!(stats.sybil_resistance, "Sybil resistance should be enabled");
         assert_eq!(stats.min_stake, 1000, "Min stake should be 1000");
 
-        // TODO: Re-enable when full reputation system with cost_of_forgery is implemented
-        // let total_stake = 100000u64;
-        // let cost_10 = lottery.cost_of_forgery(total_stake / 10);
-        // let cost_33 = lottery.cost_of_forgery(total_stake / 3);
-        // assert!(cost_33 > cost_10);
+        // FUNC-10: Full reputation system with cost_of_forgery now implemented
+        // Test cost of forgery increases with stake and reputation
+
+        // Add nodes with different stakes to lottery
+        let addr_low: std::net::SocketAddr = "127.0.0.1:9000".parse().unwrap();
+        let addr_high: std::net::SocketAddr = "127.0.0.1:9001".parse().unwrap();
+
+        lottery.add_relay(betanet::core::relay_lottery::WeightedRelay::new(
+            addr_low,
+            0.5,
+            0.7,
+            10000, // Low stake
+        ));
+
+        lottery.add_relay(betanet::core::relay_lottery::WeightedRelay::new(
+            addr_high,
+            0.5,
+            0.7,
+            100000, // High stake (10x more)
+        ));
+
+        // Get reputation statistics if available
+        if let Some(rep_stats) = lottery.get_reputation_statistics() {
+            println!("Reputation statistics:");
+            println!("  Total nodes: {}", rep_stats.total_nodes);
+            println!("  Avg cost of forgery: {}", rep_stats.avg_cost_of_forgery);
+        }
+
+        // Calculate cost of forgery using lottery's implementation
+        let total_stake = 110000u64;
+        let cost_10_percent = lottery.cost_of_forgery(total_stake / 10); // 10% stake
+        let cost_33_percent = lottery.cost_of_forgery(total_stake / 3);  // 33% stake
+
+        println!("Cost of forgery:");
+        println!("  10% stake: {}", cost_10_percent);
+        println!("  33% stake: {}", cost_33_percent);
+
+        // Verify exponential cost increase at 33% threshold
+        assert!(
+            cost_33_percent > cost_10_percent,
+            "Higher stake should have higher cost of forgery"
+        );
+
+        // Cost should be prohibitive above 33% (> 1.0)
+        assert!(
+            cost_33_percent >= 1.0,
+            "33% stake should have cost >= 1.0 (prohibitive)"
+        );
     }
 
     #[test]

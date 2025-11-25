@@ -82,10 +82,57 @@ class FogTokenomicsService(BaseFogService):
     async def cleanup(self) -> bool:
         """Cleanup tokenomics service resources"""
         try:
-            # Process any pending rewards
+            # Process any pending rewards BEFORE cleanup (FUNC-08 implementation)
             if self.token_system:
-                # TODO: Implement pending reward distribution before cleanup
-                pass
+                try:
+                    # Import reward service
+                    import sys
+                    import os
+                    backend_path = os.path.join(os.path.dirname(__file__), '..', '..', 'backend', 'server')
+                    if backend_path not in sys.path:
+                        sys.path.insert(0, backend_path)
+
+                    from services.rewards import get_reward_service
+
+                    reward_service = get_reward_service()
+
+                    # Get all pending rewards
+                    pending_rewards = await reward_service.get_pending_rewards()
+
+                    if pending_rewards:
+                        self.logger.info(
+                            f"Found {len(pending_rewards)} pending rewards during tokenomics cleanup. "
+                            f"Distributing before shutdown..."
+                        )
+
+                        # Distribute all pending rewards
+                        result = await reward_service.distribute_pending_rewards(pending_rewards)
+
+                        if result.success:
+                            self.logger.info(
+                                f"Successfully distributed {result.total_rewards_distributed} rewards "
+                                f"({float(result.total_amount_distributed)} tokens) during cleanup"
+                            )
+                        else:
+                            self.logger.error(
+                                f"Failed to distribute pending rewards during cleanup: "
+                                f"{result.error_message}"
+                            )
+                            # Don't fail cleanup, but log for manual intervention
+                            self.logger.warning(
+                                "MANUAL INTERVENTION MAY BE REQUIRED: "
+                                "Some rewards may not have been distributed"
+                            )
+                    else:
+                        self.logger.info("No pending rewards found during cleanup")
+
+                except Exception as e:
+                    self.logger.error(f"Error distributing pending rewards during cleanup: {e}", exc_info=True)
+                    # Don't fail cleanup, but log for manual intervention
+                    self.logger.warning(
+                        "MANUAL INTERVENTION MAY BE REQUIRED: "
+                        "Reward distribution failed during cleanup"
+                    )
 
             self.logger.info("Fog tokenomics service cleaned up")
             return True

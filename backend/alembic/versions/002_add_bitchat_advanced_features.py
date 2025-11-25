@@ -1,7 +1,7 @@
 """Add BitChat advanced features: groups and file transfer
 
 Revision ID: 002_advanced_bitchat
-Revises: 001_add_fog_optimization_models
+Revises: 001_fog_optimization
 Create Date: 2025-10-22 10:00:00.000000
 
 """
@@ -11,7 +11,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = '002_advanced_bitchat'
-down_revision = '001_add_fog_optimization_models'
+down_revision = '001_fog_optimization'
 branch_labels = None
 depends_on = None
 

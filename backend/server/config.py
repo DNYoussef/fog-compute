@@ -101,6 +101,41 @@ class Settings(BaseSettings):
     ENABLE_CACHE: bool = True
     CACHE_TTL: int = 60  # seconds
 
+    # Redis
+    # Default uses localhost for development
+    # Production should set REDIS_URL environment variable
+    # Format: redis://[:password]@host:port/db
+    REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_POOL_SIZE: int = 10
+
+    @field_validator('REDIS_URL')
+    @classmethod
+    def validate_redis_url(cls, v: str) -> str:
+        """
+        Validate REDIS_URL format and warn if using default in production.
+
+        Accepts formats:
+        - redis://localhost:6379/0 (dev, no password)
+        - redis://:password@localhost:6379/0 (prod with password)
+        - redis://user:password@localhost:6379/0 (full auth)
+        """
+        if not v.startswith('redis://'):
+            raise ValueError(
+                "REDIS_URL must start with redis:// scheme. "
+                f"Got: {v}"
+            )
+
+        # Warn if using localhost without password in production-like environment
+        if 'localhost' in v and ':@' not in v and ':*****@' not in v:
+            if os.getenv('CI') != 'true' and os.getenv('TESTING') != 'true':
+                import warnings
+                warnings.warn(
+                    "Using Redis without password. Set REDIS_URL with password for production.",
+                    UserWarning
+                )
+
+        return v
+
     class Config:
         env_file = ".env"
         case_sensitive = True

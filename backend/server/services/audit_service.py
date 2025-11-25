@@ -58,50 +58,52 @@ class AuditService:
 
     async def log_event(
         self,
-        event_type: str,
-        ip_address: str,
         action: str,
-        status: str,
+        ip_address: str,
         user_id: Optional[UUID] = None,
         user_agent: Optional[str] = None,
         resource_type: Optional[str] = None,
-        resource_id: Optional[str] = None,
-        old_value: Optional[Dict[str, Any]] = None,
-        new_value: Optional[Dict[str, Any]] = None,
-        correlation_id: Optional[str] = None,
+        resource_id: Optional[UUID] = None,
+        correlation_id: Optional[UUID] = None,
+        request_method: Optional[str] = None,
+        request_path: Optional[str] = None,
+        response_status: Optional[int] = None,
+        duration_ms: Optional[int] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ):
         """
         Log an audit event (async, batched)
 
         Args:
-            event_type: Type of event (login, data_access, admin_action, etc.)
+            action: Action performed (login, logout, deploy, delete, create, read, update, etc.)
             ip_address: Client IP address
-            action: Action performed (create, read, update, delete, etc.)
-            status: Outcome (success, failure, denied)
-            user_id: Optional user ID
+            user_id: Optional user ID (nullable for anonymous/system events)
             user_agent: Optional user agent string
-            resource_type: Optional resource type (user, job, node, etc.)
-            resource_id: Optional resource ID
-            old_value: Optional previous state (for updates)
-            new_value: Optional new state (for updates)
-            correlation_id: Optional correlation ID for request tracing
-            metadata: Optional additional context
+            resource_type: Optional resource type (deployment, user, node, job, etc.)
+            resource_id: Optional resource UUID
+            correlation_id: Optional correlation UUID for request tracing
+            request_method: Optional HTTP method (GET, POST, PUT, DELETE, PATCH)
+            request_path: Optional HTTP request path
+            response_status: Optional HTTP response status code
+            duration_ms: Optional request duration in milliseconds
+            metadata: Optional additional flexible context (JSONB)
+                     Can include: event_type, old_value, new_value, error_message,
+                                 session_id, api_key_id, custom fields, etc.
         """
         log_entry = AuditLog(
             timestamp=datetime.utcnow(),
-            event_type=event_type,
             user_id=user_id,
-            ip_address=ip_address,
-            user_agent=user_agent,
+            action=action,
             resource_type=resource_type,
             resource_id=resource_id,
-            action=action,
-            old_value=old_value,
-            new_value=new_value,
-            status=status,
+            ip_address=ip_address,
+            user_agent=user_agent,
             correlation_id=correlation_id,
-            metadata=metadata,
+            request_method=request_method,
+            request_path=request_path,
+            response_status=response_status,
+            duration_ms=duration_ms,
+            context=metadata,  # Maps to 'metadata' column in database
         )
 
         async with self._lock:
@@ -157,17 +159,17 @@ def get_audit_service() -> AuditService:
 
 
 async def log_audit_event(
-    event_type: str,
-    ip_address: str,
     action: str,
-    status: str,
+    ip_address: str,
     user_id: Optional[UUID] = None,
     user_agent: Optional[str] = None,
     resource_type: Optional[str] = None,
-    resource_id: Optional[str] = None,
-    old_value: Optional[Dict[str, Any]] = None,
-    new_value: Optional[Dict[str, Any]] = None,
-    correlation_id: Optional[str] = None,
+    resource_id: Optional[UUID] = None,
+    correlation_id: Optional[UUID] = None,
+    request_method: Optional[str] = None,
+    request_path: Optional[str] = None,
+    response_status: Optional[int] = None,
+    duration_ms: Optional[int] = None,
     metadata: Optional[Dict[str, Any]] = None,
 ):
     """
@@ -176,16 +178,16 @@ async def log_audit_event(
     """
     service = get_audit_service()
     await service.log_event(
-        event_type=event_type,
-        ip_address=ip_address,
         action=action,
-        status=status,
+        ip_address=ip_address,
         user_id=user_id,
         user_agent=user_agent,
         resource_type=resource_type,
         resource_id=resource_id,
-        old_value=old_value,
-        new_value=new_value,
         correlation_id=correlation_id,
+        request_method=request_method,
+        request_path=request_path,
+        response_status=response_status,
+        duration_ms=duration_ms,
         metadata=metadata,
     )

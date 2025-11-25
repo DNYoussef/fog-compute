@@ -13,7 +13,8 @@ from . import (
     auth,
     api_keys,
     bitchat,
-    orchestration
+    orchestration,
+    usage
 )
 
 __all__ = [
@@ -28,5 +29,6 @@ __all__ = [
     'auth',
     'api_keys',
     'bitchat',
-    'orchestration'
+    'orchestration',
+    'usage'
 ]

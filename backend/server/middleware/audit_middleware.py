@@ -6,6 +6,7 @@ import time
 import uuid
 import logging
 from typing import Callable, Optional
+from uuid import UUID
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
@@ -47,8 +48,8 @@ class AuditMiddleware(BaseHTTPMiddleware):
         if request.url.path in self.excluded_paths:
             return await call_next(request)
 
-        # Generate correlation ID
-        correlation_id = str(uuid.uuid4())
+        # Generate correlation ID (as UUID)
+        correlation_id = uuid.uuid4()
 
         # Extract request metadata
         ip_address = self._get_client_ip(request)
@@ -64,7 +65,12 @@ class AuditMiddleware(BaseHTTPMiddleware):
                 token = auth_header[7:]
                 payload = verify_token(token)
                 if payload:
-                    user_id = payload.get('sub')
+                    user_id_str = payload.get('sub')
+                    if user_id_str:
+                        try:
+                            user_id = UUID(user_id_str)
+                        except (ValueError, AttributeError):
+                            pass  # Invalid UUID format
         except Exception:
             pass  # Continue without user_id if token is invalid
 
@@ -75,24 +81,21 @@ class AuditMiddleware(BaseHTTPMiddleware):
         try:
             response = await call_next(request)
             status_code = response.status_code
-            success = 200 <= status_code < 400
-            status = 'success' if success else 'failure'
         except Exception as e:
             # Log failed requests
             status_code = 500
-            status = 'failure'
+            duration_ms = int((time.time() - start_time) * 1000)
             await self._log_event(
-                event_type='api_request_error',
+                action='api_request_error',
                 ip_address=ip_address,
                 user_agent=user_agent,
-                action=method,
-                status='failure',
                 user_id=user_id,
                 correlation_id=correlation_id,
+                request_method=method,
+                request_path=path,
+                response_status=status_code,
+                duration_ms=duration_ms,
                 metadata={
-                    'method': method,
-                    'path': path,
-                    'status_code': status_code,
                     'error': str(e),
                 }
             )
@@ -102,34 +105,31 @@ class AuditMiddleware(BaseHTTPMiddleware):
         response_time_ms = (time.time() - start_time) * 1000
 
         # Add correlation ID to response headers
-        response.headers['X-Correlation-ID'] = correlation_id
+        response.headers['X-Correlation-ID'] = str(correlation_id)
 
         # Determine if we should log this request
         should_log = self._should_log_request(method, status_code)
 
         if should_log:
-            # Determine event type based on method and path
-            event_type = self._classify_event(method, path, status_code)
+            # Classify action based on method and path
+            action = self._classify_action(method, path, status_code)
 
             # Extract resource information from path
             resource_type, resource_id = self._extract_resource(path)
 
             await self._log_event(
-                event_type=event_type,
+                action=action,
                 ip_address=ip_address,
                 user_agent=user_agent,
-                action=method.lower(),
-                status=status,
                 user_id=user_id,
                 resource_type=resource_type,
                 resource_id=resource_id,
                 correlation_id=correlation_id,
-                metadata={
-                    'method': method,
-                    'path': path,
-                    'status_code': status_code,
-                    'response_time_ms': round(response_time_ms, 2),
-                }
+                request_method=method,
+                request_path=path,
+                response_status=status_code,
+                duration_ms=int(response_time_ms),
+                metadata={}
             )
 
         return response
@@ -167,15 +167,15 @@ class AuditMiddleware(BaseHTTPMiddleware):
 
         return True
 
-    def _classify_event(self, method: str, path: str, status_code: int) -> str:
-        """Classify event type based on request characteristics"""
+    def _classify_action(self, method: str, path: str, status_code: int) -> str:
+        """Classify action based on request characteristics"""
         # Authentication endpoints
         if '/auth/login' in path:
             return 'login' if status_code < 400 else 'login_failed'
         if '/auth/logout' in path:
             return 'logout'
         if '/auth/register' in path:
-            return 'user_created'
+            return 'register'
 
         # Permission denied
         if status_code == 403:
@@ -185,66 +185,87 @@ class AuditMiddleware(BaseHTTPMiddleware):
         if '/admin' in path or '/audit' in path:
             return 'admin_action'
 
-        # Data operations
+        # Data operations based on HTTP method
         if method == 'GET':
-            return 'data_access'
+            return 'read'
         elif method == 'POST':
-            return 'data_create'
+            return 'create'
         elif method in ['PUT', 'PATCH']:
-            return 'data_modify'
+            return 'update'
         elif method == 'DELETE':
-            return 'data_delete'
+            return 'delete'
 
         return 'api_request'
 
-    def _extract_resource(self, path: str) -> tuple[Optional[str], Optional[str]]:
+    def _extract_resource(self, path: str) -> tuple[Optional[str], Optional[UUID]]:
         """
         Extract resource type and ID from path
         Examples:
-            /api/users/123 -> ('user', '123')
-            /api/jobs/abc-def -> ('job', 'abc-def')
+            /api/users/550e8400-e29b-41d4-a716-446655440000 -> ('user', UUID(...))
+            /api/jobs/abc-def -> ('job', None)  # Invalid UUID
         """
         parts = path.strip('/').split('/')
 
         # Look for common patterns: /api/{resource}/{id}
         if len(parts) >= 3 and parts[0] == 'api':
             resource_type = parts[1].rstrip('s')  # Remove plural 's'
-            resource_id = parts[2] if len(parts) > 2 else None
+            resource_id_str = parts[2] if len(parts) > 2 else None
+
+            # Try to convert to UUID
+            resource_id = None
+            if resource_id_str:
+                try:
+                    resource_id = UUID(resource_id_str)
+                except (ValueError, AttributeError):
+                    pass  # Not a valid UUID, leave as None
+
             return resource_type, resource_id
 
         # Look for patterns: /{resource}/{id}
         if len(parts) >= 2:
             resource_type = parts[0].rstrip('s')
-            resource_id = parts[1]
+            resource_id_str = parts[1]
+
+            # Try to convert to UUID
+            resource_id = None
+            try:
+                resource_id = UUID(resource_id_str)
+            except (ValueError, AttributeError):
+                pass
+
             return resource_type, resource_id
 
         return None, None
 
     async def _log_event(
         self,
-        event_type: str,
+        action: str,
         ip_address: str,
         user_agent: str,
-        action: str,
-        status: str,
-        user_id: Optional[str] = None,
+        user_id: Optional[UUID] = None,
         resource_type: Optional[str] = None,
-        resource_id: Optional[str] = None,
-        correlation_id: Optional[str] = None,
+        resource_id: Optional[UUID] = None,
+        correlation_id: Optional[UUID] = None,
+        request_method: Optional[str] = None,
+        request_path: Optional[str] = None,
+        response_status: Optional[int] = None,
+        duration_ms: Optional[int] = None,
         metadata: Optional[dict] = None,
     ):
         """Log audit event (non-blocking)"""
         try:
             await log_audit_event(
-                event_type=event_type,
+                action=action,
                 ip_address=ip_address,
                 user_agent=user_agent,
-                action=action,
-                status=status,
                 user_id=user_id,
                 resource_type=resource_type,
                 resource_id=resource_id,
                 correlation_id=correlation_id,
+                request_method=request_method,
+                request_path=request_path,
+                response_status=response_status,
+                duration_ms=duration_ms,
                 metadata=metadata,
             )
         except Exception as e:

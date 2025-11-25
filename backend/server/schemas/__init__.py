@@ -10,6 +10,21 @@ from .validation import (
     StakeSchema,
     ProposalSchema,
 )
+from .deployment import (
+    DeploymentCreate,
+    DeploymentUpdate,
+    DeploymentScale,
+    DeploymentResponse,
+    DeploymentListResponse,
+    DeploymentCreateResponse,
+    DeploymentOperationResponse,
+    DeploymentResourceCreate,
+    DeploymentResourceResponse,
+    DeploymentReplicaResponse,
+    DeploymentStatusHistoryResponse,
+    DeploymentStatusEnum,
+    ReplicaStatusEnum,
+)
 
 __all__ = [
     # Auth schemas
@@ -24,4 +39,18 @@ __all__ = [
     "TokenTransferSchema",
     "StakeSchema",
     "ProposalSchema",
+    # Deployment schemas
+    "DeploymentCreate",
+    "DeploymentUpdate",
+    "DeploymentScale",
+    "DeploymentResponse",
+    "DeploymentListResponse",
+    "DeploymentCreateResponse",
+    "DeploymentOperationResponse",
+    "DeploymentResourceCreate",
+    "DeploymentResourceResponse",
+    "DeploymentReplicaResponse",
+    "DeploymentStatusHistoryResponse",
+    "DeploymentStatusEnum",
+    "ReplicaStatusEnum",
 ]

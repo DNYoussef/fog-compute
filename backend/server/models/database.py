@@ -238,6 +238,7 @@ class User(Base):
     hashed_password = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     is_admin = Column(Boolean, default=False, nullable=False)
+    tier = Column(String(50), default='free', nullable=False, index=True)  # free, pro, enterprise
     created_at = Column(DateTime, default=datetime.utcnow)
     last_login = Column(DateTime, nullable=True)
 
@@ -248,6 +249,7 @@ class User(Base):
             'email': self.email,
             'is_active': self.is_active,
             'is_admin': self.is_admin,
+            'tier': self.tier,
             'created_at': self.created_at.isoformat() if self.created_at else None,
         }
 
