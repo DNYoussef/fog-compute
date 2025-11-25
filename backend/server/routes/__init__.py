@@ -11,6 +11,7 @@ from . import (
     p2p,
     benchmarks,
     auth,
+    api_keys,
     bitchat,
     orchestration
 )
@@ -25,6 +26,7 @@ __all__ = [
     'p2p',
     'benchmarks',
     'auth',
+    'api_keys',
     'bitchat',
     'orchestration'
 ]

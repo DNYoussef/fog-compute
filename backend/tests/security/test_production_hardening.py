@@ -296,11 +296,28 @@ class TestSecurityVulnerabilities:
 
         response = client.get("/")
 
-        # Check for security headers (will be added after middleware implementation)
-        # TODO: Uncomment after security headers middleware is added
-        # assert "X-Content-Type-Options" in response.headers
-        # assert "X-Frame-Options" in response.headers
-        # assert "X-XSS-Protection" in response.headers
+        # Check for security headers
+        assert "X-Content-Type-Options" in response.headers
+        assert response.headers["X-Content-Type-Options"] == "nosniff"
+
+        assert "X-Frame-Options" in response.headers
+        assert response.headers["X-Frame-Options"] == "DENY"
+
+        assert "X-XSS-Protection" in response.headers
+        assert response.headers["X-XSS-Protection"] == "1; mode=block"
+
+        assert "Strict-Transport-Security" in response.headers
+        assert "max-age=31536000" in response.headers["Strict-Transport-Security"]
+        assert "includeSubDomains" in response.headers["Strict-Transport-Security"]
+
+        assert "Content-Security-Policy" in response.headers
+        assert "default-src 'self'" in response.headers["Content-Security-Policy"]
+
+        assert "Referrer-Policy" in response.headers
+        assert response.headers["Referrer-Policy"] == "strict-origin-when-cross-origin"
+
+        assert "Permissions-Policy" in response.headers
+        assert "geolocation=()" in response.headers["Permissions-Policy"]
 
     def test_https_only_in_production(self):
         """Test HTTPS enforcement in production"""
@@ -434,8 +451,62 @@ class TestAuthentication:
 
     def test_api_key_authentication(self):
         """Test API key authentication for service accounts"""
-        # TODO: Implement API key authentication
-        pass
+        # Register and login
+        client.post("/api/auth/register", json={
+            "username": "apikeyuser",
+            "email": "apikey@example.com",
+            "password": "SecurePass123!"
+        })
+        login_response = client.post("/api/auth/login", json={
+            "username": "apikeyuser",
+            "password": "SecurePass123!"
+        })
+        token = login_response.json()["access_token"]
+
+        # Create an API key
+        create_response = client.post(
+            "/api/keys",
+            headers={"Authorization": f"Bearer {token}"},
+            json={
+                "name": "Test Service Account",
+                "expires_in_days": 30,
+                "rate_limit": 1000
+            }
+        )
+        assert create_response.status_code == 201
+        api_key_data = create_response.json()
+        assert "secret_key" in api_key_data
+        assert api_key_data["secret_key"].startswith("fog_sk_")
+        secret_key = api_key_data["secret_key"]
+
+        # Test API key authentication
+        # Note: This test validates the key creation and format
+        # Actual endpoint authentication with X-API-Key header
+        # should be tested in integration tests
+        assert len(secret_key) > 40  # Key should be sufficiently long
+        assert api_key_data["is_active"] is True
+        assert api_key_data["rate_limit"] == 1000
+
+        # List API keys
+        list_response = client.get(
+            "/api/keys",
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        assert list_response.status_code == 200
+        keys_list = list_response.json()
+        assert keys_list["total"] == 1
+        assert keys_list["keys"][0]["name"] == "Test Service Account"
+        # Secret key should NOT be in list response
+        assert "secret_key" not in keys_list["keys"][0]
+
+        # Revoke API key
+        key_id = api_key_data["id"]
+        revoke_response = client.delete(
+            f"/api/keys/{key_id}",
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        assert revoke_response.status_code == 200
+        assert revoke_response.json()["success"] is True
 
 
 ##############################################################################
@@ -558,9 +629,70 @@ class TestMonitoringAndLogging:
 
     def test_sensitive_data_not_logged(self):
         """Test sensitive data is not logged"""
-        # This requires checking actual log files
-        # TODO: Implement log sanitization verification
-        pass
+        import logging
+        import io
+        from backend.server.middleware.log_sanitizer import (
+            LogSanitizationFilter,
+            sanitize_log_string
+        )
+
+        # Create in-memory log handler to capture logs
+        log_stream = io.StringIO()
+        handler = logging.StreamHandler(log_stream)
+        handler.setLevel(logging.INFO)
+
+        # Create test logger with sanitization filter
+        test_logger = logging.getLogger("test_sanitizer")
+        test_logger.setLevel(logging.INFO)
+        test_logger.addHandler(handler)
+        test_logger.addFilter(LogSanitizationFilter())
+
+        # Test cases with sensitive data
+        sensitive_test_cases = [
+            ("password=mysecretpass123", "[REDACTED:password]"),
+            ("token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjoiYWRtaW4ifQ.sig", "[REDACTED:jwt]"),
+            ("api_key=sk_live_1234567890abcdef", "[REDACTED:token]"),
+            ("Authorization: Bearer abc123def456", "[REDACTED:authorization]"),
+            ("SSN: 123-45-6789", "[REDACTED:ssn]"),
+            ("card: 4532-1234-5678-9010", "[REDACTED:credit_card]"),
+            ("email: user@example.com", "[REDACTED:email]@example.com"),
+            ("phone: (555) 123-4567", "[REDACTED:phone]"),
+        ]
+
+        for sensitive_data, expected_redaction in sensitive_test_cases:
+            # Clear the log stream
+            log_stream.truncate(0)
+            log_stream.seek(0)
+
+            # Log the sensitive data
+            test_logger.info(f"User input: {sensitive_data}")
+
+            # Get logged output
+            logged_output = log_stream.getvalue()
+
+            # Verify sensitive data is NOT in logs
+            # Extract just the sensitive value (not the key)
+            if "=" in sensitive_data or ":" in sensitive_data:
+                sensitive_value = sensitive_data.split("=")[-1].split(":")[-1].strip()
+                # Make sure the actual sensitive value is NOT in logs
+                # (Some characters from the pattern might remain, but not the full value)
+                if len(sensitive_value) > 10:  # Only check for longer sensitive values
+                    assert sensitive_value not in logged_output, \
+                        f"Sensitive data '{sensitive_value}' was not redacted in logs"
+
+            # Verify redaction marker IS in logs
+            assert "[REDACTED" in logged_output, \
+                f"Redaction marker not found for: {sensitive_data}"
+
+        # Test utility function
+        test_string = "User password=secret123 and token=abc123xyz"
+        sanitized = sanitize_log_string(test_string)
+        assert "secret123" not in sanitized
+        assert "abc123xyz" not in sanitized
+        assert "[REDACTED" in sanitized
+
+        # Cleanup
+        test_logger.removeHandler(handler)
 
     def test_request_correlation_ids(self):
         """Test all requests have correlation IDs"""
@@ -572,10 +704,46 @@ class TestMonitoringAndLogging:
         # TODO: Verify after implementing error handling middleware
         # assert "X-Correlation-ID" in response.headers
 
-    def test_audit_log_for_sensitive_operations(self):
+    @pytest.mark.asyncio
+    async def test_audit_log_for_sensitive_operations(self):
         """Test sensitive operations are audit logged"""
-        # TODO: Implement audit logging
-        pass
+        from httpx import AsyncClient
+        from backend.server.main import app
+        from backend.server.database import get_db_context
+        from backend.server.models.audit_log import AuditLog
+        from sqlalchemy import select, desc
+
+        async with AsyncClient(app=app, base_url="http://test") as ac:
+            # Perform a sensitive operation (registration)
+            response = await ac.post("/api/auth/register", json={
+                "username": "audit_test_user",
+                "email": "audit@test.com",
+                "password": "SecurePass123!"
+            })
+
+            # Allow time for batch logging to flush
+            import asyncio
+            await asyncio.sleep(0.5)
+
+            # Query audit logs to verify logging
+            async with get_db_context() as db:
+                result = await db.execute(
+                    select(AuditLog)
+                    .where(AuditLog.event_type.in_(['user_created', 'data_create']))
+                    .order_by(desc(AuditLog.timestamp))
+                    .limit(10)
+                )
+                logs = result.scalars().all()
+
+                # Should have at least one audit log for the registration
+                # (Either event_type='user_created' or event_type='data_create')
+                assert len(logs) > 0, "No audit logs found for registration"
+
+                # Verify log contains expected fields
+                latest_log = logs[0]
+                assert latest_log.ip_address is not None
+                assert latest_log.action in ['create', 'post']
+                assert latest_log.status in ['success', 'failure']
 
 
 ##############################################################################

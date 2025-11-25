@@ -1,9 +1,10 @@
 """
 Authentication module for Fog Compute Backend
-Provides JWT token management and password hashing
+Provides JWT token management, password hashing, and API key authentication
 """
 from .jwt_utils import create_access_token, verify_token, get_password_hash, verify_password
 from .dependencies import get_current_user, get_current_active_user, require_auth
+from .api_key import APIKeyManager
 
 __all__ = [
     "create_access_token",
@@ -13,4 +14,5 @@ __all__ = [
     "get_current_user",
     "get_current_active_user",
     "require_auth",
+    "APIKeyManager",
 ]

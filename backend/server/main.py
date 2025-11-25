@@ -34,6 +34,7 @@ from .routes import (
     p2p,
     benchmarks,
     auth,
+    api_keys,
     bitchat,
     orchestration,
     websocket as websocket_routes,
@@ -47,7 +48,7 @@ from .websocket.publishers import publisher_manager
 from .services.metrics_aggregator import metrics_aggregator
 
 # Import middleware
-from .middleware import RateLimitMiddleware, CSRFMiddleware
+from .middleware import RateLimitMiddleware, CSRFMiddleware, SecurityHeadersMiddleware
 
 
 @asynccontextmanager
@@ -133,6 +134,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Security headers middleware (after CORS)
+app.add_middleware(SecurityHeadersMiddleware)
+
 # CSRF protection middleware (after CORS, before rate limiting)
 app.add_middleware(
     CSRFMiddleware,
@@ -163,6 +167,7 @@ async def health_check():
 
 # Include all route modules
 app.include_router(auth.router)  # Auth must be first for proper routing
+app.include_router(api_keys.router)  # API key management
 app.include_router(dashboard.router)
 app.include_router(betanet.router)
 app.include_router(tokenomics.router)
