@@ -62,7 +62,7 @@ class UsageScheduler:
                 # Calculate time until next midnight UTC
                 now = datetime.now(timezone.utc)
                 tomorrow = (now + timedelta(days=1)).date()
-                next_midnight = datetime.combine(tomorrow, time(0, 0, 0))
+                next_midnight = datetime.combine(tomorrow, time(0, 0, 0), tzinfo=timezone.utc)
                 sleep_seconds = (next_midnight - now).total_seconds()
 
                 logger.info(
