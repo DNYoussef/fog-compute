@@ -109,7 +109,7 @@ class BetanetService:
             packets_processed=0,
             uptime_seconds=0,
             region=region or "us-east",
-            created_at=datetime.utcnow().isoformat(),
+            created_at=datetime.now(timezone.utc).isoformat(),
         )
 
         self.mixnodes[node_id] = new_node

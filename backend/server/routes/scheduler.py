@@ -5,7 +5,7 @@ Handles job submission, scheduling, and NSGA-II optimization
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Dict, Any, List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 import uuid
 from sqlalchemy import select
@@ -163,7 +163,7 @@ async def submit_job(request: JobSubmitRequest, db: AsyncSession = Depends(get_d
             duration_estimate=request.duration_estimate,
             data_size_mb=request.data_size_mb,
             status='pending',
-            submitted_at=datetime.utcnow()
+            submitted_at=datetime.now(timezone.utc)
         )
 
         db.add(db_job)

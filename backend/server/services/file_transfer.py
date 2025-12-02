@@ -9,7 +9,7 @@ import asyncio
 import hashlib
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
@@ -93,7 +93,7 @@ class FileTransferService:
 
         # Bandwidth tracking
         self.bytes_transferred = 0
-        self.last_bandwidth_check = datetime.utcnow()
+        self.last_bandwidth_check = datetime.now(timezone.utc)
 
         logger.info(f"File transfer service initialized at {storage_path}")
 
@@ -215,7 +215,7 @@ class FileTransferService:
         # Update chunk record
         chunk.chunk_hash = chunk_hash
         chunk.uploaded = True
-        chunk.uploaded_at = datetime.utcnow()
+        chunk.uploaded_at = datetime.now(timezone.utc)
         chunk.stored_path = str(chunk_path)
 
         # Update file transfer
@@ -224,7 +224,7 @@ class FileTransferService:
         # Check if complete
         if file_transfer.uploaded_chunks == file_transfer.total_chunks:
             file_transfer.status = 'completed'
-            file_transfer.completed_at = datetime.utcnow()
+            file_transfer.completed_at = datetime.now(timezone.utc)
 
             # Assemble complete file
             await self._assemble_file(file_id, db)
@@ -485,7 +485,7 @@ class FileTransferService:
 
     def _generate_file_id(self, filename: str, peer_id: str) -> str:
         """Generate unique file ID"""
-        data = f"{filename}:{peer_id}:{datetime.utcnow().isoformat()}"
+        data = f"{filename}:{peer_id}:{datetime.now(timezone.utc).isoformat()}"
         return hashlib.sha256(data.encode()).hexdigest()[:32]
 
     async def _throttle_bandwidth(self):
@@ -493,7 +493,7 @@ class FileTransferService:
         if self.bandwidth_limit_mbps is None:
             return
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         elapsed = (now - self.last_bandwidth_check).total_seconds()
 
         if elapsed < 1.0:

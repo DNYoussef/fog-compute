@@ -2,7 +2,7 @@
 Usage Tracking Service
 Manages daily usage tracking, limit enforcement, and automatic resets
 """
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from typing import Dict, Optional, Any
 from sqlalchemy import select, and_
@@ -254,7 +254,7 @@ class UsageTrackingService:
         else:
             raise ValueError(f'Unknown metric: {metric}')
 
-        daily_usage.updated_at = datetime.utcnow()
+        daily_usage.updated_at = datetime.now(timezone.utc)
 
         await db.commit()
         await db.refresh(daily_usage)

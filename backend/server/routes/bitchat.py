@@ -5,6 +5,7 @@ Endpoints for P2P messaging network
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
+from datetime import datetime, timezone
 import logging
 
 from ..database import get_db
@@ -804,7 +805,7 @@ async def get_file_transfer_status(
         uploaded_by="",
         status=progress.status,
         progress=progress.progress_percent,
-        created_at=datetime.utcnow().isoformat(),
+        created_at=datetime.now(timezone.utc).isoformat(),
         completed_at=None,
         download_sources=progress.download_sources
     )

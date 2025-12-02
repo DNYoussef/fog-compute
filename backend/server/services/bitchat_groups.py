@@ -3,7 +3,7 @@ BitChat Group Management Extension
 Extends BitChat service with group chat functionality
 """
 from typing import List, Dict, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, func
 import logging
@@ -255,7 +255,7 @@ async def remove_group_member(
 
         # Mark as inactive
         membership.is_active = False
-        membership.left_at = datetime.utcnow()
+        membership.left_at = datetime.now(timezone.utc)
 
         # Update group member count
         group_result = await db.execute(
@@ -311,5 +311,5 @@ async def list_group_members(
 
 def _generate_group_id(name: str, created_by: str) -> str:
     """Generate unique group ID"""
-    data = f"{name}:{created_by}:{datetime.utcnow().isoformat()}"
+    data = f"{name}:{created_by}:{datetime.now(timezone.utc).isoformat()}"
     return hashlib.sha256(data.encode()).hexdigest()[:32]

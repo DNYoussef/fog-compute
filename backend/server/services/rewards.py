@@ -175,7 +175,7 @@ class RewardDistributionService:
 
                         for replica in replicas:
                             if replica.started_at:
-                                running_hours = (datetime.utcnow() - replica.started_at).total_seconds() / 3600
+                                running_hours = (datetime.now(timezone.utc) - replica.started_at).total_seconds() / 3600
 
                                 # Calculate reward (e.g., 10 tokens per hour)
                                 reward_amount = Decimal(str(running_hours)) * Decimal("10")

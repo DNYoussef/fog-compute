@@ -119,7 +119,7 @@ class BitChatService:
 
             if peer:
                 peer.is_online = is_online
-                peer.last_seen = datetime.utcnow()
+                peer.last_seen = datetime.now(timezone.utc)
                 await db.commit()
                 return True
 
@@ -339,7 +339,7 @@ class BitChatService:
 
             if message:
                 message.status = 'delivered'
-                message.delivered_at = datetime.utcnow()
+                message.delivered_at = datetime.now(timezone.utc)
                 await db.commit()
                 return True
 
@@ -451,7 +451,7 @@ class BitChatService:
             total_messages = total_messages_result.scalar()
 
             # Count messages in last 24 hours
-            last_24h = datetime.utcnow() - timedelta(hours=24)
+            last_24h = datetime.now(timezone.utc) - timedelta(hours=24)
             recent_messages_result = await db.execute(
                 select(func.count()).select_from(Message).where(
                     Message.sent_at >= last_24h

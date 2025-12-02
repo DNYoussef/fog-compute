@@ -5,7 +5,7 @@ Handles usage status queries and limit information
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -294,7 +294,7 @@ async def manual_reset(
         return {
             "success": True,
             "records_processed": record_count,
-            "timestamp": datetime.utcnow().isoformat() + 'Z'
+            "timestamp": datetime.now(timezone.utc).isoformat() + 'Z'
         }
 
     except Exception as e:
@@ -323,7 +323,7 @@ async def get_scheduler_status(
     """
     from datetime import datetime, time, timedelta
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     tomorrow = (now + timedelta(days=1)).date()
     next_midnight = datetime.combine(tomorrow, time(0, 0, 0))
 

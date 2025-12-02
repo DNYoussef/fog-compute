@@ -4,7 +4,7 @@ Handles scheduled tasks for usage tracking (daily resets at midnight UTC)
 """
 import asyncio
 import logging
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, timezone
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -60,7 +60,7 @@ class UsageScheduler:
         while self.is_running:
             try:
                 # Calculate time until next midnight UTC
-                now = datetime.utcnow()
+                now = datetime.now(timezone.utc)
                 tomorrow = (now + timedelta(days=1)).date()
                 next_midnight = datetime.combine(tomorrow, time(0, 0, 0))
                 sleep_seconds = (next_midnight - now).total_seconds()
@@ -97,7 +97,7 @@ class UsageScheduler:
                 record_count = await usage_tracking_service.reset_daily_usage(db)
 
                 logger.info(
-                    f"Daily usage reset completed at {datetime.utcnow().isoformat()}Z - "
+                    f"Daily usage reset completed at {datetime.now(timezone.utc).isoformat()}Z - "
                     f"{record_count} records from previous day now historical"
                 )
 
@@ -117,7 +117,7 @@ class UsageScheduler:
                 record_count = await usage_tracking_service.reset_daily_usage(db)
 
                 logger.info(
-                    f"Manual usage reset completed at {datetime.utcnow().isoformat()}Z - "
+                    f"Manual usage reset completed at {datetime.now(timezone.utc).isoformat()}Z - "
                     f"{record_count} records processed"
                 )
 

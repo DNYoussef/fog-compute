@@ -13,7 +13,7 @@ import os
 import sys
 import uuid
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import random
 
 # Add project root to path
@@ -66,8 +66,8 @@ async def seed_betanet_nodes(session: AsyncSession):
             ip_address=f"192.168.{random.randint(1, 254)}.{random.randint(1, 254)}",
             packets_processed=random.randint(10000, 1000000),
             uptime_seconds=random.randint(3600, 2592000),  # 1 hour to 30 days
-            deployed_at=datetime.utcnow() - timedelta(days=random.randint(1, 60)),
-            last_seen=datetime.utcnow() - timedelta(minutes=random.randint(0, 30))
+            deployed_at=datetime.now(timezone.utc) - timedelta(days=random.randint(1, 60)),
+            last_seen=datetime.now(timezone.utc) - timedelta(minutes=random.randint(0, 30))
         )
         nodes.append(node)
 
@@ -95,7 +95,7 @@ async def seed_jobs(session: AsyncSession):
             job_count += 1
 
             # Calculate timestamps based on status
-            submitted_at = datetime.utcnow() - timedelta(hours=random.randint(1, 72))
+            submitted_at = datetime.now(timezone.utc) - timedelta(hours=random.randint(1, 72))
             started_at = submitted_at + timedelta(minutes=random.randint(1, 30)) if status != 'pending' else None
             completed_at = started_at + timedelta(minutes=random.randint(5, 120)) if status in ['completed', 'failed'] else None
 
@@ -166,8 +166,8 @@ async def seed_devices(session: AsyncSession):
                 cpu_temp_celsius=round(random.uniform(35, 70), 1),
                 tasks_completed=random.randint(0, 500),
                 compute_hours=round(random.uniform(0, 1000), 2),
-                registered_at=datetime.utcnow() - timedelta(days=random.randint(1, 90)),
-                last_heartbeat=datetime.utcnow() - timedelta(minutes=random.randint(0, 60))
+                registered_at=datetime.now(timezone.utc) - timedelta(days=random.randint(1, 90)),
+                last_heartbeat=datetime.now(timezone.utc) - timedelta(minutes=random.randint(0, 60))
             )
             devices.append(device)
 
@@ -187,8 +187,8 @@ async def seed_token_balances(session: AsyncSession):
             balance=round(random.uniform(1000, 1000000), 2),
             staked=round(random.uniform(0, 500000), 2),
             rewards=round(random.uniform(0, 50000), 2),
-            created_at=datetime.utcnow() - timedelta(days=random.randint(30, 365)),
-            updated_at=datetime.utcnow() - timedelta(days=random.randint(0, 30))
+            created_at=datetime.now(timezone.utc) - timedelta(days=random.randint(30, 365)),
+            updated_at=datetime.now(timezone.utc) - timedelta(days=random.randint(0, 30))
         )
         balances.append(balance)
 
@@ -212,8 +212,8 @@ async def seed_circuits(session: AsyncSession):
             bandwidth=round(random.uniform(1.0, 100.0), 2),  # Mbps
             latency_ms=round(random.uniform(10, 150), 2),
             health=round(random.uniform(0.5, 1.0), 2),
-            created_at=datetime.utcnow() - timedelta(hours=random.randint(1, 48)),
-            destroyed_at=None if random.random() > 0.3 else datetime.utcnow() - timedelta(hours=random.randint(0, 24))
+            created_at=datetime.now(timezone.utc) - timedelta(hours=random.randint(1, 48)),
+            destroyed_at=None if random.random() > 0.3 else datetime.now(timezone.utc) - timedelta(hours=random.randint(0, 24))
         )
         circuits.append(circuit)
 
@@ -249,9 +249,9 @@ async def seed_dao_proposals(session: AsyncSession, balances):
             status=statuses[i],
             votes_for=votes_for,
             votes_against=votes_against,
-            created_at=datetime.utcnow() - timedelta(days=random.randint(5, 30)),
-            voting_ends_at=datetime.utcnow() + timedelta(days=random.randint(1, 14)) if statuses[i] == 'active' else datetime.utcnow() - timedelta(days=random.randint(1, 7)),
-            executed_at=datetime.utcnow() - timedelta(days=random.randint(1, 5)) if statuses[i] == 'executed' else None
+            created_at=datetime.now(timezone.utc) - timedelta(days=random.randint(5, 30)),
+            voting_ends_at=datetime.now(timezone.utc) + timedelta(days=random.randint(1, 14)) if statuses[i] == 'active' else datetime.now(timezone.utc) - timedelta(days=random.randint(1, 7)),
+            executed_at=datetime.now(timezone.utc) - timedelta(days=random.randint(1, 5)) if statuses[i] == 'executed' else None
         )
         proposals.append(proposal)
 
@@ -273,8 +273,8 @@ async def seed_stakes(session: AsyncSession, balances):
             address=balance.address,
             amount=round(random.uniform(10000, balance.staked), 2) if balance.staked > 10000 else balance.staked,
             rewards_earned=round(random.uniform(100, 5000), 2),
-            staked_at=datetime.utcnow() - timedelta(days=random.randint(30, 180)),
-            unstaked_at=None if random.random() > 0.2 else datetime.utcnow() - timedelta(days=random.randint(1, 30))
+            staked_at=datetime.now(timezone.utc) - timedelta(days=random.randint(30, 180)),
+            unstaked_at=None if random.random() > 0.2 else datetime.now(timezone.utc) - timedelta(days=random.randint(1, 30))
         )
         stakes.append(stake)
 
@@ -356,7 +356,7 @@ async def quick_seed():
                 status=random.choice(['pending', 'running', 'completed']),
                 cpu_required=2.0,
                 memory_required=2048.0,
-                submitted_at=datetime.utcnow()
+                submitted_at=datetime.now(timezone.utc)
             )
             jobs.append(job)
         session.add_all(jobs)
