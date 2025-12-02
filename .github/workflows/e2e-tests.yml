@@ -40,6 +40,25 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
+      - name: Start Redis (Ubuntu)
+        if: runner.os == 'Linux'
+        uses: supercharge/redis-github-action@1.8.0
+        with:
+          redis-version: 7
+
+      - name: Start Redis (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # Install Redis using Chocolatey
+          choco install redis-64 -y --no-progress
+          # Start Redis server in background
+          Start-Process -NoNewWindow -FilePath "C:\ProgramData\chocolatey\lib\redis-64\tools\redis-server.exe"
+          # Wait for Redis to start
+          Start-Sleep -Seconds 3
+          # Verify Redis is running
+          redis-cli ping
+
       - name: Start PostgreSQL
         uses: ikalnytskyi/action-setup-postgres@v5
         with:
@@ -118,6 +137,11 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
+      - name: Start Redis
+        uses: supercharge/redis-github-action@1.8.0
+        with:
+          redis-version: 7
+
       - name: Start PostgreSQL
         uses: ikalnytskyi/action-setup-postgres@v5
         with:
@@ -180,6 +204,11 @@ jobs:
         with:
           python-version: '3.11'
           cache: 'pip'
+
+      - name: Start Redis
+        uses: supercharge/redis-github-action@1.8.0
+        with:
+          redis-version: 7
 
       - name: Start PostgreSQL
         uses: ikalnytskyi/action-setup-postgres@v5
@@ -257,7 +286,8 @@ jobs:
         run: |
           if [ -d "all-blob-reports" ] && [ "$(ls -A all-blob-reports 2>/dev/null)" ]; then
             echo "Merging blob reports into HTML report..."
-            npx playwright merge-reports --reporter html ./all-blob-reports
+            # Use merge config to handle cross-OS path differences (Windows vs Linux)
+            npx playwright merge-reports -c playwright.merge.config.ts --reporter html ./all-blob-reports
           else
             echo "No blob reports found, creating placeholder report..."
             mkdir -p playwright-report
