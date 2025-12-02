@@ -15,6 +15,13 @@ sys.path.insert(0, str(project_root / "backend"))
 import pytest
 
 
+def pytest_configure(config):
+    """Register custom markers to avoid warnings."""
+    config.addinivalue_line("markers", "slow: mark test as slow running")
+    config.addinivalue_line("markers", "integration: mark test as integration test")
+    config.addinivalue_line("markers", "benchmark: mark test as benchmark")
+
+
 @pytest.fixture(scope="session")
 def project_root_path():
     """Return the project root directory path."""
