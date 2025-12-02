@@ -8,10 +8,15 @@ for audit and recovery purposes.
 from sqlalchemy import Column, String, Float, DateTime, Boolean, ForeignKey, Text, JSON
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 
 from .database import Base
+
+
+def utc_now():
+    """Return timezone-aware UTC datetime for SQLAlchemy defaults."""
+    return datetime.now(timezone.utc)
 
 
 class RewardDistribution(Base):
@@ -37,7 +42,7 @@ class RewardDistribution(Base):
     # Status values: pending, distributed, failed, rolled_back
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    created_at = Column(DateTime, default=utc_now, nullable=False, index=True)
     distributed_at = Column(DateTime, nullable=True)
     rolled_back_at = Column(DateTime, nullable=True)
 
@@ -99,7 +104,7 @@ class PendingRewardQueue(Base):
     last_retry_at = Column(DateTime, nullable=True)
 
     # Timestamps
-    queued_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    queued_at = Column(DateTime, default=utc_now, nullable=False, index=True)
     processed_at = Column(DateTime, nullable=True)
     expires_at = Column(DateTime, nullable=True, index=True)
 
@@ -156,7 +161,7 @@ class RewardDistributionBatch(Base):
     rollback_reason = Column(Text, nullable=True)
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    created_at = Column(DateTime, default=utc_now, nullable=False, index=True)
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
     rolled_back_at = Column(DateTime, nullable=True)
@@ -219,7 +224,7 @@ class RewardDistributionAuditLog(Base):
     transaction_id = Column(String(255), nullable=True)
 
     # Timestamp
-    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    timestamp = Column(DateTime, default=utc_now, nullable=False, index=True)
 
     # Full event details (immutable JSON)
     event_data = Column(JSON, nullable=True)

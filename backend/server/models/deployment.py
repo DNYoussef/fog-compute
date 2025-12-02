@@ -6,11 +6,16 @@ Handles deployments, replicas, resources, and status tracking
 from sqlalchemy import Column, String, Integer, Float, DateTime, ForeignKey, Enum as SQLEnum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 import enum
 
 from .database import Base
+
+
+def utc_now():
+    """Return timezone-aware UTC datetime for SQLAlchemy defaults."""
+    return datetime.now(timezone.utc)
 
 
 class DeploymentStatus(str, enum.Enum):
@@ -48,8 +53,8 @@ class Deployment(Base):
     target_replicas = Column(Integer, default=1, nullable=False)
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
     deleted_at = Column(DateTime, nullable=True, index=True)  # Soft delete
 
     # Relationships
@@ -88,8 +93,8 @@ class DeploymentReplica(Base):
     # Timestamps
     started_at = Column(DateTime, nullable=True)
     stopped_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
 
     # Relationships
     deployment = relationship("Deployment", back_populates="replicas")
@@ -123,8 +128,8 @@ class DeploymentResource(Base):
     storage_gb = Column(Integer, nullable=False)
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
 
     # Relationships
     deployment = relationship("Deployment", back_populates="resources")
@@ -155,7 +160,7 @@ class DeploymentStatusHistory(Base):
     old_status = Column(String(50), nullable=False)
     new_status = Column(String(50), nullable=False)
     changed_by = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=True, index=True)
-    changed_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    changed_at = Column(DateTime, default=utc_now, nullable=False, index=True)
     reason = Column(String(500), nullable=True)  # Optional reason for status change
 
     # Relationships

@@ -5,8 +5,13 @@ Defines database schemas for all fog-compute entities
 from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, JSON, Text, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.dialects.postgresql import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
+
+
+def utc_now():
+    """Return timezone-aware UTC datetime for SQLAlchemy defaults."""
+    return datetime.now(timezone.utc)
 
 Base = declarative_base()
 
@@ -28,7 +33,7 @@ class Job(Base):
     duration_estimate = Column(Float, nullable=True)
     data_size_mb = Column(Float, nullable=True)
     assigned_node = Column(String(255), nullable=True)
-    submitted_at = Column(DateTime, default=datetime.utcnow)
+    submitted_at = Column(DateTime, default=utc_now)
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
     progress = Column(Float, default=0.0)
@@ -64,8 +69,8 @@ class TokenBalance(Base):
     balance = Column(Float, default=0.0)
     staked = Column(Float, default=0.0)
     rewards = Column(Float, default=0.0)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
     def to_dict(self):
         return {
@@ -95,8 +100,8 @@ class Device(Base):
     cpu_temp_celsius = Column(Float, nullable=True)
     tasks_completed = Column(Integer, default=0)
     compute_hours = Column(Float, default=0.0)
-    registered_at = Column(DateTime, default=datetime.utcnow)
-    last_heartbeat = Column(DateTime, default=datetime.utcnow)
+    registered_at = Column(DateTime, default=utc_now)
+    last_heartbeat = Column(DateTime, default=utc_now)
 
     def to_dict(self):
         return {
@@ -126,7 +131,7 @@ class Circuit(Base):
     bandwidth = Column(Float, default=0.0)
     latency_ms = Column(Float, default=0.0)
     health = Column(Float, default=1.0)  # 0.0 to 1.0
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
     destroyed_at = Column(DateTime, nullable=True)
 
     def to_dict(self):
@@ -154,7 +159,7 @@ class DAOProposal(Base):
     status = Column(String(50), default='active')  # active, passed, rejected, executed
     votes_for = Column(Integer, default=0)
     votes_against = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
     voting_ends_at = Column(DateTime, nullable=True)
     executed_at = Column(DateTime, nullable=True)
 
@@ -182,7 +187,7 @@ class Stake(Base):
     address = Column(String(66), ForeignKey('token_balances.address'), nullable=False)
     amount = Column(Float, nullable=False)
     rewards_earned = Column(Float, default=0.0)
-    staked_at = Column(DateTime, default=datetime.utcnow)
+    staked_at = Column(DateTime, default=utc_now)
     unstaked_at = Column(DateTime, nullable=True)
 
     def to_dict(self):
@@ -209,8 +214,8 @@ class BetanetNode(Base):
     ip_address = Column(String(45), nullable=True)
     packets_processed = Column(Integer, default=0)
     uptime_seconds = Column(Integer, default=0)
-    deployed_at = Column(DateTime, default=datetime.utcnow)
-    last_seen = Column(DateTime, default=datetime.utcnow)
+    deployed_at = Column(DateTime, default=utc_now)
+    last_seen = Column(DateTime, default=utc_now)
 
     def to_dict(self):
         return {
@@ -239,7 +244,7 @@ class User(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     is_admin = Column(Boolean, default=False, nullable=False)
     tier = Column(String(50), default='free', nullable=False, index=True)  # free, pro, enterprise
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
     last_login = Column(DateTime, nullable=True)
 
     def to_dict(self):
@@ -267,7 +272,7 @@ class APIKey(Base):
     name = Column(String(100), nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     rate_limit = Column(Integer, default=1000, nullable=False)  # requests per hour
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
     last_used = Column(DateTime, nullable=True)
     expires_at = Column(DateTime, nullable=True)
 
@@ -292,8 +297,8 @@ class RateLimitEntry(Base):
     identifier = Column(String(100), nullable=False, index=True)  # IP or user ID
     endpoint = Column(String(200), nullable=False, index=True)
     request_count = Column(Integer, default=0, nullable=False)
-    window_start = Column(DateTime, default=datetime.utcnow, nullable=False)
-    last_request = Column(DateTime, default=datetime.utcnow, nullable=False)
+    window_start = Column(DateTime, default=utc_now, nullable=False)
+    last_request = Column(DateTime, default=utc_now, nullable=False)
 
     def to_dict(self):
         return {
@@ -315,12 +320,12 @@ class Peer(Base):
     peer_id = Column(String(255), unique=True, nullable=False, index=True)  # Unique peer identifier
     public_key = Column(Text, nullable=False)  # Peer's public key for encryption
     display_name = Column(String(100), nullable=True)
-    last_seen = Column(DateTime, default=datetime.utcnow, nullable=False)
+    last_seen = Column(DateTime, default=utc_now, nullable=False)
     is_online = Column(Boolean, default=False, nullable=False)
     trust_score = Column(Float, default=0.5, nullable=False)  # 0.0 to 1.0
     messages_sent = Column(Integer, default=0, nullable=False)
     messages_received = Column(Integer, default=0, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
 
     def to_dict(self):
         return {
@@ -353,7 +358,7 @@ class Message(Base):
     encryption_algorithm = Column(String(50), default='AES-256-GCM', nullable=False)
     nonce = Column(String(255), nullable=True)  # Encryption nonce/IV
     status = Column(String(50), default='pending', nullable=False)  # pending, sent, delivered, read, failed
-    sent_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    sent_at = Column(DateTime, default=utc_now, nullable=False)
     delivered_at = Column(DateTime, nullable=True)
     ttl = Column(Integer, default=3600, nullable=False)  # Time to live in seconds
     hop_count = Column(Integer, default=0, nullable=False)  # For onion routing
@@ -414,8 +419,8 @@ class Node(Base):
     circuit_participation_count = Column(Integer, default=0, nullable=False)
 
     # Timestamps
-    registered_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    last_heartbeat = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    registered_at = Column(DateTime, default=utc_now, nullable=False)
+    last_heartbeat = Column(DateTime, default=utc_now, nullable=False, index=True)
 
     def to_dict(self):
         return {
@@ -468,7 +473,7 @@ class TaskAssignment(Base):
 
     # Execution tracking
     status = Column(String(50), default='pending', nullable=False, index=True)  # pending, assigned, running, completed, failed
-    assigned_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    assigned_at = Column(DateTime, default=utc_now, nullable=False)
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
 
@@ -509,14 +514,14 @@ class GroupChat(Base):
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     created_by = Column(String(255), ForeignKey('peers.peer_id'), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     member_count = Column(Integer, default=1, nullable=False)
     message_count = Column(Integer, default=0, nullable=False)
 
     # Gossip protocol metadata
     vector_clock = Column(JSON, default={}, nullable=False)  # Vector clock for message ordering
-    last_sync = Column(DateTime, default=datetime.utcnow, nullable=False)
+    last_sync = Column(DateTime, default=utc_now, nullable=False)
 
     def to_dict(self):
         return {
@@ -547,7 +552,7 @@ class GroupMembership(Base):
     group_id = Column(String(255), ForeignKey('group_chats.group_id'), nullable=False, index=True)
     peer_id = Column(String(255), ForeignKey('peers.peer_id'), nullable=False, index=True)
     role = Column(String(50), default='member', nullable=False)  # admin, moderator, member
-    joined_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    joined_at = Column(DateTime, default=utc_now, nullable=False)
     left_at = Column(DateTime, nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
     messages_sent = Column(Integer, default=0, nullable=False)
@@ -589,7 +594,7 @@ class FileTransfer(Base):
 
     # Status tracking
     status = Column(String(50), default='pending', nullable=False, index=True)  # pending, uploading, completed, failed
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
     completed_at = Column(DateTime, nullable=True)
 
     # Multi-source download tracking

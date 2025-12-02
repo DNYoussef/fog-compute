@@ -4,10 +4,15 @@ Tracks daily usage limits and consumption per user
 """
 from sqlalchemy import Column, String, Integer, Date, DateTime, ForeignKey, Numeric, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 import uuid
 
 from .database import Base
+
+
+def utc_now():
+    """Return timezone-aware UTC datetime for SQLAlchemy defaults."""
+    return datetime.now(timezone.utc)
 
 
 class DailyUsage(Base):
@@ -32,8 +37,8 @@ class DailyUsage(Base):
     storage_gb_hours = Column(Numeric(10, 2), default=0.0, nullable=False)
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
 
     def to_dict(self):
         """Convert to dictionary for API responses"""
@@ -67,8 +72,8 @@ class UsageLimit(Base):
     max_storage_gb = Column(Integer, nullable=True)
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
 
     def to_dict(self):
         """Convert to dictionary for API responses"""

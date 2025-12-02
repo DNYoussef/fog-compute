@@ -5,10 +5,15 @@ Tracks all sensitive operations and access events
 """
 from sqlalchemy import Column, String, DateTime, JSON, ForeignKey, Index, Integer
 from sqlalchemy.dialects.postgresql import UUID, JSONB
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 
 from .database import Base
+
+
+def utc_now():
+    """Return timezone-aware UTC datetime for SQLAlchemy defaults."""
+    return datetime.now(timezone.utc)
 
 
 class AuditLog(Base):
@@ -36,7 +41,7 @@ class AuditLog(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     # Timestamp (with timezone) - indexed for time-range queries
-    timestamp = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False, index=True)
+    timestamp = Column(DateTime(timezone=True), default=utc_now, nullable=False, index=True)
 
     # User information (nullable for anonymous/system events)
     user_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=True, index=True)
