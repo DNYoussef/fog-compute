@@ -321,11 +321,11 @@ async def get_scheduler_status(
             "next_reset": "2025-11-26T00:00:00Z"
         }
     """
-    from datetime import datetime, time, timedelta
+    from datetime import datetime, time, timedelta, timezone
 
     now = datetime.now(timezone.utc)
     tomorrow = (now + timedelta(days=1)).date()
-    next_midnight = datetime.combine(tomorrow, time(0, 0, 0))
+    next_midnight = datetime.combine(tomorrow, time(0, 0, 0), tzinfo=timezone.utc)
 
     return {
         "running": usage_scheduler.is_running,
