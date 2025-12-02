@@ -13,8 +13,8 @@ import sys
 
 sys.path.append(str(Path(__file__).parent.parent))
 
-from benchmark_suite import FogBenchmarkSuite
-from utils import setup_logging
+from .benchmark_suite import FogBenchmarkSuite
+from ..utils import setup_logging
 
 
 class BenchmarkRunner:

@@ -14,6 +14,8 @@ from . import (
     api_keys,
     bitchat,
     orchestration,
+    websocket,
+    deployment,
     usage
 )
 
@@ -30,5 +32,7 @@ __all__ = [
     'api_keys',
     'bitchat',
     'orchestration',
+    'websocket',
+    'deployment',
     'usage'
 ]

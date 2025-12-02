@@ -45,7 +45,9 @@ export default function BetanetPage() {
   }, []);
 
   const activeNodes = mixnodes.filter(n => n.status === 'active').length;
-  const avgLatency = mixnodes.reduce((acc, n) => acc + n.latency, 0) / mixnodes.length || 0;
+  const avgLatency = mixnodes.length > 0
+    ? mixnodes.reduce((acc, n) => acc + n.latency, 0) / mixnodes.length
+    : 0;
 
   return (
     <div className="space-y-6">

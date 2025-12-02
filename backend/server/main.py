@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 # Import configuration and services
 from .config import settings
 from .services.enhanced_service_manager import enhanced_service_manager
-from .services.scheduler import scheduler
+from .services.scheduler import scheduler as deployment_scheduler
 from .services.usage_scheduler import usage_scheduler
 from .services.usage_tracking import usage_tracking_service
 from .services.cache_service import cache_service
@@ -116,7 +116,7 @@ async def lifespan(app: FastAPI):
 
     # Initialize deployment scheduler
     try:
-        await scheduler.start()
+        await deployment_scheduler.start()
         logger.info("✅ Deployment scheduler started successfully")
     except Exception as e:
         logger.error(f"❌ Scheduler initialization failed: {e}")
@@ -179,7 +179,7 @@ async def lifespan(app: FastAPI):
 
     # Stop deployment scheduler
     try:
-        await scheduler.stop()
+        await deployment_scheduler.stop()
         logger.info("✅ Deployment scheduler stopped")
     except Exception as e:
         logger.error(f"Error stopping scheduler: {e}")
