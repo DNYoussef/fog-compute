@@ -8,6 +8,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use rand::prelude::*;
+use rand::rngs::StdRng;
+use rand::SeedableRng;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 use tracing::debug;
@@ -128,7 +130,7 @@ pub struct AdvancedCoverTrafficGenerator {
     real_traffic_stats: Arc<Mutex<TrafficStatistics>>,
     cover_traffic_stats: Arc<Mutex<TrafficStatistics>>,
     last_packet_time: Arc<Mutex<Option<Instant>>>,
-    rng: Arc<Mutex<ThreadRng>>,
+    rng: Arc<Mutex<StdRng>>,
 }
 
 impl AdvancedCoverTrafficGenerator {
@@ -141,7 +143,7 @@ impl AdvancedCoverTrafficGenerator {
             real_traffic_stats: Arc::new(Mutex::new(TrafficStatistics::new())),
             cover_traffic_stats: Arc::new(Mutex::new(TrafficStatistics::new())),
             last_packet_time: Arc::new(Mutex::new(None)),
-            rng: Arc::new(Mutex::new(thread_rng())),
+            rng: Arc::new(Mutex::new(StdRng::from_entropy())),
         }
     }
 

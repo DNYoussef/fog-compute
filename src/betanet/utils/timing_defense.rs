@@ -7,6 +7,8 @@ use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use rand::prelude::*;
+use rand::rngs::StdRng;
+use rand::SeedableRng;
 use tokio::sync::Mutex;
 
 /// Timing defense configuration
@@ -53,7 +55,7 @@ pub struct PacketTiming {
 pub struct TimingDefenseManager {
     config: TimingDefenseConfig,
     timing_history: Arc<Mutex<VecDeque<PacketTiming>>>,
-    rng: Arc<Mutex<ThreadRng>>,
+    rng: Arc<Mutex<StdRng>>,
 }
 
 impl TimingDefenseManager {
@@ -64,7 +66,7 @@ impl TimingDefenseManager {
                 config.correlation_window_size,
             ))),
             config,
-            rng: Arc::new(Mutex::new(thread_rng())),
+            rng: Arc::new(Mutex::new(StdRng::from_entropy())),
         }
     }
 
