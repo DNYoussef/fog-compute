@@ -53,9 +53,9 @@ class Deployment(Base):
     target_replicas = Column(Integer, default=1, nullable=False)
 
     # Timestamps
-    created_at = Column(DateTime, default=utc_now, nullable=False)
-    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
-    deleted_at = Column(DateTime, nullable=True, index=True)  # Soft delete
+    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
+    deleted_at = Column(DateTime(timezone=True), nullable=True, index=True)  # Soft delete
 
     # Relationships
     replicas = relationship("DeploymentReplica", back_populates="deployment", cascade="all, delete-orphan")
@@ -91,10 +91,10 @@ class DeploymentReplica(Base):
     container_id = Column(String(255), nullable=True)  # Docker/container runtime ID
 
     # Timestamps
-    started_at = Column(DateTime, nullable=True)
-    stopped_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=utc_now, nullable=False)
-    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    stopped_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
     # Relationships
     deployment = relationship("Deployment", back_populates="replicas")
@@ -128,8 +128,8 @@ class DeploymentResource(Base):
     storage_gb = Column(Integer, nullable=False)
 
     # Timestamps
-    created_at = Column(DateTime, default=utc_now, nullable=False)
-    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
     # Relationships
     deployment = relationship("Deployment", back_populates="resources")
@@ -160,7 +160,7 @@ class DeploymentStatusHistory(Base):
     old_status = Column(String(50), nullable=False)
     new_status = Column(String(50), nullable=False)
     changed_by = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=True, index=True)
-    changed_at = Column(DateTime, default=utc_now, nullable=False, index=True)
+    changed_at = Column(DateTime(timezone=True), default=utc_now, nullable=False, index=True)
     reason = Column(String(500), nullable=True)  # Optional reason for status change
 
     # Relationships

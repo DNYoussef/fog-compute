@@ -37,8 +37,8 @@ class DailyUsage(Base):
     storage_gb_hours = Column(Numeric(10, 2), default=0.0, nullable=False)
 
     # Timestamps
-    created_at = Column(DateTime, default=utc_now, nullable=False)
-    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
     def to_dict(self):
         """Convert to dictionary for API responses"""
@@ -72,8 +72,8 @@ class UsageLimit(Base):
     max_storage_gb = Column(Integer, nullable=True)
 
     # Timestamps
-    created_at = Column(DateTime, default=utc_now, nullable=False)
-    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
     def to_dict(self):
         """Convert to dictionary for API responses"""

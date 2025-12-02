@@ -42,9 +42,9 @@ class RewardDistribution(Base):
     # Status values: pending, distributed, failed, rolled_back
 
     # Timestamps
-    created_at = Column(DateTime, default=utc_now, nullable=False, index=True)
-    distributed_at = Column(DateTime, nullable=True)
-    rolled_back_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False, index=True)
+    distributed_at = Column(DateTime(timezone=True), nullable=True)
+    rolled_back_at = Column(DateTime(timezone=True), nullable=True)
 
     # Additional context data (named 'context' to avoid SQLAlchemy reserved 'metadata')
     context = Column(JSON, nullable=True)
@@ -101,12 +101,12 @@ class PendingRewardQueue(Base):
     # Retry tracking
     retry_count = Column(Float, default=0, nullable=False)
     max_retries = Column(Float, default=3, nullable=False)
-    last_retry_at = Column(DateTime, nullable=True)
+    last_retry_at = Column(DateTime(timezone=True), nullable=True)
 
     # Timestamps
-    queued_at = Column(DateTime, default=utc_now, nullable=False, index=True)
-    processed_at = Column(DateTime, nullable=True)
-    expires_at = Column(DateTime, nullable=True, index=True)
+    queued_at = Column(DateTime(timezone=True), default=utc_now, nullable=False, index=True)
+    processed_at = Column(DateTime(timezone=True), nullable=True)
+    expires_at = Column(DateTime(timezone=True), nullable=True, index=True)
 
     # Error tracking
     last_error = Column(Text, nullable=True)
@@ -161,10 +161,10 @@ class RewardDistributionBatch(Base):
     rollback_reason = Column(Text, nullable=True)
 
     # Timestamps
-    created_at = Column(DateTime, default=utc_now, nullable=False, index=True)
-    started_at = Column(DateTime, nullable=True)
-    completed_at = Column(DateTime, nullable=True)
-    rolled_back_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False, index=True)
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    rolled_back_at = Column(DateTime(timezone=True), nullable=True)
 
     # Associated distributions (stored as JSON for simplicity)
     reward_ids = Column(JSON, nullable=True)  # List of reward_id strings
@@ -224,7 +224,7 @@ class RewardDistributionAuditLog(Base):
     transaction_id = Column(String(255), nullable=True)
 
     # Timestamp
-    timestamp = Column(DateTime, default=utc_now, nullable=False, index=True)
+    timestamp = Column(DateTime(timezone=True), default=utc_now, nullable=False, index=True)
 
     # Full event details (immutable JSON)
     event_data = Column(JSON, nullable=True)
