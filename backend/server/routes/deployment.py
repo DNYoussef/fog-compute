@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_, func
 import logging
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ..services.enhanced_service_manager import enhanced_service_manager as service_manager
 from ..services.scheduler import scheduler
@@ -163,8 +163,8 @@ async def deploy_service(
             container_image=request.container_image,
             status=DeploymentStatusEnum.PENDING,
             target_replicas=request.replicas,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc)
         )
 
         db.add(deployment)
@@ -176,7 +176,7 @@ async def deploy_service(
             old_status="none",
             new_status=DeploymentStatusEnum.PENDING.value,
             changed_by=current_user.id,
-            changed_at=datetime.utcnow(),
+            changed_at=datetime.now(timezone.utc),
             reason="Deployment created by user"
         )
 
@@ -403,7 +403,7 @@ async def scale_deployment(
 
             # Update deployment target_replicas
             deployment.target_replicas = request.replicas
-            deployment.updated_at = datetime.utcnow()
+            deployment.updated_at = datetime.now(timezone.utc)
 
             # Record status change
             from uuid import uuid4
@@ -413,7 +413,7 @@ async def scale_deployment(
                 old_status=deployment.status.value,
                 new_status=deployment.status.value,
                 changed_by=current_user.id,
-                changed_at=datetime.utcnow(),
+                changed_at=datetime.now(timezone.utc),
                 reason=f"Scaled up from {current_replicas} to {request.replicas} replicas ({delta} added)"
             )
             db.add(history)
@@ -465,18 +465,18 @@ async def scale_deployment(
             # Mark replicas as stopping then stopped
             for replica in replicas_to_stop:
                 replica.status = ReplicaStatus.STOPPING
-                replica.updated_at = datetime.utcnow()
+                replica.updated_at = datetime.now(timezone.utc)
 
                 # TODO: Trigger actual container termination
                 # For now, immediately transition to STOPPED
                 replica.status = ReplicaStatus.STOPPED
-                replica.stopped_at = datetime.utcnow()
+                replica.stopped_at = datetime.now(timezone.utc)
 
                 logger.debug(f"Stopped replica {replica.id}")
 
             # Update deployment target_replicas
             deployment.target_replicas = request.replicas
-            deployment.updated_at = datetime.utcnow()
+            deployment.updated_at = datetime.now(timezone.utc)
 
             # Record status change
             from uuid import uuid4
@@ -486,7 +486,7 @@ async def scale_deployment(
                 old_status=deployment.status.value,
                 new_status=deployment.status.value,
                 changed_by=current_user.id,
-                changed_at=datetime.utcnow(),
+                changed_at=datetime.now(timezone.utc),
                 reason=f"Scaled down from {current_replicas} to {request.replicas} replicas ({replicas_to_remove} removed)"
             )
             db.add(history)
@@ -1021,8 +1021,8 @@ async def delete_deployment(
 
                 # Simulate stopping (stub for actual container stop)
                 replica.status = ReplicaStatus.STOPPED
-                replica.stopped_at = datetime.utcnow()
-                replica.updated_at = datetime.utcnow()
+                replica.stopped_at = datetime.now(timezone.utc)
+                replica.updated_at = datetime.now(timezone.utc)
 
                 replicas_stopped += 1
                 logger.debug(f"Stopped replica {replica.id} on node {replica.node_id}")
@@ -1049,8 +1049,8 @@ async def delete_deployment(
         deployment.status = DeploymentStatusEnum.DELETED
 
         # Step 6: Set deployment.deleted_at = now()
-        deployment.deleted_at = datetime.utcnow()
-        deployment.updated_at = datetime.utcnow()
+        deployment.deleted_at = datetime.now(timezone.utc)
+        deployment.updated_at = datetime.now(timezone.utc)
 
         # Step 7: Record status change in history
         history = DeploymentStatusHistory(
@@ -1058,7 +1058,7 @@ async def delete_deployment(
             old_status=old_status.value if isinstance(old_status, DeploymentStatusEnum) else old_status,
             new_status=DeploymentStatusEnum.DELETED.value,
             changed_by=current_user.id,
-            changed_at=datetime.utcnow(),
+            changed_at=datetime.now(timezone.utc),
             reason=f"User deletion: stopped {replicas_stopped} replicas, released resources"
         )
         db.add(history)

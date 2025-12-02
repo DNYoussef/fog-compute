@@ -2,7 +2,7 @@
 Input Validation Schemas
 Pydantic models for request body validation and sanitization
 """
-from pydantic import BaseModel, Field, validator, constr, conint, confloat
+from pydantic import BaseModel, Field, field_validator, model_validator, constr, conint, confloat
 from typing import Optional, List
 from datetime import datetime
 import html
@@ -21,13 +21,15 @@ class JobSubmitSchema(BaseModel):
     duration_estimate: Optional[confloat(ge=0.0)] = Field(None, description="Estimated duration in minutes")
     data_size_mb: Optional[confloat(ge=0.0)] = Field(None, description="Data size in MB")
 
-    @validator('name')
-    def sanitize_name(cls, v):
+    @field_validator('name')
+    @classmethod
+    def sanitize_name(cls, v: str) -> str:
         """Sanitize job name to prevent XSS"""
         return html.escape(v.strip())
 
-    @validator('sla_tier')
-    def validate_sla(cls, v):
+    @field_validator('sla_tier')
+    @classmethod
+    def validate_sla(cls, v: str) -> str:
         """Ensure SLA tier is valid"""
         valid_tiers = ['bronze', 'silver', 'gold', 'platinum']
         v_lower = v.lower()
@@ -48,8 +50,9 @@ class DeviceRegisterSchema(BaseModel):
     battery_percent: Optional[confloat(ge=0.0, le=100.0)] = Field(100.0, description="Battery percentage")
     is_charging: Optional[bool] = Field(False, description="Is device charging")
 
-    @validator('device_type')
-    def validate_device_type(cls, v):
+    @field_validator('device_type')
+    @classmethod
+    def validate_device_type(cls, v: str) -> str:
         """Ensure device type is valid"""
         valid_types = ['android', 'ios', 'desktop', 'laptop', 'edge']
         v_lower = v.lower()
@@ -67,12 +70,12 @@ class TokenTransferSchema(BaseModel):
     to_address: constr(pattern=r'^0x[a-fA-F0-9]{64}$') = Field(..., description="Destination wallet address")
     amount: confloat(gt=0.0) = Field(..., description="Amount to transfer")
 
-    @validator('to_address')
-    def validate_not_same_address(cls, v, values):
+    @model_validator(mode='after')
+    def validate_not_same_address(self):
         """Ensure source and destination are different"""
-        if 'from_address' in values and v == values['from_address']:
+        if self.from_address == self.to_address:
             raise ValueError('Cannot transfer to the same address')
-        return v
+        return self
 
 
 class StakeSchema(BaseModel):
@@ -93,7 +96,8 @@ class ProposalSchema(BaseModel):
     description: constr(min_length=50, max_length=5000) = Field(..., description="Proposal description")
     proposer: constr(pattern=r'^0x[a-fA-F0-9]{64}$') = Field(..., description="Proposer wallet address")
 
-    @validator('title', 'description')
-    def sanitize_text(cls, v):
+    @field_validator('title', 'description')
+    @classmethod
+    def sanitize_text(cls, v: str) -> str:
         """Sanitize text fields to prevent XSS"""
         return html.escape(v.strip())

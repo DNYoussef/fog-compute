@@ -5,7 +5,7 @@ Provides async audit logging with batch writes for performance
 import asyncio
 import logging
 from typing import Optional, Dict, Any, List
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from contextlib import asynccontextmanager
@@ -91,7 +91,7 @@ class AuditService:
                                  session_id, api_key_id, custom fields, etc.
         """
         log_entry = AuditLog(
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             user_id=user_id,
             action=action,
             resource_type=resource_type,

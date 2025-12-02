@@ -6,7 +6,7 @@ Implements FIFO queue with priority support and multi-criteria scoring
 import asyncio
 import logging
 from typing import List, Dict, Optional, Tuple
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, func
 from uuid import UUID
@@ -332,7 +332,7 @@ class DeploymentScheduler:
             node_id=node_id,
             status=ReplicaStatus.PENDING,
             container_id=None,  # Will be set by container orchestration
-            created_at=datetime.utcnow()
+            created_at=datetime.now(timezone.utc)
         )
 
         db.add(replica)
@@ -368,8 +368,8 @@ class DeploymentScheduler:
             memory_mb=memory_mb,
             gpu_units=gpu_units,
             storage_gb=storage_gb,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc)
         )
 
         db.add(resource)
@@ -404,7 +404,7 @@ class DeploymentScheduler:
 
         # Update status
         deployment.status = new_status
-        deployment.updated_at = datetime.utcnow()
+        deployment.updated_at = datetime.now(timezone.utc)
 
         # Create history record
         history = DeploymentStatusHistory(
@@ -413,7 +413,7 @@ class DeploymentScheduler:
             old_status=old_status.value if isinstance(old_status, DeploymentStatus) else old_status,
             new_status=new_status.value,
             changed_by=None,  # System change
-            changed_at=datetime.utcnow(),
+            changed_at=datetime.now(timezone.utc),
             reason=reason
         )
 
@@ -439,7 +439,7 @@ class DeploymentScheduler:
         """
         for replica in replicas:
             replica.status = ReplicaStatus.STARTING
-            replica.started_at = datetime.utcnow()
+            replica.started_at = datetime.now(timezone.utc)
 
             # TODO: Trigger actual container creation here
             # For now, immediately transition to RUNNING

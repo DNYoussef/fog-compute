@@ -5,7 +5,7 @@ Provides standardized error responses, circuit breaker pattern, and comprehensiv
 import logging
 import traceback
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Optional, Callable
 from collections import defaultdict
 from enum import Enum
@@ -123,7 +123,7 @@ class CircuitBreaker:
         """Check if enough time has passed to attempt reset"""
         if service_name not in self.last_failure_time:
             return True
-        return datetime.utcnow() - self.last_failure_time[service_name] >= self.timeout
+        return datetime.now(timezone.utc) - self.last_failure_time[service_name] >= self.timeout
 
     def _transition_to_half_open(self, service_name: str):
         """Transition circuit to half-open state"""
@@ -145,7 +145,7 @@ class CircuitBreaker:
     def _on_failure(self, service_name: str):
         """Handle failed request"""
         self.failure_count[service_name] += 1
-        self.last_failure_time[service_name] = datetime.utcnow()
+        self.last_failure_time[service_name] = datetime.now(timezone.utc)
 
         if self.failure_count[service_name] >= self.failure_threshold:
             logger.warning(
@@ -244,7 +244,7 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
             error="Service Temporarily Unavailable",
             detail="The service is currently experiencing issues. Please try again later.",
             error_id=correlation_id,
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
             category=ErrorCategory.EXTERNAL_SERVICE,
             severity=ErrorSeverity.HIGH,
             retry_after=60,
@@ -294,7 +294,7 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
             error="Internal Server Error",
             detail=self._get_user_friendly_message(error, category),
             error_id=correlation_id,
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
             category=category,
             severity=severity,
             suggestions=self._get_suggestions(category)
@@ -379,7 +379,7 @@ def handle_validation_error(error: Exception) -> JSONResponse:
         error="Validation Error",
         detail=str(error),
         error_id=correlation_id,
-        timestamp=datetime.utcnow().isoformat(),
+        timestamp=datetime.now(timezone.utc).isoformat(),
         category=ErrorCategory.VALIDATION,
         severity=ErrorSeverity.LOW,
         suggestions=[
@@ -404,7 +404,7 @@ def handle_authentication_error(detail: str = "Authentication required") -> JSON
         error="Authentication Error",
         detail=detail,
         error_id=correlation_id,
-        timestamp=datetime.utcnow().isoformat(),
+        timestamp=datetime.now(timezone.utc).isoformat(),
         category=ErrorCategory.AUTHENTICATION,
         severity=ErrorSeverity.MEDIUM,
         suggestions=[
@@ -432,7 +432,7 @@ def handle_authorization_error(detail: str = "Insufficient permissions") -> JSON
         error="Authorization Error",
         detail=detail,
         error_id=correlation_id,
-        timestamp=datetime.utcnow().isoformat(),
+        timestamp=datetime.now(timezone.utc).isoformat(),
         category=ErrorCategory.AUTHORIZATION,
         severity=ErrorSeverity.MEDIUM,
         suggestions=[
@@ -457,7 +457,7 @@ def handle_not_found_error(resource: str = "Resource") -> JSONResponse:
         error="Not Found",
         detail=f"{resource} not found",
         error_id=correlation_id,
-        timestamp=datetime.utcnow().isoformat(),
+        timestamp=datetime.now(timezone.utc).isoformat(),
         category=ErrorCategory.NOT_FOUND,
         severity=ErrorSeverity.LOW,
         suggestions=[

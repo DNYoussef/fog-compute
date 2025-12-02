@@ -3,7 +3,7 @@ BitChat Service
 Handles P2P messaging with encryption and persistence
 """
 from typing import List, Dict, Optional, Set
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_, desc, func
 from fastapi import WebSocket
@@ -65,7 +65,7 @@ class BitChatService:
                 # Update existing peer
                 existing_peer.public_key = public_key
                 existing_peer.display_name = display_name or existing_peer.display_name
-                existing_peer.last_seen = datetime.utcnow()
+                existing_peer.last_seen = datetime.now(timezone.utc)
                 existing_peer.is_online = True
                 await db.commit()
                 await db.refresh(existing_peer)
@@ -79,7 +79,7 @@ class BitChatService:
                 public_key=public_key,
                 display_name=display_name,
                 is_online=True,
-                last_seen=datetime.utcnow()
+                last_seen=datetime.now(timezone.utc)
             )
 
             db.add(new_peer)

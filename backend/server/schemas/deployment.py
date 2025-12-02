@@ -2,7 +2,7 @@
 Deployment Pydantic Schemas
 Request/response models for deployment API endpoints
 """
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
 from datetime import datetime
 from enum import Enum
@@ -47,8 +47,9 @@ class DeploymentCreate(BaseModel):
     target_replicas: int = Field(ge=1, le=100, default=1, description="Number of replicas")
     resources: DeploymentResourceCreate = Field(description="Resource allocation")
 
-    @validator('name')
-    def validate_name(cls, v):
+    @field_validator('name')
+    @classmethod
+    def validate_name(cls, v: str) -> str:
         """Validate deployment name format"""
         if not v.replace('-', '').replace('_', '').isalnum():
             raise ValueError('Name must contain only alphanumeric characters, hyphens, and underscores')

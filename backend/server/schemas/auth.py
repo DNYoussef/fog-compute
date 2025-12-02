@@ -2,7 +2,7 @@
 Authentication Schemas
 Pydantic models for auth requests and responses
 """
-from pydantic import BaseModel, EmailStr, Field, validator, field_validator, field_serializer
+from pydantic import BaseModel, EmailStr, Field, field_validator, field_serializer
 from typing import Optional, Any
 from datetime import datetime
 from uuid import UUID
@@ -15,15 +15,17 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8, max_length=100)
 
-    @validator('username')
-    def validate_username(cls, v):
+    @field_validator('username')
+    @classmethod
+    def validate_username(cls, v: str) -> str:
         """Ensure username is alphanumeric with underscores/hyphens only"""
         if not re.match(r'^[a-zA-Z0-9_-]+$', v):
             raise ValueError('Username must be alphanumeric with underscores or hyphens only')
         return v.lower()
 
-    @validator('password')
-    def validate_password(cls, v):
+    @field_validator('password')
+    @classmethod
+    def validate_password(cls, v: str) -> str:
         """Ensure password has minimum complexity"""
         if not any(c.isupper() for c in v):
             raise ValueError('Password must contain at least one uppercase letter')

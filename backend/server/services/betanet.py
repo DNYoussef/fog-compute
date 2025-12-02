@@ -4,7 +4,7 @@ Manages mixnode deployment and statistics
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, asdict
 import asyncio
@@ -55,7 +55,7 @@ class BetanetService:
                 packets_processed=12453,
                 uptime_seconds=86400,
                 region="us-east",
-                created_at=datetime.utcnow().isoformat(),
+                created_at=datetime.now(timezone.utc).isoformat(),
             ),
             MixnodeInfo(
                 id=str(uuid.uuid4()),
@@ -63,7 +63,7 @@ class BetanetService:
                 packets_processed=9821,
                 uptime_seconds=72000,
                 region="eu-west",
-                created_at=datetime.utcnow().isoformat(),
+                created_at=datetime.now(timezone.utc).isoformat(),
             ),
         ]
         for node in default_nodes:
@@ -79,7 +79,7 @@ class BetanetService:
             connections=len(active_nodes) * 3,  # Assume 3 connections per node
             avg_latency_ms=45.0,  # Mock value - would calculate from actual metrics
             packets_processed=self.total_packets_processed,
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
         )
 
     async def get_mixnodes(self) -> List[MixnodeInfo]:

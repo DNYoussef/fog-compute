@@ -4,7 +4,7 @@ Secure generation, hashing, and validation of API keys
 """
 import secrets
 import hashlib
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -126,7 +126,7 @@ class APIKeyManager:
             return None
 
         # Validate key has not expired
-        if api_key_obj.expires_at and api_key_obj.expires_at < datetime.utcnow():
+        if api_key_obj.expires_at and api_key_obj.expires_at < datetime.now(timezone.utc):
             return None
 
         # Validate user is active
@@ -134,7 +134,7 @@ class APIKeyManager:
             return None
 
         # Update last_used timestamp (async, non-blocking)
-        api_key_obj.last_used = datetime.utcnow()
+        api_key_obj.last_used = datetime.now(timezone.utc)
         await db.commit()
 
         return {
@@ -179,7 +179,7 @@ class APIKeyManager:
         # Calculate expiration
         expires_at = None
         if expires_in_days:
-            expires_at = datetime.utcnow() + timedelta(days=expires_in_days)
+            expires_at = datetime.now(timezone.utc) + timedelta(days=expires_in_days)
 
         # Create database record
         api_key = APIKey(
@@ -188,7 +188,7 @@ class APIKeyManager:
             name=name,
             is_active=True,
             rate_limit=rate_limit,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
             expires_at=expires_at
         )
 

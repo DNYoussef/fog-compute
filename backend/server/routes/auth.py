@@ -5,7 +5,7 @@ User registration, login, and token management
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import logging
 
 from ..database import get_db
@@ -55,7 +55,7 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
         hashed_password=hashed_password,
         is_active=True,
         is_admin=False,
-        created_at=datetime.utcnow()
+        created_at=datetime.now(timezone.utc)
     )
 
     db.add(new_user)
@@ -109,7 +109,7 @@ async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db)):
         )
 
     # Update last login
-    user.last_login = datetime.utcnow()
+    user.last_login = datetime.now(timezone.utc)
     await db.commit()
 
     # Create access token
