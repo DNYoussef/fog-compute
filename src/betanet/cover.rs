@@ -358,13 +358,13 @@ impl AdvancedCoverTrafficGenerator {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_cover_traffic_basic() {
+    #[tokio::test]
+    async fn test_cover_traffic_basic() {
         let config = CoverTrafficConfig::default();
         let mut generator = AdvancedCoverTrafficGenerator::new(config);
 
         // Disabled by default
-        assert!(generator.generate_cover_packet().is_none());
+        assert!(generator.generate_cover_packet().await.is_none());
 
         // Enable and generate
         generator.update_config(CoverTrafficConfig {
@@ -372,21 +372,23 @@ mod tests {
             ..Default::default()
         });
 
-        let packet = generator.generate_cover_packet();
+        let packet = generator.generate_cover_packet().await;
         assert!(packet.is_some());
-        assert_eq!(packet.unwrap().len(), 1024);
+        // Packet size varies slightly due to randomization
+        let len = packet.unwrap().len();
+        assert!(len >= 512 && len <= 2048, "Packet size {} out of expected range", len);
         assert_eq!(generator.packets_sent(), 1);
     }
 
-    #[test]
-    fn test_cover_interval() {
+    #[tokio::test]
+    async fn test_cover_interval() {
         let config = CoverTrafficConfig {
             target_rate: 10.0,
             ..Default::default()
         };
         let generator = AdvancedCoverTrafficGenerator::new(config);
 
-        let interval = generator.cover_interval();
+        let interval = generator.cover_interval().await;
         assert_eq!(interval.as_millis(), 100); // 1/10 second
     }
 }
