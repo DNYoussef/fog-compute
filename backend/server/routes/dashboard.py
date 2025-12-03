@@ -73,7 +73,7 @@ async def get_dashboard_stats() -> Dict[str, Any]:
 
         # Betanet stats - match frontend interface
         betanet_status = await betanet.get_status() if betanet else None
-        betanet_status_dict = betanet_status.to_dict() if betanet_status else {}
+        betanet_status_dict = betanet_status if isinstance(betanet_status, dict) else betanet_status.to_dict() if betanet_status else {}
         active_nodes = betanet_status_dict.get('active_nodes', 0)
         betanet_stats = {
             "mixnodes": active_nodes,

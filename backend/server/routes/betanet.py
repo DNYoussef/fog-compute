@@ -123,7 +123,7 @@ async def get_betanet_status() -> Dict[str, Any]:
 
     try:
         status = await betanet.get_status()
-        status_dict = status.to_dict()
+        status_dict = status if isinstance(status, dict) else status.to_dict()
 
         return {
             "status": status_dict.get('status', 'unknown'),
