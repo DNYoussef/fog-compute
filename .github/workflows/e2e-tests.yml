@@ -50,14 +50,14 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          # Install Redis using Chocolatey
-          choco install redis-64 -y --no-progress
-          # Start Redis server in background
-          Start-Process -NoNewWindow -FilePath "C:\ProgramData\chocolatey\lib\redis-64\tools\redis-server.exe"
-          # Wait for Redis to start
-          Start-Sleep -Seconds 3
-          # Verify Redis is running
-          redis-cli ping
+          # Install Memurai (Redis-compatible server for Windows)
+          choco install memurai-developer -y --no-progress
+          # Start Memurai server in background
+          Start-Process -NoNewWindow -FilePath "C:\Program Files\Memurai\memurai.exe"
+          # Wait for server to start
+          Start-Sleep -Seconds 5
+          # Verify server is running using Memurai CLI
+          & "C:\Program Files\Memurai\memurai-cli.exe" ping
 
       - name: Start PostgreSQL
         uses: ikalnytskyi/action-setup-postgres@v5

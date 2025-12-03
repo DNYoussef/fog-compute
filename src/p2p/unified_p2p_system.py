@@ -1076,7 +1076,7 @@ class UnifiedDecentralizedSystem:
                     "timestamp": time.time(),
                     "peer_count": len(self.peers),
                     "uptime": time.time() - self.metrics["system_start_time"],
-                    "transports": list(self.transports.keys()),
+                    "transports": [t.value for t in self.transports.keys()],
                 }
 
                 await self.send_message(
