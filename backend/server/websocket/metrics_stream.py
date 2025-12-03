@@ -3,6 +3,7 @@ WebSocket Metrics Streamer
 Provides real-time metrics updates to connected clients
 """
 from fastapi import WebSocket
+from starlette.websockets import WebSocketDisconnect
 import asyncio
 import logging
 from typing import Dict, Any
@@ -38,11 +39,14 @@ class MetricsStreamer:
                 # Wait for next update
                 await asyncio.sleep(self.update_interval)
 
+        except WebSocketDisconnect:
+            logger.info("Client disconnected from metrics stream")
         except asyncio.CancelledError:
             logger.info("Metrics streaming cancelled")
         except Exception as e:
-            logger.error(f"Error streaming metrics: {e}")
-            raise
+            # Only log if not a connection close error
+            if "close" not in str(e).lower() and "disconnect" not in str(e).lower():
+                logger.error(f"Error streaming metrics: {e}")
 
     async def gather_metrics(self) -> Dict[str, Any]:
         """
