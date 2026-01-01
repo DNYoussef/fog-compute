@@ -189,24 +189,26 @@ export function Navigation() {
           </div>
 
           {/* Mobile Menu Button */}
-          <button
-            data-testid="mobile-menu-button"
-            className="md:hidden p-2 text-gray-400 hover:text-white transition-colors"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            aria-label="Menu"
-            aria-expanded={isMobileMenuOpen}
-            aria-controls="mobile-menu-drawer"
-          >
-            {isMobileMenuOpen ? (
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            ) : (
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            )}
-          </button>
+          <div className="md:hidden" data-testid="mobile-menu">
+            <button
+              data-testid="mobile-menu-button"
+              className="p-2 text-gray-400 hover:text-white transition-colors"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              aria-label="Menu"
+              aria-expanded={isMobileMenuOpen}
+              aria-controls="mobile-menu-drawer"
+            >
+              {isMobileMenuOpen ? (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              ) : (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -233,53 +235,55 @@ export function Navigation() {
           isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
-        {/* Drawer Header */}
-        <div className="flex items-center justify-between h-16 px-4 border-b border-white/10 sticky top-0 glass-dark z-10">
-          <div className="flex items-center space-x-2">
-            <div className="text-xl">☁️</div>
-            <span className="font-bold text-lg bg-gradient-to-r from-fog-cyan to-fog-purple bg-clip-text text-transparent">
-              Menu
-            </span>
+        <div data-testid="swipe-nav" className="h-full flex flex-col">
+          {/* Drawer Header */}
+          <div className="flex items-center justify-between h-16 px-4 border-b border-white/10 sticky top-0 glass-dark z-10">
+            <div className="flex items-center space-x-2">
+              <div className="text-xl">☁️</div>
+              <span className="font-bold text-lg bg-gradient-to-r from-fog-cyan to-fog-purple bg-clip-text text-transparent">
+                Menu
+              </span>
+            </div>
+            <button
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="p-2 text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5"
+              aria-label="Close menu"
+              data-testid="mobile-menu-close"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
-          <button
-            onClick={() => setIsMobileMenuOpen(false)}
-            className="p-2 text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/5"
-            aria-label="Close menu"
-            data-testid="mobile-menu-close"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
 
-        {/* Navigation Links */}
-        <div className="p-4 space-y-2">
-          {links.map((link) => {
-            const isActive = pathname === link.href;
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                data-testid={`mobile-menu-link-${link.label.toLowerCase()}`}
-                data-route={link.href}
-                onClick={() => setIsMobileMenuOpen(false)}
-                className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors min-h-[44px] ${
-                  isActive
-                    ? 'bg-fog-cyan/20 text-fog-cyan'
-                    : 'text-gray-400 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                <span className="text-xl">{link.icon}</span>
-                <span className="font-medium">{link.label}</span>
-              </Link>
-            );
-          })}
+          {/* Navigation Links */}
+          <div className="p-4 space-y-2">
+            {links.map((link) => {
+              const isActive = pathname === link.href;
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  data-testid="menu-item"
+                  data-route={link.href}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors min-h-[44px] ${
+                    isActive
+                      ? 'bg-fog-cyan/20 text-fog-cyan'
+                      : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  <span className="text-xl">{link.icon}</span>
+                  <span className="font-medium">{link.label}</span>
+                </Link>
+              );
+            })}
 
-          {/* Mobile System Status */}
-          <div className="pt-4 mt-4 border-t border-white/10">
-            <div className="px-4 py-2">
-              <WebSocketStatus />
+            {/* Mobile System Status */}
+            <div className="pt-4 mt-4 border-t border-white/10">
+              <div className="px-4 py-2">
+                <WebSocketStatus />
+              </div>
             </div>
           </div>
         </div>

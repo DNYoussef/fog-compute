@@ -89,15 +89,15 @@ export default defineConfig({
     },
     // Mobile projects for mobile-tests job
     {
-      name: 'Mobile Chrome',
+      name: 'Pixel 5',
       use: { ...devices['Pixel 5'] },
     },
     {
-      name: 'Mobile Safari',
+      name: 'iPhone 12',
       use: { ...devices['iPhone 12'] },
     },
     {
-      name: 'iPad',
+      name: 'iPad Pro',
       use: { ...devices['iPad Pro'] },
     },
   ] : [
