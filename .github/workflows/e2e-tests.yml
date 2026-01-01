@@ -122,7 +122,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        project: ['Mobile Safari', 'Mobile Chrome', 'iPad']
+        project: ['iPhone 12', 'Pixel 5', 'iPad Pro']
 
     steps:
       - uses: actions/checkout@v4

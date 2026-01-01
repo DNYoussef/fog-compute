@@ -205,7 +205,7 @@ test.describe('Performance Across Browsers', () => {
 
 test.describe('Mobile Browser Compatibility', () => {
   // Define which projects should run mobile tests
-  const mobileProjects = ['Mobile Chrome', 'Mobile Safari', 'iPad'];
+  const mobileProjects = ['Pixel 5', 'iPhone 12', 'iPad Pro'];
 
   test.beforeEach(async ({ }, testInfo) => {
     // Skip if not a mobile project
