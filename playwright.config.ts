@@ -136,6 +136,10 @@ export default defineConfig({
         PATH: process.env.PATH || '',
         PYTHONPATH: process.env.PYTHONPATH || '',
         CI: process.env.CI || '',
+        SKIP_EXTERNAL_SERVICES: process.env.SKIP_EXTERNAL_SERVICES || '',
+        SERVICE_INIT_TIMEOUT: process.env.SERVICE_INIT_TIMEOUT || '',
+        P2P_TIMEOUT: process.env.P2P_TIMEOUT || '',
+        BETANET_URL: process.env.BETANET_URL || '',
         // Additional backend configuration
         ENVIRONMENT: process.env.CI ? 'test' : 'development',
         LOG_LEVEL: process.env.CI ? 'WARNING' : 'INFO',

@@ -234,11 +234,13 @@ app.add_middleware(RateLimitMiddleware)
 async def health_check():
     """System health check"""
     service_health = enhanced_service_manager.get_health()
-    is_ready = enhanced_service_manager.is_ready()
+    readiness = enhanced_service_manager.get_readiness_summary()
+    is_ready = readiness.get("ready", False)
     composite_health = enhanced_service_manager.health_manager.get_composite_health()
 
     return {
         "status": "healthy" if is_ready else "degraded",
+        "readiness": readiness,
         "composite_health": composite_health.value,
         "services": service_health,
         "version": settings.API_VERSION
