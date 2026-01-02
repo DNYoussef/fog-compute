@@ -106,6 +106,10 @@ jobs:
           npx playwright test --project=${{ matrix.browser }} --shard=${{ matrix.shard }}/4
         env:
           CI: true
+          SKIP_EXTERNAL_SERVICES: true
+          SERVICE_INIT_TIMEOUT: 20
+          P2P_TIMEOUT: 5
+          BETANET_URL: ""
 
       - name: Upload blob report
         if: always()
@@ -179,6 +183,10 @@ jobs:
         run: npx playwright test --project="${{ matrix.project }}"
         env:
           CI: true
+          SKIP_EXTERNAL_SERVICES: true
+          SERVICE_INIT_TIMEOUT: 20
+          P2P_TIMEOUT: 5
+          BETANET_URL: ""
 
       - name: Upload mobile test results
         if: always()
@@ -247,6 +255,10 @@ jobs:
         run: npx playwright test tests/e2e/cross-platform.spec.ts
         env:
           CI: true
+          SKIP_EXTERNAL_SERVICES: true
+          SERVICE_INIT_TIMEOUT: 20
+          P2P_TIMEOUT: 5
+          BETANET_URL: ""
 
       - name: Upload cross-browser report
         if: always()

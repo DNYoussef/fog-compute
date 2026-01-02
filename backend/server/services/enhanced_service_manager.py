@@ -158,6 +158,20 @@ class EnhancedServiceManager:
             logger.warning("Services already initialized")
             return
 
+        is_ci = os.getenv('CI') == 'true'
+        skip_external = os.getenv('SKIP_EXTERNAL_SERVICES', '').lower() == 'true' or is_ci
+        init_timeout = int(os.getenv('SERVICE_INIT_TIMEOUT', '30'))
+
+        skip_services: Set[str] = set()
+        if skip_external:
+            skip_services.update({
+                "p2p",
+                "betanet",
+                "bitchat",
+                "vpn_coordinator",
+                "onion"
+            })
+
         logger.info("=" * 60)
         logger.info("Enhanced Service Manager - Initializing Services")
         logger.info("=" * 60)
@@ -182,13 +196,28 @@ class EnhancedServiceManager:
 
         # Initialize services in order
         for service_name in startup_order:
+            if service_name in skip_services:
+                logger.info(f"  Skipping {service_name} (non-essential in CI)")
+                state = self.services[service_name]
+                state.status = ServiceStatus.STOPPED
+                state.is_critical = False
+                self.registry.update_status(service_name, ServiceStatus.STOPPED)
+                continue
+
             try:
-                await self._initialize_service(service_name)
+                await asyncio.wait_for(
+                    self._initialize_service(service_name),
+                    timeout=init_timeout
+                )
             except Exception as e:
                 logger.error(f"Failed to initialize {service_name}: {e}")
                 state = self.services[service_name]
                 state.status = ServiceStatus.FAILED
                 state.last_error = str(e)
+                self.registry.update_status(service_name, ServiceStatus.FAILED)
+
+                if isinstance(e, asyncio.TimeoutError):
+                    state.last_error = f"Initialization timed out after {init_timeout}s"
 
                 # Stop if critical service failed
                 if state.is_critical:
@@ -420,6 +449,8 @@ class EnhancedServiceManager:
             import socket
             import uuid
 
+            timeout_seconds = int(os.getenv('P2P_TIMEOUT', '30'))
+
             node_id = f"fog-backend-{socket.gethostname()}-{uuid.uuid4().hex[:8]}"
 
             # Create P2P system instance
@@ -433,7 +464,10 @@ class EnhancedServiceManager:
             )
 
             # Start the P2P system
-            started = await p2p_system.start()
+            started = await asyncio.wait_for(
+                p2p_system.start(),
+                timeout=timeout_seconds
+            )
             if not started:
                 logger.warning("P2P system failed to start, but continuing with limited functionality")
 
@@ -443,6 +477,10 @@ class EnhancedServiceManager:
         except Exception as e:
             logger.error(f"Failed to initialize P2P: {e}")
             self.services['p2p'].instance = None
+
+            state = self.services.get('p2p')
+            if state:
+                state.is_critical = False
 
     async def _init_betanet(self) -> None:
         """Initialize Betanet privacy network"""
@@ -607,6 +645,34 @@ class EnhancedServiceManager:
             "registry": self.registry.get_stats(),
             "is_ready": self.is_ready(),
             "initialized": self._initialized
+        }
+
+    def get_readiness_summary(self) -> Dict[str, Any]:
+        """Return readiness including skipped and failed optional services."""
+        critical_services = {
+            name for name, state in self.services.items()
+            if state.is_critical
+        }
+
+        non_critical_failed = []
+        skipped_services = []
+
+        for name, state in self.services.items():
+            if not state.is_critical and state.status == ServiceStatus.STOPPED and state.instance is None:
+                skipped_services.append(name)
+            if not state.is_critical and state.status == ServiceStatus.FAILED:
+                non_critical_failed.append(name)
+
+        ready = all(
+            self.services[name].status == ServiceStatus.RUNNING
+            for name in critical_services
+        )
+
+        return {
+            "ready": ready,
+            "critical": sorted(critical_services),
+            "non_critical_failed": sorted(non_critical_failed),
+            "skipped": sorted(skipped_services)
         }
 
 
