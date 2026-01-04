@@ -20,6 +20,12 @@ from enum import Enum
 from typing import Any, Callable, Deque, Dict, List, Optional
 
 import psutil
+from backend.server.constants import (
+    CPU_THRESHOLD_CRITICAL,
+    CPU_THRESHOLD_WARNING,
+    MEMORY_THRESHOLD_CRITICAL,
+    MEMORY_THRESHOLD_WARNING,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -272,8 +278,16 @@ class ResourceMonitor:
 
         # Thresholds
         self._thresholds = {
-            ResourceType.CPU: Threshold(ResourceType.CPU, 80.0, 95.0),
-            ResourceType.MEMORY: Threshold(ResourceType.MEMORY, 85.0, 95.0),
+            ResourceType.CPU: Threshold(
+                ResourceType.CPU,
+                CPU_THRESHOLD_WARNING,
+                CPU_THRESHOLD_CRITICAL,
+            ),
+            ResourceType.MEMORY: Threshold(
+                ResourceType.MEMORY,
+                MEMORY_THRESHOLD_WARNING,
+                MEMORY_THRESHOLD_CRITICAL,
+            ),
             ResourceType.DISK: Threshold(ResourceType.DISK, 85.0, 95.0),
             ResourceType.NETWORK: Threshold(ResourceType.NETWORK, 80.0, 95.0),
         }

@@ -6,16 +6,26 @@ import httpx
 import logging
 from typing import Dict, Any, Optional
 
+from backend.server.constants import (
+    BETANET_CONNECTION_TIMEOUT,
+    BETANET_READ_TIMEOUT,
+)
+
 logger = logging.getLogger(__name__)
 
 
 class BetanetClient:
     """Client for communicating with Betanet Rust HTTP server"""
 
-    def __init__(self, url: str = "http://localhost:9000", timeout: int = 5):
+    def __init__(
+        self,
+        url: str = "http://localhost:9000",
+        timeout: int = BETANET_CONNECTION_TIMEOUT,
+        read_timeout: int = BETANET_READ_TIMEOUT,
+    ):
         self.url = url.rstrip('/')
-        self.timeout = timeout
-        self.client = httpx.AsyncClient(timeout=timeout)
+        self.timeout = httpx.Timeout(connect=timeout, read=read_timeout)
+        self.client = httpx.AsyncClient(timeout=self.timeout)
 
     async def get_status(self) -> Dict[str, Any]:
         """Get Betanet network status"""

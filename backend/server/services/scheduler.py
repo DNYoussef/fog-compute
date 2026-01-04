@@ -12,6 +12,11 @@ from sqlalchemy import select, and_, func
 from uuid import UUID
 import uuid
 
+from backend.server.constants import (
+    SCHEDULER_CHECK_INTERVAL,
+    SCHEDULER_CLEANUP_INTERVAL,
+    SCHEDULER_MAX_CONCURRENT_JOBS,
+)
 from ..models.database import Node
 from ..models.deployment import (
     Deployment,
@@ -33,8 +38,10 @@ class DeploymentScheduler:
 
     def __init__(self):
         """Initialize scheduler with empty queue"""
-        self.queue: asyncio.Queue = asyncio.Queue()
+        self.queue: asyncio.Queue = asyncio.Queue(maxsize=SCHEDULER_MAX_CONCURRENT_JOBS)
         self.is_running: bool = False
+        self.check_interval: float = SCHEDULER_CHECK_INTERVAL
+        self.cleanup_interval: float = SCHEDULER_CLEANUP_INTERVAL
 
     async def start(self):
         """Start background scheduler worker"""
@@ -460,7 +467,7 @@ class DeploymentScheduler:
                 # Wait for deployment in queue (with timeout to check is_running)
                 try:
                     deployment_task = await asyncio.wait_for(
-                        self.queue.get(), timeout=1.0
+                        self.queue.get(), timeout=self.check_interval
                     )
                 except asyncio.TimeoutError:
                     continue
@@ -488,7 +495,7 @@ class DeploymentScheduler:
 
             except Exception as e:
                 logger.error(f"Scheduler worker error: {e}", exc_info=True)
-                await asyncio.sleep(1)
+                await asyncio.sleep(self.check_interval)
 
         logger.info("Scheduler worker stopped")
 

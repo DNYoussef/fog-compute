@@ -9,6 +9,12 @@ from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, asdict
 import asyncio
 
+from backend.server.constants import (
+    BETANET_CONNECTION_TIMEOUT,
+    ONE_DAY,
+    ONE_HOUR,
+)
+
 
 @dataclass
 class MixnodeInfo:
@@ -53,7 +59,7 @@ class BetanetService:
                 id=str(uuid.uuid4()),
                 status="active",
                 packets_processed=12453,
-                uptime_seconds=86400,
+                uptime_seconds=ONE_DAY,
                 region="us-east",
                 created_at=datetime.now(timezone.utc).isoformat(),
             ),
@@ -61,7 +67,7 @@ class BetanetService:
                 id=str(uuid.uuid4()),
                 status="active",
                 packets_processed=9821,
-                uptime_seconds=72000,
+                uptime_seconds=20 * ONE_HOUR,
                 region="eu-west",
                 created_at=datetime.now(timezone.utc).isoformat(),
             ),
@@ -126,7 +132,7 @@ class BetanetService:
 
     async def _complete_deployment(self, node_id: str):
         """Simulate deployment completion after a delay"""
-        await asyncio.sleep(5)  # Simulate 5 second deployment
+        await asyncio.sleep(BETANET_CONNECTION_TIMEOUT)  # Simulate deployment delay
         if node_id in self.mixnodes:
             self.mixnodes[node_id].status = "active"
 
