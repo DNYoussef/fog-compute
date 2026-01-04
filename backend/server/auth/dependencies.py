@@ -7,10 +7,14 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+import logging
 
 from .jwt_utils import verify_token
 from ..database import get_db
 from ..models.database import User
+from ..services.token_service import get_token_service
+
+logger = logging.getLogger(__name__)
 
 # HTTP Bearer token scheme
 security = HTTPBearer()
@@ -21,7 +25,8 @@ async def get_current_user(
     db: AsyncSession = Depends(get_db)
 ) -> User:
     """
-    Get current authenticated user from JWT token
+    Get current authenticated user from JWT token.
+    Checks token validity and blacklist status.
 
     Args:
         credentials: HTTP Bearer token from request
@@ -31,7 +36,7 @@ async def get_current_user(
         Authenticated user object
 
     Raises:
-        HTTPException: If token is invalid or user not found
+        HTTPException: If token is invalid, blacklisted, or user not found
     """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -45,6 +50,18 @@ async def get_current_user(
 
     if payload is None:
         raise credentials_exception
+
+    # Check if token is blacklisted (for logout/revocation)
+    token_jti = payload.get("jti")
+    if token_jti:
+        token_service = await get_token_service()
+        if await token_service.is_token_blacklisted(token_jti):
+            logger.warning(f"Blacklisted token used: {token_jti[:8]}...")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token has been revoked",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
     # Extract user ID from token
     user_id: str = payload.get("sub")

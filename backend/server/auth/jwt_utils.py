@@ -2,6 +2,7 @@
 JWT Token Utilities
 Token creation, verification, and password hashing
 """
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 from jose import JWTError, jwt
@@ -25,6 +26,12 @@ def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta]
 
     Returns:
         Encoded JWT token string
+
+    Token includes:
+        - sub: Subject (user ID)
+        - exp: Expiration timestamp
+        - iat: Issued at timestamp
+        - jti: JWT ID for blacklist support
     """
     to_encode = data.copy()
 
@@ -35,7 +42,8 @@ def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta]
 
     to_encode.update({
         "exp": expire,
-        "iat": datetime.now(timezone.utc)
+        "iat": datetime.now(timezone.utc),
+        "jti": str(uuid.uuid4())  # JWT ID for blacklist support
     })
 
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=ALGORITHM)
