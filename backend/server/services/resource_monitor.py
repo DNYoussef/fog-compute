@@ -20,11 +20,34 @@ from enum import Enum
 from typing import Any, Callable, Deque, Dict, List, Optional
 
 import psutil
-from backend.server.constants import (
+
+from ..constants import (
+    ONE_MB,
+    ONE_GB,
+    CPU_SAMPLE_INTERVAL,
+    TREND_SAMPLE_SIZE,
+    TREND_HISTORY_SIZE,
+    TREND_THRESHOLD,
+    CAPACITY_HIGH_THRESHOLD,
+    CAPACITY_MEDIUM_THRESHOLD,
+    DEFAULT_MONITOR_INTERVAL,
+    METRICS_HISTORY_MAX,
+    ALERTS_MAX,
+    CPU_WARNING_THRESHOLD,
+    CPU_CRITICAL_THRESHOLD,
     CPU_THRESHOLD_CRITICAL,
     CPU_THRESHOLD_WARNING,
+    MEMORY_WARNING_THRESHOLD,
+    MEMORY_CRITICAL_THRESHOLD,
     MEMORY_THRESHOLD_CRITICAL,
     MEMORY_THRESHOLD_WARNING,
+    DISK_WARNING_THRESHOLD,
+    DISK_CRITICAL_THRESHOLD,
+    NETWORK_WARNING_THRESHOLD,
+    NETWORK_CRITICAL_THRESHOLD,
+    DEFAULT_METRICS_HISTORY_SECONDS,
+    DEFAULT_ALERT_COUNT,
+    DEFAULT_RECENT_ALERTS_COUNT,
 )
 
 logger = logging.getLogger(__name__)
@@ -79,7 +102,7 @@ class ResourceMetrics:
     def capture(cls) -> 'ResourceMetrics':
         """Capture current resource metrics"""
         # CPU
-        cpu_percent = psutil.cpu_percent(interval=0.1)
+        cpu_percent = psutil.cpu_percent(interval=CPU_SAMPLE_INTERVAL)
         cpu_count = psutil.cpu_count()
         cpu_freq = psutil.cpu_freq()
 
@@ -98,13 +121,13 @@ class ResourceMetrics:
             cpu_percent=cpu_percent,
             cpu_count=cpu_count or 0,
             cpu_freq_current=cpu_freq.current if cpu_freq else 0.0,
-            memory_total_mb=mem.total / (1024 * 1024),
-            memory_available_mb=mem.available / (1024 * 1024),
-            memory_used_mb=mem.used / (1024 * 1024),
+            memory_total_mb=mem.total / ONE_MB,
+            memory_available_mb=mem.available / ONE_MB,
+            memory_used_mb=mem.used / ONE_MB,
             memory_percent=mem.percent,
-            disk_total_gb=disk.total / (1024 * 1024 * 1024),
-            disk_used_gb=disk.used / (1024 * 1024 * 1024),
-            disk_free_gb=disk.free / (1024 * 1024 * 1024),
+            disk_total_gb=disk.total / ONE_GB,
+            disk_used_gb=disk.used / ONE_GB,
+            disk_free_gb=disk.free / ONE_GB,
             disk_percent=disk.percent,
             disk_read_mbps=0.0,  # Calculated by monitor
             disk_write_mbps=0.0,  # Calculated by monitor
@@ -192,21 +215,21 @@ class ResourceTrend:
 
     def _calculate_trend(self, history: Deque[float]) -> str:
         """Calculate trend direction"""
-        if len(history) < 10:
+        if len(history) < TREND_SAMPLE_SIZE:
             return "insufficient_data"
 
         # Simple linear regression
-        recent = list(history)[-10:]
-        older = list(history)[-20:-10] if len(history) >= 20 else list(history)[:-10]
+        recent = list(history)[-TREND_SAMPLE_SIZE:]
+        older = list(history)[-TREND_HISTORY_SIZE:-TREND_SAMPLE_SIZE] if len(history) >= TREND_HISTORY_SIZE else list(history)[:-TREND_SAMPLE_SIZE]
 
         recent_avg = sum(recent) / len(recent)
         older_avg = sum(older) / len(older) if older else recent_avg
 
         diff = recent_avg - older_avg
 
-        if diff > 5:
+        if diff > TREND_THRESHOLD:
             return "increasing"
-        elif diff < -5:
+        elif diff < -TREND_THRESHOLD:
             return "decreasing"
         else:
             return "stable"
@@ -239,12 +262,12 @@ class ResourceTrend:
 
         for resource, data in trends.items():
             if data["trend"] == "increasing":
-                if data["current_avg"] > 70:
+                if data["current_avg"] > CAPACITY_HIGH_THRESHOLD:
                     recommendations.append(
                         f"{resource.upper()} usage is increasing and currently at {data['current_avg']:.1f}%. "
                         f"Consider adding more {resource} capacity."
                     )
-                elif data["current_avg"] > 50:
+                elif data["current_avg"] > CAPACITY_MEDIUM_THRESHOLD:
                     recommendations.append(
                         f"{resource.upper()} usage trending upward ({data['current_avg']:.1f}%). "
                         f"Monitor for potential capacity needs."
@@ -263,21 +286,27 @@ class ResourceMonitor:
     Tracks CPU, memory, disk, and network usage with configurable thresholds
     """
 
-    def __init__(self, interval: float = 5.0):
+    def __init__(self, interval: float = DEFAULT_MONITOR_INTERVAL):
         self.interval = interval
         self._monitoring = False
         self._monitor_thread: Optional[threading.Thread] = None
 
         # Metrics storage
         self._current_metrics: Optional[ResourceMetrics] = None
-        self._metrics_history: Deque[ResourceMetrics] = deque(maxlen=1000)
+        self._metrics_history: Deque[ResourceMetrics] = deque(maxlen=METRICS_HISTORY_MAX)
 
         # Alerts
-        self._alerts: Deque[Alert] = deque(maxlen=100)
+        self._alerts: Deque[Alert] = deque(maxlen=ALERTS_MAX)
         self._alert_callbacks: List[Callable[[Alert], None]] = []
 
         # Thresholds
         self._thresholds = {
+<<<<<<< HEAD
+            ResourceType.CPU: Threshold(ResourceType.CPU, CPU_WARNING_THRESHOLD, CPU_CRITICAL_THRESHOLD),
+            ResourceType.MEMORY: Threshold(ResourceType.MEMORY, MEMORY_WARNING_THRESHOLD, MEMORY_CRITICAL_THRESHOLD),
+            ResourceType.DISK: Threshold(ResourceType.DISK, DISK_WARNING_THRESHOLD, DISK_CRITICAL_THRESHOLD),
+            ResourceType.NETWORK: Threshold(ResourceType.NETWORK, NETWORK_WARNING_THRESHOLD, NETWORK_CRITICAL_THRESHOLD),
+=======
             ResourceType.CPU: Threshold(
                 ResourceType.CPU,
                 CPU_THRESHOLD_WARNING,
@@ -290,6 +319,7 @@ class ResourceMonitor:
             ),
             ResourceType.DISK: Threshold(ResourceType.DISK, 85.0, 95.0),
             ResourceType.NETWORK: Threshold(ResourceType.NETWORK, 80.0, 95.0),
+>>>>>>> origin/main
         }
 
         # Trending
@@ -379,14 +409,14 @@ class ResourceMonitor:
                     # Disk rates
                     disk_read_bytes = disk_io.read_bytes - self._prev_disk_io.read_bytes
                     disk_write_bytes = disk_io.write_bytes - self._prev_disk_io.write_bytes
-                    metrics.disk_read_mbps = (disk_read_bytes / time_delta) / (1024 * 1024)
-                    metrics.disk_write_mbps = (disk_write_bytes / time_delta) / (1024 * 1024)
+                    metrics.disk_read_mbps = (disk_read_bytes / time_delta) / ONE_MB
+                    metrics.disk_write_mbps = (disk_write_bytes / time_delta) / ONE_MB
 
                     # Network rates
                     net_sent_bytes = net_io.bytes_sent - self._prev_net_io.bytes_sent
                     net_recv_bytes = net_io.bytes_recv - self._prev_net_io.bytes_recv
-                    metrics.network_sent_mbps = (net_sent_bytes / time_delta) / (1024 * 1024)
-                    metrics.network_recv_mbps = (net_recv_bytes / time_delta) / (1024 * 1024)
+                    metrics.network_sent_mbps = (net_sent_bytes / time_delta) / ONE_MB
+                    metrics.network_recv_mbps = (net_recv_bytes / time_delta) / ONE_MB
 
             # Update previous counters
             self._prev_disk_io = disk_io
@@ -445,7 +475,7 @@ class ResourceMonitor:
             return self._current_metrics.to_dict()
         return None
 
-    def get_metrics_history(self, seconds: int = 60) -> List[Dict[str, Any]]:
+    def get_metrics_history(self, seconds: int = DEFAULT_METRICS_HISTORY_SECONDS) -> List[Dict[str, Any]]:
         """Get metrics history for the last N seconds"""
         cutoff = datetime.now() - timedelta(seconds=seconds)
         return [
@@ -454,7 +484,7 @@ class ResourceMonitor:
             if m.timestamp >= cutoff
         ]
 
-    def get_recent_alerts(self, count: int = 10) -> List[Dict[str, Any]]:
+    def get_recent_alerts(self, count: int = DEFAULT_ALERT_COUNT) -> List[Dict[str, Any]]:
         """Get recent alerts"""
         return [alert.to_dict() for alert in list(self._alerts)[-count:]]
 
@@ -476,7 +506,7 @@ class ResourceMonitor:
             "current_metrics": current,
             "metrics_history_size": len(self._metrics_history),
             "total_alerts": len(self._alerts),
-            "recent_alerts": self.get_recent_alerts(5),
+            "recent_alerts": self.get_recent_alerts(DEFAULT_RECENT_ALERTS_COUNT),
             "trends": self.get_trends(),
             "recommendations": self.get_capacity_recommendations(),
             "thresholds": {

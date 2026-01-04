@@ -19,6 +19,27 @@ from ..models.deployment import Deployment, DeploymentReplica, DeploymentResourc
 from ..schemas.deployment import DeploymentListResponse
 from ..auth.dependencies import get_current_active_user
 from ..models.database import User
+from ..constants import (
+    MIN_CPU_CORES,
+    MAX_CPU_CORES,
+    MIN_MEMORY_MB,
+    MAX_MEMORY_MB,
+    MIN_GPU_UNITS,
+    MAX_GPU_UNITS,
+    MIN_STORAGE_GB,
+    MAX_STORAGE_GB,
+    DEFAULT_STORAGE_GB,
+    DEFAULT_REPLICAS,
+    MIN_REPLICAS,
+    MAX_REPLICAS_INITIAL,
+    MAX_REPLICAS_SCALE,
+    DEPLOYMENT_STATUS_CACHE_TTL,
+    DEPLOYMENT_LIST_CACHE_TTL,
+    STATUS_HISTORY_LIMIT,
+    DEFAULT_PAGE_LIMIT,
+    MAX_PAGE_LIMIT,
+    DEFAULT_OFFSET,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/deployment", tags=["deployment"])
@@ -30,10 +51,10 @@ router = APIRouter(prefix="/api/deployment", tags=["deployment"])
 
 class ResourceLimits(BaseModel):
     """Resource limits for deployment"""
-    cpu: float = Field(ge=0.5, le=16, description="CPU cores")
-    memory: int = Field(ge=512, le=16384, description="Memory in MB")
-    gpu: int = Field(ge=0, le=8, default=0, description="GPU units")
-    storage: int = Field(ge=1, le=1000, default=10, description="Storage in GB")
+    cpu: float = Field(ge=MIN_CPU_CORES, le=MAX_CPU_CORES, description="CPU cores")
+    memory: int = Field(ge=MIN_MEMORY_MB, le=MAX_MEMORY_MB, description="Memory in MB")
+    gpu: int = Field(ge=MIN_GPU_UNITS, le=MAX_GPU_UNITS, default=MIN_GPU_UNITS, description="GPU units")
+    storage: int = Field(ge=MIN_STORAGE_GB, le=MAX_STORAGE_GB, default=DEFAULT_STORAGE_GB, description="Storage in GB")
 
 
 class DeploymentRequest(BaseModel):
@@ -41,7 +62,7 @@ class DeploymentRequest(BaseModel):
     name: str = Field(min_length=1, max_length=100, description="Service name")
     type: str = Field(description="Service type: compute, storage, gateway, mixnode")
     container_image: str = Field(description="Container image (e.g., nginx:latest)")
-    replicas: int = Field(ge=1, le=10, default=1, description="Number of replicas")
+    replicas: int = Field(ge=MIN_REPLICAS, le=MAX_REPLICAS_INITIAL, default=DEFAULT_REPLICAS, description="Number of replicas")
     resources: ResourceLimits = Field(description="Resource allocation")
     env: Optional[Dict[str, str]] = Field(None, description="Environment variables")
     region: Optional[str] = Field("us-east", description="Deployment region")
@@ -49,7 +70,7 @@ class DeploymentRequest(BaseModel):
 
 class ScaleRequest(BaseModel):
     """Request model for scaling a deployment"""
-    replicas: int = Field(ge=1, le=100, description="Target number of replicas")
+    replicas: int = Field(ge=MIN_REPLICAS, le=MAX_REPLICAS_SCALE, description="Target number of replicas")
 
 
 class DeploymentResponse(BaseModel):
@@ -302,11 +323,11 @@ async def scale_deployment(
                 detail=f"Cannot scale deployment in {deployment.status.value} state"
             )
 
-        # Validate replica count (1-100)
-        if request.replicas < 1 or request.replicas > 100:
+        # Validate replica count
+        if request.replicas < MIN_REPLICAS or request.replicas > MAX_REPLICAS_SCALE:
             raise HTTPException(
                 status_code=400,
-                detail="Replica count must be between 1 and 100"
+                detail=f"Replica count must be between {MIN_REPLICAS} and {MAX_REPLICAS_SCALE}"
             )
 
         # Get current replica count
@@ -602,10 +623,10 @@ async def get_deployment_status(
         resources_result = await db.execute(resources_query)
         resources = resources_result.scalar_one_or_none()
 
-        # Query last 10 status changes
+        # Query last status changes
         history_query = select(DeploymentStatusHistory).where(
             DeploymentStatusHistory.deployment_id == deployment_uuid
-        ).order_by(DeploymentStatusHistory.changed_at.desc()).limit(10)
+        ).order_by(DeploymentStatusHistory.changed_at.desc()).limit(STATUS_HISTORY_LIMIT)
         history_result = await db.execute(history_query)
         status_history = history_result.scalars().all()
 
@@ -677,8 +698,8 @@ async def get_deployment_status(
             f"replicas={len(replicas)}/{deployment.target_replicas}"
         )
 
-        # Cache the response (30s TTL)
-        await cache_service.set("deployment_status", cache_key, response, ttl=30)
+        # Cache the response
+        await cache_service.set("deployment_status", cache_key, response, ttl=DEPLOYMENT_STATUS_CACHE_TTL)
 
         # Subscribe to invalidation events
         cache_service.subscribe_to_event(f"deployment.update.{deployment_id}", cache_key)
@@ -706,8 +727,8 @@ async def list_deployments(
     created_before: Optional[datetime] = Query(None, description="Filter by created_at <= this date"),
     sort_by: str = Query("created_at", description="Sort field (created_at, name, status)"),
     sort_order: str = Query("desc", description="Sort order (asc, desc)"),
-    limit: int = Query(20, ge=1, le=100, description="Number of results per page"),
-    offset: int = Query(0, ge=0, description="Number of results to skip")
+    limit: int = Query(DEFAULT_PAGE_LIMIT, ge=MIN_REPLICAS, le=MAX_PAGE_LIMIT, description="Number of results per page"),
+    offset: int = Query(DEFAULT_OFFSET, ge=DEFAULT_OFFSET, description="Number of results to skip")
 ) -> List[DeploymentListResponse]:
     """
     List user's deployments with filtering, sorting, and pagination.
@@ -836,8 +857,8 @@ async def list_deployments(
             f"(limit={limit}, offset={offset}, filters: status={status}, name={name})"
         )
 
-        # Cache the response (60s TTL)
-        await cache_service.set("deployment_list", cache_key, response_list, ttl=60)
+        # Cache the response
+        await cache_service.set("deployment_list", cache_key, response_list, ttl=DEPLOYMENT_LIST_CACHE_TTL)
 
         # Subscribe to invalidation events for this user
         cache_service.subscribe_to_event(f"deployment.create.user.{current_user.id}", cache_key)

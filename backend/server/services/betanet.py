@@ -9,10 +9,17 @@ from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, asdict
 import asyncio
 
-from backend.server.constants import (
-    BETANET_CONNECTION_TIMEOUT,
+from ..constants import (
     ONE_DAY,
-    ONE_HOUR,
+    DEFAULT_PACKETS_PROCESSED,
+    MOCK_NODE_PACKETS_1,
+    MOCK_NODE_PACKETS_2,
+    MOCK_NODE_UPTIME_1,
+    MOCK_NODE_UPTIME_2,
+    CONNECTIONS_PER_NODE,
+    DEFAULT_LATENCY_MS,
+    DEPLOYMENT_DELAY_SECONDS,
+    BETANET_CONNECTION_TIMEOUT,
 )
 
 
@@ -49,7 +56,7 @@ class BetanetService:
 
     def __init__(self):
         self.mixnodes: Dict[str, MixnodeInfo] = {}
-        self.total_packets_processed = 22274
+        self.total_packets_processed = DEFAULT_PACKETS_PROCESSED
         self._initialize_default_nodes()
 
     def _initialize_default_nodes(self):
@@ -58,16 +65,16 @@ class BetanetService:
             MixnodeInfo(
                 id=str(uuid.uuid4()),
                 status="active",
-                packets_processed=12453,
-                uptime_seconds=ONE_DAY,
+                packets_processed=MOCK_NODE_PACKETS_1,
+                uptime_seconds=MOCK_NODE_UPTIME_1,
                 region="us-east",
                 created_at=datetime.now(timezone.utc).isoformat(),
             ),
             MixnodeInfo(
                 id=str(uuid.uuid4()),
                 status="active",
-                packets_processed=9821,
-                uptime_seconds=20 * ONE_HOUR,
+                packets_processed=MOCK_NODE_PACKETS_2,
+                uptime_seconds=MOCK_NODE_UPTIME_2,
                 region="eu-west",
                 created_at=datetime.now(timezone.utc).isoformat(),
             ),
@@ -82,8 +89,8 @@ class BetanetService:
         return BetanetStatus(
             status="operational",
             active_nodes=len(active_nodes),
-            connections=len(active_nodes) * 3,  # Assume 3 connections per node
-            avg_latency_ms=45.0,  # Mock value - would calculate from actual metrics
+            connections=len(active_nodes) * CONNECTIONS_PER_NODE,
+            avg_latency_ms=DEFAULT_LATENCY_MS,
             packets_processed=self.total_packets_processed,
             timestamp=datetime.now(timezone.utc).isoformat(),
         )
@@ -132,7 +139,7 @@ class BetanetService:
 
     async def _complete_deployment(self, node_id: str):
         """Simulate deployment completion after a delay"""
-        await asyncio.sleep(BETANET_CONNECTION_TIMEOUT)  # Simulate deployment delay
+        await asyncio.sleep(DEPLOYMENT_DELAY_SECONDS)
         if node_id in self.mixnodes:
             self.mixnodes[node_id].status = "active"
 
@@ -168,7 +175,7 @@ betanet_nodes_total {len(active_nodes)}
 betanet_packets_processed_total {self.total_packets_processed}
 # HELP betanet_avg_latency_ms Average latency in milliseconds
 # TYPE betanet_avg_latency_ms gauge
-betanet_avg_latency_ms 45.0
+betanet_avg_latency_ms {DEFAULT_LATENCY_MS}
 """
         return metrics
 

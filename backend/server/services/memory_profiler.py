@@ -23,7 +23,27 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any, Callable, Deque, Dict, List, Optional, Tuple
 
-from backend.server.constants import (
+from ..constants import (
+    ONE_MB,
+    DEFAULT_SNAPSHOT_INTERVAL,
+    TOP_OBJECTS_COUNT,
+    SNAPSHOTS_MAX,
+    HEAP_WARNING_PERCENT,
+    HEAP_CRITICAL_PERCENT,
+    GROWTH_RATE_WARNING,
+    GC_SPIKE_THRESHOLD,
+    MIN_SNAPSHOTS_FOR_LEAK,
+    RECENT_SNAPSHOTS_FOR_LEAK,
+    MIN_SNAPSHOTS_FOR_DETECTION,
+    LEAK_GROWTH_PERCENT_THRESHOLD,
+    LEAK_GROWTH_COUNT_THRESHOLD,
+    LEAK_SEVERITY_CRITICAL,
+    LEAK_SEVERITY_HIGH,
+    LEAK_SEVERITY_MEDIUM,
+    DRIFT_HEAP_THRESHOLD,
+    DRIFT_OBJECT_THRESHOLD,
+    DRIFT_GC_THRESHOLD,
+    ONE_HOUR,
     MEMORY_THRESHOLD_CRITICAL,
     MEMORY_THRESHOLD_WARNING,
 )
@@ -191,9 +211,9 @@ class MemoryProfiler:
 
     def __init__(
         self,
-        snapshot_interval: float = 60.0,
+        snapshot_interval: float = DEFAULT_SNAPSHOT_INTERVAL,
         enable_tracemalloc: bool = True,
-        top_objects_count: int = 20,
+        top_objects_count: int = TOP_OBJECTS_COUNT,
     ):
         self.snapshot_interval = snapshot_interval
         self.enable_tracemalloc = enable_tracemalloc
@@ -204,7 +224,7 @@ class MemoryProfiler:
         self._profiler_task: Optional[asyncio.Task] = None
 
         # Snapshots
-        self._snapshots: Deque[MemorySnapshot] = deque(maxlen=1000)
+        self._snapshots: Deque[MemorySnapshot] = deque(maxlen=SNAPSHOTS_MAX)
         self._baseline_snapshot: Optional[MemorySnapshot] = None
 
         # Leak detection
@@ -215,10 +235,17 @@ class MemoryProfiler:
         self._alert_callbacks: List[Callable[[Dict[str, Any]], None]] = []
 
         # Thresholds
+<<<<<<< HEAD
+        self.heap_warning_percent = HEAP_WARNING_PERCENT
+        self.heap_critical_percent = HEAP_CRITICAL_PERCENT
+        self.growth_rate_warning = GROWTH_RATE_WARNING
+        self.gc_spike_threshold = GC_SPIKE_THRESHOLD
+=======
         self.heap_warning_percent = MEMORY_THRESHOLD_WARNING
         self.heap_critical_percent = MEMORY_THRESHOLD_CRITICAL
         self.growth_rate_warning = 10.0  # % per hour
         self.gc_spike_threshold = 2.0  # multiplier
+>>>>>>> origin/main
 
         # Metrics
         self._last_gc_count = (0, 0, 0)
@@ -278,8 +305,8 @@ class MemoryProfiler:
                 self._snapshots.append(snapshot)
 
                 # Check for leaks
-                if len(self._snapshots) >= 5:
-                    leaks = await self.detect_leaks(list(self._snapshots)[-10:])
+                if len(self._snapshots) >= MIN_SNAPSHOTS_FOR_LEAK:
+                    leaks = await self.detect_leaks(list(self._snapshots)[-RECENT_SNAPSHOTS_FOR_LEAK:])
                     for leak in leaks:
                         if leak not in self._detected_leaks:
                             self._detected_leaks.append(leak)
@@ -341,28 +368,28 @@ class MemoryProfiler:
 
         if self.enable_tracemalloc and tracemalloc.is_tracing():
             current, peak = tracemalloc.get_traced_memory()
-            tracemalloc_current_mb = current / (1024 * 1024)
-            tracemalloc_peak_mb = peak / (1024 * 1024)
+            tracemalloc_current_mb = current / ONE_MB
+            tracemalloc_peak_mb = peak / ONE_MB
 
             # Get top allocations
             snapshot = tracemalloc.take_snapshot()
-            top_stats = snapshot.statistics('lineno')[:10]
+            top_stats = snapshot.statistics('lineno')[:RECENT_SNAPSHOTS_FOR_LEAK]
 
             tracemalloc_top_allocations = [
                 {
                     "file": stat.traceback.format()[0] if stat.traceback else "unknown",
-                    "size_mb": round(stat.size / (1024 * 1024), 3),
+                    "size_mb": round(stat.size / ONE_MB, 3),
                     "count": stat.count,
                 }
                 for stat in top_stats
             ]
 
         # Memory stats (rough approximation)
-        heap_size_mb = sys.getsizeof(all_objects) / (1024 * 1024)
+        heap_size_mb = sys.getsizeof(all_objects) / ONE_MB
 
         # Process memory
-        rss_mb = memory_info.rss / (1024 * 1024) if memory_info else 0.0
-        vms_mb = memory_info.vms / (1024 * 1024) if memory_info else 0.0
+        rss_mb = memory_info.rss / ONE_MB if memory_info else 0.0
+        vms_mb = memory_info.vms / ONE_MB if memory_info else 0.0
 
         # Calculate heap percent (using RSS as reference)
         heap_percent = (rss_mb / 1024) * 100 if rss_mb > 0 else 0.0
@@ -397,7 +424,7 @@ class MemoryProfiler:
         3. Calculate growth rate and severity
         4. Filter out expected growth patterns
         """
-        if len(snapshots) < 3:
+        if len(snapshots) < MIN_SNAPSHOTS_FOR_DETECTION:
             return []
 
         leaks = []
@@ -420,7 +447,7 @@ class MemoryProfiler:
             # - Growth > 50% over monitoring period
             # - Absolute growth > 100 objects
             # - Consistent growth trend (check intermediate snapshots)
-            if growth_percent > 50 and growth_count > 100:
+            if growth_percent > LEAK_GROWTH_PERCENT_THRESHOLD and growth_count > LEAK_GROWTH_COUNT_THRESHOLD:
                 # Check for consistent growth
                 is_consistent = True
                 prev_count = initial_count
@@ -434,11 +461,11 @@ class MemoryProfiler:
 
                 if is_consistent:
                     # Determine severity
-                    if growth_percent > 200:
+                    if growth_percent > LEAK_SEVERITY_CRITICAL:
                         severity = "critical"
-                    elif growth_percent > 150:
+                    elif growth_percent > LEAK_SEVERITY_HIGH:
                         severity = "high"
-                    elif growth_percent > 100:
+                    elif growth_percent > LEAK_SEVERITY_MEDIUM:
                         severity = "medium"
                     else:
                         severity = "low"
@@ -514,17 +541,17 @@ class MemoryProfiler:
         # Identify significant drifts
         significant_drifts = []
 
-        if heap_drift_percent > 20:
+        if heap_drift_percent > DRIFT_HEAP_THRESHOLD:
             significant_drifts.append(
                 f"Heap usage increased by {heap_drift_percent:.1f}% ({heap_drift_mb:.1f} MB)"
             )
 
-        if object_drift_percent > 30:
+        if object_drift_percent > DRIFT_OBJECT_THRESHOLD:
             significant_drifts.append(
                 f"Object count increased by {object_drift_percent:.1f}% ({object_drift} objects)"
             )
 
-        if gc_frequency_change > 10:
+        if gc_frequency_change > DRIFT_GC_THRESHOLD:
             significant_drifts.append(
                 f"GC frequency increased by {gc_frequency_change:.1f} collections/hour"
             )
@@ -582,7 +609,7 @@ class MemoryProfiler:
 
         # Growth rate check (if we have enough history)
         if len(self._snapshots) >= 2:
-            hour_ago = datetime.now() - timedelta(hours=1)
+            hour_ago = datetime.now() - timedelta(seconds=ONE_HOUR)
             recent_snapshots = [
                 s for s in self._snapshots if s.timestamp >= hour_ago
             ]
