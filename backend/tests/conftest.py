@@ -3,8 +3,16 @@ Pytest configuration for backend tests.
 
 Sets up Python path and common fixtures for backend service tests.
 """
+import os
 import sys
 from pathlib import Path
+
+# Set up test environment variables BEFORE any imports
+# This must happen before the Settings class is instantiated
+os.environ.setdefault("SECRET_KEY", "test-secret-key-that-is-at-least-32-chars-long-enough-for-testing")
+os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///./test.db")
+os.environ.setdefault("REDIS_URL", "redis://localhost:6379")
+os.environ.setdefault("ENVIRONMENT", "test")
 
 # Add project root and backend to Python path
 project_root = Path(__file__).parent.parent.parent
