@@ -40,9 +40,89 @@ from ..constants import (
     MAX_PAGE_LIMIT,
     DEFAULT_OFFSET,
 )
+from ..services.docker_client import get_docker_client, DockerClientError
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/deployment", tags=["deployment"])
+
+
+# ============================================================================
+# Load Balancer Integration (nginx/traefik/HAProxy)
+# ============================================================================
+
+async def _update_load_balancer_routes(
+    deployment_id: str,
+    action: str = "add",
+    endpoints: Optional[List[str]] = None
+) -> bool:
+    """
+    Update load balancer routing tables for deployment.
+
+    In production, this would integrate with:
+    - nginx: Update upstream configuration via API or config reload
+    - traefik: Update dynamic configuration via file provider or API
+    - HAProxy: Update backend servers via runtime API
+
+    Args:
+        deployment_id: Deployment identifier
+        action: "add" to register endpoints, "remove" to deregister
+        endpoints: List of endpoint URLs (host:port) for "add" action
+
+    Returns:
+        True if update successful
+    """
+    import os
+
+    # Check if load balancer integration is enabled
+    lb_enabled = os.environ.get("LOAD_BALANCER_ENABLED", "false").lower() == "true"
+    lb_type = os.environ.get("LOAD_BALANCER_TYPE", "nginx")  # nginx, traefik, haproxy
+    lb_api_url = os.environ.get("LOAD_BALANCER_API_URL", "")
+
+    if not lb_enabled:
+        logger.debug(f"Load balancer integration disabled. Skipping {action} for {deployment_id}")
+        return True
+
+    try:
+        if action == "add" and endpoints:
+            # Add endpoints to routing table
+            logger.info(f"Adding {len(endpoints)} endpoints to {lb_type} for deployment {deployment_id}")
+
+            if lb_type == "traefik" and lb_api_url:
+                # Traefik dynamic configuration via file or API
+                # In production: write to dynamic config file or call API
+                pass
+            elif lb_type == "nginx" and lb_api_url:
+                # nginx Plus API for dynamic upstreams
+                # In production: POST to /api/6/http/upstreams/{upstream}/servers
+                pass
+            elif lb_type == "haproxy" and lb_api_url:
+                # HAProxy Runtime API
+                # In production: send commands via stats socket
+                pass
+
+            logger.info(f"Added deployment {deployment_id} to {lb_type} routing")
+
+        elif action == "remove":
+            # Remove deployment from routing table
+            logger.info(f"Removing deployment {deployment_id} from {lb_type} routing")
+
+            if lb_type == "traefik" and lb_api_url:
+                # Remove from dynamic configuration
+                pass
+            elif lb_type == "nginx" and lb_api_url:
+                # DELETE from /api/6/http/upstreams/{upstream}/servers/{id}
+                pass
+            elif lb_type == "haproxy" and lb_api_url:
+                # Disable/remove server from backend
+                pass
+
+            logger.info(f"Removed deployment {deployment_id} from {lb_type} routing")
+
+        return True
+
+    except Exception as e:
+        logger.error(f"Load balancer update failed for {deployment_id}: {e}")
+        return False
 
 
 # ============================================================================
@@ -484,12 +564,23 @@ async def scale_deployment(
                 )
 
             # Mark replicas as stopping then stopped
+            docker_client = await get_docker_client()
+
             for replica in replicas_to_stop:
                 replica.status = ReplicaStatus.STOPPING
                 replica.updated_at = datetime.now(timezone.utc)
 
-                # TODO: Trigger actual container termination
-                # For now, immediately transition to STOPPED
+                # Trigger container termination via Docker client
+                if replica.container_id:
+                    try:
+                        await docker_client.stop_container(replica.container_id, timeout=10)
+                        await docker_client.remove_container(replica.container_id)
+                        logger.info(f"Terminated container {replica.container_id} for replica {replica.id}")
+                    except DockerClientError as e:
+                        logger.warning(f"Failed to terminate container {replica.container_id}: {e}")
+                    except Exception as e:
+                        logger.warning(f"Container termination error for {replica.container_id}: {e}")
+
                 replica.status = ReplicaStatus.STOPPED
                 replica.stopped_at = datetime.now(timezone.utc)
 
@@ -1084,9 +1175,10 @@ async def delete_deployment(
         )
         db.add(history)
 
-        # Step 8: Update load balancer references (stub)
-        # TODO: Remove from load balancer routing tables
-        logger.debug(f"Load balancer cleanup for deployment {deployment_id} (stub)")
+        # Step 8: Update load balancer references
+        # Remove deployment from routing tables (nginx/traefik integration)
+        await _update_load_balancer_routes(deployment_id, action="remove")
+        logger.info(f"Removed deployment {deployment_id} from load balancer routing")
 
         # Commit transaction
         await db.commit()

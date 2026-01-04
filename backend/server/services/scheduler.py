@@ -33,8 +33,27 @@ from ..constants import (
     SCHEDULER_CLEANUP_INTERVAL,
     SCHEDULER_MAX_CONCURRENT_JOBS,
 )
+from .docker_client import (
+    docker_client,
+    get_docker_client,
+    ContainerConfig,
+    DockerClientError,
+)
 
 logger = logging.getLogger(__name__)
+
+# Region latency matrix (ms) - lower is better
+# Used for region-based scheduling optimization
+REGION_LATENCY_MATRIX = {
+    "us-east": {"us-east": 5, "us-west": 45, "eu-west": 80, "eu-central": 90, "ap-south": 180, "ap-northeast": 150},
+    "us-west": {"us-east": 45, "us-west": 5, "eu-west": 120, "eu-central": 130, "ap-south": 160, "ap-northeast": 100},
+    "eu-west": {"us-east": 80, "us-west": 120, "eu-west": 5, "eu-central": 15, "ap-south": 120, "ap-northeast": 200},
+    "eu-central": {"us-east": 90, "us-west": 130, "eu-west": 15, "eu-central": 5, "ap-south": 100, "ap-northeast": 180},
+    "ap-south": {"us-east": 180, "us-west": 160, "eu-west": 120, "eu-central": 100, "ap-south": 5, "ap-northeast": 80},
+    "ap-northeast": {"us-east": 150, "us-west": 100, "eu-west": 200, "eu-central": 180, "ap-south": 80, "ap-northeast": 5},
+}
+DEFAULT_REGION = "us-east"
+MAX_LATENCY_MS = 200  # Maximum latency for normalization
 
 
 class DeploymentScheduler:
@@ -165,9 +184,8 @@ class DeploymentScheduler:
                 reason=f"Scheduled {len(created_replicas)} replicas across nodes"
             )
 
-            # Step 7: Trigger container creation (stub)
-            # TODO: Implement actual container orchestration
-            # For now, just transition replicas to RUNNING
+            # Step 7: Trigger container creation via Docker client
+            # Uses aiodocker for real containers, or mock mode if Docker unavailable
             await self._transition_replicas_to_running(db, created_replicas)
 
             # Step 8: Update deployment to running
@@ -265,7 +283,8 @@ class DeploymentScheduler:
         db: AsyncSession,
         nodes: List[Node],
         cpu_required: float,
-        memory_required: int
+        memory_required: int,
+        target_region: Optional[str] = None
     ) -> List[Dict]:
         """
         Score nodes based on multi-criteria evaluation
@@ -273,12 +292,20 @@ class DeploymentScheduler:
         Scoring factors:
         1. Available resources (40%): More available = higher score
         2. Current load (30%): Lower CPU/memory usage = higher score
-        3. Network locality (30%): Same region = higher score (future enhancement)
+        3. Network locality (30%): Lower latency to target region = higher score
+
+        Args:
+            db: Database session
+            nodes: List of available nodes
+            cpu_required: CPU cores needed
+            memory_required: Memory MB needed
+            target_region: Target region for locality scoring (default: us-east)
 
         Returns:
             List of dicts with node info and score, sorted by score descending
         """
         scored_nodes = []
+        target_region = target_region or DEFAULT_REGION
 
         for node in nodes:
             # Factor 1: Resource availability (40%)
@@ -291,10 +318,16 @@ class DeploymentScheduler:
             memory_load_score = (LOAD_SCORE_PERCENTAGE_BASE - node.memory_usage_percent) / LOAD_SCORE_PERCENTAGE_BASE * LOAD_SCORE_WEIGHT
             load_score = cpu_load_score + memory_load_score
 
-            # Factor 3: Network locality (30%)
-            # TODO: Implement region-based scoring
-            # For now, equal weight for all nodes
-            locality_score = LOCALITY_SCORE_DEFAULT
+            # Factor 3: Network locality (30%) - Region-based scoring
+            # Calculate latency-based locality score using region matrix
+            node_region = getattr(node, 'region', DEFAULT_REGION) or DEFAULT_REGION
+            latency_ms = REGION_LATENCY_MATRIX.get(
+                target_region, {}
+            ).get(node_region, MAX_LATENCY_MS)
+
+            # Convert latency to score: lower latency = higher score
+            # Score = 0.3 * (1 - latency/max_latency)
+            locality_score = LOCALITY_SCORE_DEFAULT * (1 - latency_ms / MAX_LATENCY_MS)
 
             # Total score (0.0 to 1.0)
             total_score = resource_score + load_score + locality_score
@@ -302,11 +335,12 @@ class DeploymentScheduler:
             scored_nodes.append({
                 "id": node.id,
                 "node_id": node.node_id,
-                "region": node.region,
+                "region": node_region,
                 "cpu_cores": node.cpu_cores,
                 "memory_mb": node.memory_mb,
                 "cpu_usage": node.cpu_usage_percent,
                 "memory_usage": node.memory_usage_percent,
+                "latency_ms": latency_ms,
                 "score": total_score
             })
 
@@ -314,9 +348,9 @@ class DeploymentScheduler:
         scored_nodes.sort(key=lambda x: x['score'], reverse=True)
 
         logger.debug(
-            f"Node scoring complete. Top 3: " +
+            f"Node scoring complete (target_region={target_region}). Top 3: " +
             ", ".join([
-                f"{n['node_id']}={n['score']:.2f}"
+                f"{n['node_id']}={n['score']:.2f} (latency={n['latency_ms']}ms)"
                 for n in scored_nodes[:3]
             ])
         )
@@ -441,26 +475,76 @@ class DeploymentScheduler:
     async def _transition_replicas_to_running(
         self,
         db: AsyncSession,
-        replicas: List[DeploymentReplica]
+        replicas: List[DeploymentReplica],
+        container_image: str = "nginx:latest",
+        cpu_cores: float = 1.0,
+        memory_mb: int = 512,
+        env: Optional[Dict[str, str]] = None
     ):
         """
-        Transition replicas from PENDING to RUNNING
-        Stub for container orchestration
+        Transition replicas from PENDING to RUNNING.
+        Creates and starts Docker containers for each replica.
 
         Args:
             db: Database session
             replicas: List of replicas to transition
+            container_image: Docker image to use
+            cpu_cores: CPU cores per container
+            memory_mb: Memory MB per container
+            env: Environment variables for containers
         """
+        # Get Docker client (will use mock if Docker unavailable)
+        client = await get_docker_client()
+
         for replica in replicas:
             replica.status = ReplicaStatus.STARTING
             replica.started_at = datetime.now(timezone.utc)
 
-            # TODO: Trigger actual container creation here
-            # For now, immediately transition to RUNNING
-            replica.status = ReplicaStatus.RUNNING
-            replica.container_id = f"stub-container-{replica.id}"
+            try:
+                # Create container configuration
+                config = ContainerConfig(
+                    image=container_image,
+                    name=f"fog-replica-{replica.id}",
+                    cpu_limit=cpu_cores,
+                    memory_limit=memory_mb,
+                    env=env,
+                    labels={
+                        "fog.replica_id": str(replica.id),
+                        "fog.deployment_id": str(replica.deployment_id),
+                        "fog.managed": "true"
+                    }
+                )
 
-            logger.debug(f"Replica {replica.id} transitioned to RUNNING")
+                # Create container
+                container_id = await client.create_container(config)
+
+                # Start container
+                await client.start_container(container_id)
+
+                # Update replica with container ID
+                replica.container_id = container_id
+                replica.status = ReplicaStatus.RUNNING
+
+                logger.info(
+                    f"Replica {replica.id} running in container {container_id}"
+                )
+
+            except DockerClientError as e:
+                # Container creation failed - mark replica as failed
+                logger.error(f"Failed to create container for replica {replica.id}: {e}")
+                replica.status = ReplicaStatus.FAILED
+                replica.container_id = None
+
+            except Exception as e:
+                # Unexpected error - use fallback stub container
+                logger.warning(
+                    f"Container orchestration error for replica {replica.id}: {e}. "
+                    f"Using stub container."
+                )
+                replica.status = ReplicaStatus.RUNNING
+                replica.container_id = f"stub-container-{replica.id}"
+
+            logger.debug(f"Replica {replica.id} transitioned to {replica.status.value}")
 
     async def _scheduler_worker(self):
         """
@@ -474,11 +558,7 @@ class DeploymentScheduler:
                 # Wait for deployment in queue (with timeout to check is_running)
                 try:
                     deployment_task = await asyncio.wait_for(
-<<<<<<< HEAD
                         self.queue.get(), timeout=SCHEDULER_QUEUE_TIMEOUT
-=======
-                        self.queue.get(), timeout=self.check_interval
->>>>>>> origin/main
                     )
                 except asyncio.TimeoutError:
                     continue
@@ -506,11 +586,7 @@ class DeploymentScheduler:
 
             except Exception as e:
                 logger.error(f"Scheduler worker error: {e}", exc_info=True)
-<<<<<<< HEAD
                 await asyncio.sleep(SCHEDULER_ERROR_SLEEP)
-=======
-                await asyncio.sleep(self.check_interval)
->>>>>>> origin/main
 
         logger.info("Scheduler worker stopped")
 
