@@ -23,6 +23,11 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any, Callable, Deque, Dict, List, Optional, Tuple
 
+from backend.server.constants import (
+    MEMORY_THRESHOLD_CRITICAL,
+    MEMORY_THRESHOLD_WARNING,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -210,8 +215,8 @@ class MemoryProfiler:
         self._alert_callbacks: List[Callable[[Dict[str, Any]], None]] = []
 
         # Thresholds
-        self.heap_warning_percent = 80.0
-        self.heap_critical_percent = 90.0
+        self.heap_warning_percent = MEMORY_THRESHOLD_WARNING
+        self.heap_critical_percent = MEMORY_THRESHOLD_CRITICAL
         self.growth_rate_warning = 10.0  # % per hour
         self.gc_spike_threshold = 2.0  # multiplier
 
