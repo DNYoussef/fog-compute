@@ -2,7 +2,7 @@
 File Transfer Service for BitChat
 Handles chunked file uploads/downloads with multi-source support
 """
-from typing import Dict, List, Optional, BinaryIO, Set
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 import asyncio
@@ -28,7 +28,7 @@ class ChunkInfo:
     chunk_hash: str
     chunk_size: int
     uploaded: bool
-    available_from: List[str]
+    available_from: list[str]
 
 
 @dataclass
@@ -41,7 +41,7 @@ class TransferProgress:
     total_chunks: int
     uploaded_chunks: int
     status: str
-    download_sources: List[str]
+    download_sources: list[str]
 
     @property
     def progress_percent(self) -> float:
@@ -69,8 +69,8 @@ class FileTransferService:
         storage_path: str = "./data/bitchat/files",
         chunk_size: int = DEFAULT_CHUNK_SIZE,  # 1MB
         max_parallel_chunks: int = 5,
-        bandwidth_limit_mbps: Optional[float] = None
-    ):
+        bandwidth_limit_mbps: float | None = None
+    ) -> None:
         """
         Initialize file transfer service
 
@@ -89,8 +89,8 @@ class FileTransferService:
         self.storage_path.mkdir(parents=True, exist_ok=True)
 
         # Active transfers
-        self.active_uploads: Dict[str, asyncio.Task] = {}
-        self.active_downloads: Dict[str, asyncio.Task] = {}
+        self.active_uploads: dict[str, asyncio.Task] = {}
+        self.active_downloads: dict[str, asyncio.Task] = {}
 
         # Bandwidth tracking
         self.bytes_transferred = 0
@@ -103,9 +103,9 @@ class FileTransferService:
         filename: str,
         file_size: int,
         uploaded_by: str,
-        mime_type: Optional[str],
+        mime_type: str | None,
         db: AsyncSession
-    ) -> Dict:
+    ) -> dict:
         """
         Create a new file upload
 
@@ -162,7 +162,7 @@ class FileTransferService:
         chunk_index: int,
         chunk_data: bytes,
         db: AsyncSession
-    ) -> Dict:
+    ) -> dict:
         """
         Upload a single file chunk
 
@@ -248,7 +248,7 @@ class FileTransferService:
         self,
         file_id: str,
         db: AsyncSession
-    ) -> List[ChunkInfo]:
+    ) -> list[ChunkInfo]:
         """
         Get status of all chunks for a file
 
@@ -282,7 +282,7 @@ class FileTransferService:
         file_id: str,
         chunk_index: int,
         db: AsyncSession
-    ) -> Optional[bytes]:
+    ) -> bytes | None:
         """
         Download a single file chunk
 
@@ -335,8 +335,8 @@ class FileTransferService:
         self,
         file_id: str,
         db: AsyncSession,
-        sources: Optional[List[str]] = None
-    ) -> Optional[Path]:
+        sources: list[str] | None = None
+    ) -> Path | None:
         """
         Download complete file with multi-source support
 
@@ -374,7 +374,7 @@ class FileTransferService:
         self,
         file_id: str,
         db: AsyncSession
-    ) -> Optional[TransferProgress]:
+    ) -> TransferProgress | None:
         """
         Get transfer progress
 
@@ -411,7 +411,7 @@ class FileTransferService:
         file_id: str,
         peer_id: str,
         db: AsyncSession
-    ):
+    ) -> None:
         """
         Add a peer as a download source
 
@@ -433,7 +433,7 @@ class FileTransferService:
                 await db.commit()
                 logger.info(f"Added {peer_id} as download source for {file_id}")
 
-    async def _assemble_file(self, file_id: str, db: AsyncSession):
+    async def _assemble_file(self, file_id: str, db: AsyncSession) -> None:
         """
         Assemble complete file from chunks
 
@@ -489,7 +489,7 @@ class FileTransferService:
         data = f"{filename}:{peer_id}:{datetime.now(timezone.utc).isoformat()}"
         return hashlib.sha256(data.encode()).hexdigest()[:32]
 
-    async def _throttle_bandwidth(self):
+    async def _throttle_bandwidth(self) -> None:
         """Throttle bandwidth if limit is set"""
         if self.bandwidth_limit_mbps is None:
             return

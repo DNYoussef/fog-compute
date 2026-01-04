@@ -17,7 +17,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Callable, Deque, Dict, List, Optional
+from typing import Any, Callable
 
 import psutil
 
@@ -107,7 +107,7 @@ class ResourceMetrics:
             network_connections=net_connections,
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary"""
         return {
             "timestamp": self.timestamp.isoformat(),
@@ -148,7 +148,7 @@ class Alert:
     threshold: float
     timestamp: datetime = field(default_factory=datetime.now)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary"""
         return {
             "level": self.level.value,
@@ -172,11 +172,11 @@ class Threshold:
 class ResourceTrend:
     """Track resource usage trends for capacity planning"""
 
-    def __init__(self, window_size: int = 60):
+    def __init__(self, window_size: int = 60) -> None:
         self.window_size = window_size  # Number of samples
-        self._cpu_history: Deque[float] = deque(maxlen=window_size)
-        self._memory_history: Deque[float] = deque(maxlen=window_size)
-        self._disk_history: Deque[float] = deque(maxlen=window_size)
+        self._cpu_history: deque[float] = deque(maxlen=window_size)
+        self._memory_history: deque[float] = deque(maxlen=window_size)
+        self._disk_history: deque[float] = deque(maxlen=window_size)
 
     def record(self, metrics: ResourceMetrics) -> None:
         """Record metrics for trend analysis"""
@@ -184,7 +184,7 @@ class ResourceTrend:
         self._memory_history.append(metrics.memory_percent)
         self._disk_history.append(metrics.disk_percent)
 
-    def _calculate_trend(self, history: Deque[float]) -> str:
+    def _calculate_trend(self, history: deque[float]) -> str:
         """Calculate trend direction"""
         if len(history) < 10:
             return "insufficient_data"
@@ -205,7 +205,7 @@ class ResourceTrend:
         else:
             return "stable"
 
-    def get_trends(self) -> Dict[str, Any]:
+    def get_trends(self) -> dict[str, Any]:
         """Get current trends"""
         return {
             "cpu": {
@@ -225,7 +225,7 @@ class ResourceTrend:
             },
         }
 
-    def get_capacity_recommendations(self) -> List[str]:
+    def get_capacity_recommendations(self) -> list[str]:
         """Get capacity planning recommendations"""
         recommendations = []
 
@@ -257,21 +257,21 @@ class ResourceMonitor:
     Tracks CPU, memory, disk, and network usage with configurable thresholds
     """
 
-    def __init__(self, interval: float = 5.0):
+    def __init__(self, interval: float = 5.0) -> None:
         self.interval = interval
         self._monitoring = False
-        self._monitor_thread: Optional[threading.Thread] = None
+        self._monitor_thread: threading.Thread | None = None
 
         # Metrics storage
-        self._current_metrics: Optional[ResourceMetrics] = None
-        self._metrics_history: Deque[ResourceMetrics] = deque(maxlen=1000)
+        self._current_metrics: ResourceMetrics | None = None
+        self._metrics_history: deque[ResourceMetrics] = deque(maxlen=1000)
 
         # Alerts
-        self._alerts: Deque[Alert] = deque(maxlen=100)
-        self._alert_callbacks: List[Callable[[Alert], None]] = []
+        self._alerts: deque[Alert] = deque(maxlen=100)
+        self._alert_callbacks: list[Callable[[Alert], None]] = []
 
         # Thresholds
-        self._thresholds = {
+        self._thresholds: dict[ResourceType, Threshold] = {
             ResourceType.CPU: Threshold(ResourceType.CPU, 80.0, 95.0),
             ResourceType.MEMORY: Threshold(ResourceType.MEMORY, 85.0, 95.0),
             ResourceType.DISK: Threshold(ResourceType.DISK, 85.0, 95.0),
@@ -282,9 +282,9 @@ class ResourceMonitor:
         self._trend_tracker = ResourceTrend()
 
         # Previous I/O counters for rate calculation
-        self._prev_disk_io: Optional[Any] = None
-        self._prev_net_io: Optional[Any] = None
-        self._prev_io_time: Optional[float] = None
+        self._prev_disk_io: Any | None = None
+        self._prev_net_io: Any | None = None
+        self._prev_io_time: float | None = None
 
         logger.info(f"ResourceMonitor initialized (interval={interval}s)")
 
@@ -425,13 +425,13 @@ class ResourceMonitor:
             self._monitor_thread = None
         logger.info("Resource monitoring stopped")
 
-    def get_current_metrics(self) -> Optional[Dict[str, Any]]:
+    def get_current_metrics(self) -> dict[str, Any] | None:
         """Get current metrics"""
         if self._current_metrics:
             return self._current_metrics.to_dict()
         return None
 
-    def get_metrics_history(self, seconds: int = 60) -> List[Dict[str, Any]]:
+    def get_metrics_history(self, seconds: int = 60) -> list[dict[str, Any]]:
         """Get metrics history for the last N seconds"""
         cutoff = datetime.now() - timedelta(seconds=seconds)
         return [
@@ -440,19 +440,19 @@ class ResourceMonitor:
             if m.timestamp >= cutoff
         ]
 
-    def get_recent_alerts(self, count: int = 10) -> List[Dict[str, Any]]:
+    def get_recent_alerts(self, count: int = 10) -> list[dict[str, Any]]:
         """Get recent alerts"""
         return [alert.to_dict() for alert in list(self._alerts)[-count:]]
 
-    def get_trends(self) -> Dict[str, Any]:
+    def get_trends(self) -> dict[str, Any]:
         """Get resource usage trends"""
         return self._trend_tracker.get_trends()
 
-    def get_capacity_recommendations(self) -> List[str]:
+    def get_capacity_recommendations(self) -> list[str]:
         """Get capacity planning recommendations"""
         return self._trend_tracker.get_capacity_recommendations()
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get comprehensive monitoring stats"""
         current = self.get_current_metrics()
 

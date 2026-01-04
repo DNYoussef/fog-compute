@@ -5,7 +5,7 @@ Manages mixnode deployment and statistics
 
 import uuid
 from datetime import datetime, timezone
-from typing import List, Dict, Any, Optional
+from typing import Any
 from dataclasses import dataclass, asdict
 import asyncio
 
@@ -20,7 +20,7 @@ class MixnodeInfo:
     region: str = "us-east"
     created_at: str = ""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -34,19 +34,19 @@ class BetanetStatus:
     packets_processed: int
     timestamp: str
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
 class BetanetService:
     """Service for managing Betanet privacy network"""
 
-    def __init__(self):
-        self.mixnodes: Dict[str, MixnodeInfo] = {}
+    def __init__(self) -> None:
+        self.mixnodes: dict[str, MixnodeInfo] = {}
         self.total_packets_processed = 22274
         self._initialize_default_nodes()
 
-    def _initialize_default_nodes(self):
+    def _initialize_default_nodes(self) -> None:
         """Initialize with some default active nodes"""
         default_nodes = [
             MixnodeInfo(
@@ -82,15 +82,15 @@ class BetanetService:
             timestamp=datetime.now(timezone.utc).isoformat(),
         )
 
-    async def get_mixnodes(self) -> List[MixnodeInfo]:
+    async def get_mixnodes(self) -> list[MixnodeInfo]:
         """Get all mixnodes"""
         return list(self.mixnodes.values())
 
     async def deploy_node(
         self,
         node_type: str = "mixnode",
-        region: Optional[str] = None
-    ) -> Dict[str, Any]:
+        region: str | None = None
+    ) -> dict[str, Any]:
         """
         Deploy a new mixnode
 
@@ -124,13 +124,13 @@ class BetanetService:
             "message": f"Deploying {node_type} in {new_node.region}",
         }
 
-    async def _complete_deployment(self, node_id: str):
+    async def _complete_deployment(self, node_id: str) -> None:
         """Simulate deployment completion after a delay"""
         await asyncio.sleep(5)  # Simulate 5 second deployment
         if node_id in self.mixnodes:
             self.mixnodes[node_id].status = "active"
 
-    async def stop_node(self, node_id: str) -> Dict[str, Any]:
+    async def stop_node(self, node_id: str) -> dict[str, Any]:
         """Stop a running mixnode"""
         if node_id not in self.mixnodes:
             return {"success": False, "error": "Node not found"}
@@ -138,7 +138,7 @@ class BetanetService:
         self.mixnodes[node_id].status = "stopped"
         return {"success": True, "node_id": node_id, "status": "stopped"}
 
-    async def delete_node(self, node_id: str) -> Dict[str, Any]:
+    async def delete_node(self, node_id: str) -> dict[str, Any]:
         """Delete a mixnode"""
         if node_id not in self.mixnodes:
             return {"success": False, "error": "Node not found"}
@@ -146,7 +146,7 @@ class BetanetService:
         del self.mixnodes[node_id]
         return {"success": True, "node_id": node_id}
 
-    async def get_node(self, node_id: str) -> Optional[MixnodeInfo]:
+    async def get_node(self, node_id: str) -> MixnodeInfo | None:
         """Get a specific mixnode by ID"""
         return self.mixnodes.get(node_id)
 
@@ -166,7 +166,7 @@ betanet_avg_latency_ms 45.0
 """
         return metrics
 
-    async def update_node_stats(self, node_id: str, packets_delta: int = 0):
+    async def update_node_stats(self, node_id: str, packets_delta: int = 0) -> None:
         """Update node statistics"""
         if node_id in self.mixnodes:
             self.mixnodes[node_id].packets_processed += packets_delta
