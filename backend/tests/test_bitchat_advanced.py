@@ -16,6 +16,9 @@ from server.services.bitchat import bitchat_service
 from server.services.file_transfer import FileTransferService
 from src.p2p.gossip_protocol import GossipProtocol, VectorClock, GossipMessage
 
+# Import test constants
+from tests.constants import ONE_MB, TWO_MB, THREE_MB, FIVE_MB, TEN_MB, ONE_GB
+
 
 # ============================================================================
 # Fixtures
@@ -388,14 +391,14 @@ async def test_create_file_upload(db_session, file_service, test_peers):
     """Test creating a file upload"""
     transfer = await file_service.create_upload(
         filename="test_file.txt",
-        file_size=5242880,  # 5MB
+        file_size=FIVE_MB,
         uploaded_by=test_peers[0]['peer_id'],
         mime_type="text/plain",
         db=db_session
     )
 
     assert transfer['filename'] == "test_file.txt"
-    assert transfer['file_size'] == 5242880
+    assert transfer['file_size'] == FIVE_MB
     assert transfer['total_chunks'] == 5  # 5MB / 1MB chunks
     assert transfer['status'] == 'pending'
 
@@ -406,14 +409,14 @@ async def test_upload_file_chunk(db_session, file_service, test_peers):
     # Create upload
     transfer = await file_service.create_upload(
         filename="test.dat",
-        file_size=2097152,  # 2MB
+        file_size=TWO_MB,
         uploaded_by=test_peers[0]['peer_id'],
         mime_type="application/octet-stream",
         db=db_session
     )
 
     # Upload first chunk
-    chunk_data = b"x" * 1048576  # 1MB of data
+    chunk_data = b"x" * ONE_MB
     chunk = await file_service.upload_chunk(
         file_id=transfer['file_id'],
         chunk_index=0,
@@ -429,7 +432,7 @@ async def test_upload_file_chunk(db_session, file_service, test_peers):
 @pytest.mark.asyncio
 async def test_upload_complete_file(db_session, file_service, test_peers):
     """Test uploading a complete file in chunks"""
-    file_size = 3145728  # 3MB
+    file_size = THREE_MB
     transfer = await file_service.create_upload(
         filename="complete.dat",
         file_size=file_size,
@@ -463,14 +466,14 @@ async def test_get_chunk_status(db_session, file_service, test_peers):
     """Test getting chunk status"""
     transfer = await file_service.create_upload(
         filename="status_test.dat",
-        file_size=2097152,
+        file_size=TWO_MB,
         uploaded_by=test_peers[0]['peer_id'],
         mime_type=None,
         db=db_session
     )
 
     # Upload one chunk
-    chunk_data = b"y" * 1048576
+    chunk_data = b"y" * ONE_MB
     await file_service.upload_chunk(
         file_id=transfer['file_id'],
         chunk_index=0,
@@ -491,7 +494,7 @@ async def test_resume_upload(db_session, file_service, test_peers):
     """Test resume capability after interruption"""
     transfer = await file_service.create_upload(
         filename="resume_test.dat",
-        file_size=5242880,  # 5MB
+        file_size=FIVE_MB,
         uploaded_by=test_peers[0]['peer_id'],
         mime_type=None,
         db=db_session
@@ -499,7 +502,7 @@ async def test_resume_upload(db_session, file_service, test_peers):
 
     # Upload first 2 chunks
     for i in range(2):
-        chunk_data = b"z" * 1048576
+        chunk_data = b"z" * ONE_MB
         await file_service.upload_chunk(
             file_id=transfer['file_id'],
             chunk_index=i,
@@ -513,7 +516,7 @@ async def test_resume_upload(db_session, file_service, test_peers):
 
     # Resume by uploading remaining chunks
     for i in range(2, transfer['total_chunks']):
-        chunk_data = b"z" * 1048576
+        chunk_data = b"z" * ONE_MB
         await file_service.upload_chunk(
             file_id=transfer['file_id'],
             chunk_index=i,
@@ -530,7 +533,7 @@ async def test_resume_upload(db_session, file_service, test_peers):
 async def test_download_file(db_session, file_service, test_peers):
     """Test downloading a complete file"""
     # Upload a file first
-    file_size = 1048576  # 1MB
+    file_size = ONE_MB
     transfer = await file_service.create_upload(
         filename="download_test.dat",
         file_size=file_size,
@@ -563,7 +566,7 @@ async def test_multi_source_tracking(db_session, file_service, test_peers):
     """Test multi-source download tracking"""
     transfer = await file_service.create_upload(
         filename="multi_source.dat",
-        file_size=1048576,
+        file_size=ONE_MB,
         uploaded_by=test_peers[0]['peer_id'],
         mime_type=None,
         db=db_session
@@ -590,7 +593,7 @@ async def test_multi_source_tracking(db_session, file_service, test_peers):
 @pytest.mark.asyncio
 async def test_large_file_support(db_session, file_service, test_peers):
     """Test support for 1GB file"""
-    file_size = 1073741824  # 1GB
+    file_size = ONE_GB
     transfer = await file_service.create_upload(
         filename="large_file.dat",
         file_size=file_size,
@@ -616,7 +619,7 @@ async def test_bandwidth_throttling(file_service):
     start = datetime.utcnow()
 
     # Simulate large transfer
-    limited_service.bytes_transferred = 5242880  # 5MB
+    limited_service.bytes_transferred = FIVE_MB
     await limited_service._throttle_bandwidth()
 
     end = datetime.utcnow()
@@ -631,14 +634,14 @@ async def test_chunk_corruption_detection(db_session, file_service, test_peers):
     """Test detection of corrupted chunks"""
     transfer = await file_service.create_upload(
         filename="corruption_test.dat",
-        file_size=1048576,
+        file_size=ONE_MB,
         uploaded_by=test_peers[0]['peer_id'],
         mime_type=None,
         db=db_session
     )
 
     # Upload chunk
-    chunk_data = b"c" * 1048576
+    chunk_data = b"c" * ONE_MB
     await file_service.upload_chunk(
         file_id=transfer['file_id'],
         chunk_index=0,
@@ -671,7 +674,7 @@ async def test_file_upload_throughput():
     service = FileTransferService(storage_path="./test_data/benchmark")
 
     # Measure upload speed
-    chunk_data = b"x" * (10 * 1048576)  # 10MB
+    chunk_data = b"x" * TEN_MB
     start = datetime.utcnow()
 
     # Simulate processing (without actual DB)

@@ -20,6 +20,8 @@ from backend.tests.constants import (
     TEST_HOST,
     TEST_PAGE_SIZE,
     TEST_MAX_LOGIN_ATTEMPTS,
+    ONE_HOUR,
+    ONE_MONTH,
 )
 
 # Add project root to path
@@ -69,7 +71,7 @@ async def seed_betanet_nodes(session: AsyncSession):
             status=random.choice(statuses),
             ip_address=f"192.168.{random.randint(1, 254)}.{random.randint(1, 254)}",
             packets_processed=random.randint(10000, 1000000),
-            uptime_seconds=random.randint(3600, 2592000),  # 1 hour to 30 days
+            uptime_seconds=random.randint(ONE_HOUR, ONE_MONTH),
             deployed_at=datetime.now(timezone.utc) - timedelta(days=random.randint(1, 60)),
             last_seen=datetime.now(timezone.utc) - timedelta(minutes=random.randint(0, 30))
         )

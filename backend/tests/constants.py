@@ -6,20 +6,24 @@ updates when requirements change.
 """
 from backend.server.constants import (
     ONE_MB,
+    TWO_MB,
+    THREE_MB,
     FIVE_MB,
     TEN_MB,
     ONE_GB,
     ONE_MINUTE,
     ONE_HOUR,
     ONE_DAY,
+    ONE_MONTH,
 )
 
-# File sizes
+# File sizes (re-exported for convenience)
 TEST_SMALL_FILE_SIZE = ONE_MB
 TEST_MEDIUM_FILE_SIZE = FIVE_MB
 TEST_LARGE_FILE_SIZE = TEN_MB
 TEST_MAX_FILE_SIZE = ONE_GB
 TEST_FILE_CONTENT = b"x" * 1024
+TEST_CHUNK_SIZE = ONE_MB  # Standard chunk size for file transfers
 
 # Timeouts
 TEST_TIMEOUT_SHORT = 5
