@@ -10,6 +10,18 @@ from unittest.mock import Mock, AsyncMock, patch, MagicMock
 import json
 from datetime import datetime
 
+from tests.constants import (
+    TEST_CONNECTIONS_SMALL,
+    TEST_CONNECTIONS_LARGE,
+    TEST_ROOM_NAME,
+    TEST_ROOM_CONNECTIONS,
+    TEST_BROADCAST_CONNECTIONS,
+    TEST_PUBLISHER_COUNT,
+    TEST_MIN_MESSAGE_COUNT,
+    TEST_WINDOW_SECONDS,
+    TEST_MAX_WINDOW_POINTS,
+    TEST_SLEEP_MEDIUM,
+)
 from server.websocket.server import ConnectionManager, connection_manager
 from server.websocket.publishers import (
     DataPublisher, NodeStatusPublisher, TaskProgressPublisher,
@@ -66,8 +78,8 @@ class TestConnectionManager:
         """Test: Handle multiple concurrent connections"""
         connections = []
 
-        # Create 10 connections
-        for i in range(10):
+        # Create TEST_CONNECTIONS_SMALL connections
+        for i in range(TEST_CONNECTIONS_SMALL):
             ws = AsyncMock(spec=WebSocket)
             ws.accept = AsyncMock()
             ws.send_json = AsyncMock()
@@ -75,8 +87,8 @@ class TestConnectionManager:
             await manager.connect(ws, connection_id)
             connections.append((connection_id, ws))
 
-        assert len(manager.active_connections) == 10
-        assert manager.stats["active_connections"] == 10
+        assert len(manager.active_connections) == TEST_CONNECTIONS_SMALL
+        assert manager.stats["active_connections"] == TEST_CONNECTIONS_SMALL
 
         # Disconnect all
         for connection_id, ws in connections:
@@ -88,7 +100,7 @@ class TestConnectionManager:
     async def test_room_subscription(self, manager, mock_websocket):
         """Test: Room subscription and unsubscription"""
         connection_id = "test-connection"
-        room = "test-room"
+        room = TEST_ROOM_NAME
 
         await manager.connect(mock_websocket, connection_id)
 
@@ -119,12 +131,12 @@ class TestConnectionManager:
     @pytest.mark.asyncio
     async def test_broadcast_to_room(self, manager):
         """Test: Broadcast message to all connections in a room"""
-        room = "test-room"
+        room = TEST_ROOM_NAME
         message = {"type": "broadcast", "data": "test"}
 
-        # Create 3 connections in the room
+        # Create TEST_ROOM_CONNECTIONS connections in the room
         websockets = []
-        for i in range(3):
+        for i in range(TEST_ROOM_CONNECTIONS):
             ws = AsyncMock(spec=WebSocket)
             ws.accept = AsyncMock()
             ws.send_json = AsyncMock()
@@ -138,16 +150,16 @@ class TestConnectionManager:
 
         # Verify all received
         for ws in websockets:
-            assert ws.send_json.call_count >= 2  # welcome + broadcast
+            assert ws.send_json.call_count >= TEST_MIN_MESSAGE_COUNT  # welcome + broadcast
 
     @pytest.mark.asyncio
     async def test_broadcast_to_all(self, manager):
         """Test: Broadcast message to all active connections"""
         message = {"type": "global", "data": "announcement"}
 
-        # Create 5 connections
+        # Create TEST_BROADCAST_CONNECTIONS connections
         websockets = []
-        for i in range(5):
+        for i in range(TEST_BROADCAST_CONNECTIONS):
             ws = AsyncMock(spec=WebSocket)
             ws.accept = AsyncMock()
             ws.send_json = AsyncMock()
@@ -159,7 +171,7 @@ class TestConnectionManager:
 
         # Verify all received
         for ws in websockets:
-            assert ws.send_json.call_count >= 2  # welcome + broadcast
+            assert ws.send_json.call_count >= TEST_MIN_MESSAGE_COUNT  # welcome + broadcast
 
     @pytest.mark.asyncio
     async def test_heartbeat_handling(self, manager, mock_websocket):
@@ -169,7 +181,7 @@ class TestConnectionManager:
         await manager.connect(mock_websocket, connection_id)
 
         initial_time = manager.heartbeats[connection_id]
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(TEST_SLEEP_MEDIUM)
 
         await manager.handle_ping(connection_id)
 
@@ -375,7 +387,7 @@ class TestMetricAggregator:
         for i in range(20):
             await aggregator.record_metric("test.metric", 50.0 + (i % 5))
 
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(TEST_SLEEP_MEDIUM)
 
         # Record anomalous value
         await aggregator.record_metric("test.metric", 500.0)
@@ -428,23 +440,23 @@ class TestTimeSeriesWindow:
 
     def test_add_point(self):
         """Test: Add data point to window"""
-        window = TimeSeriesWindow(window_seconds=60)
+        window = TimeSeriesWindow(window_seconds=TEST_WINDOW_SECONDS)
         window.add_point(100.0)
 
         assert len(window.data_points) == 1
 
     def test_max_points_limit(self):
         """Test: Respect max points limit"""
-        window = TimeSeriesWindow(window_seconds=60, max_points=10)
+        window = TimeSeriesWindow(window_seconds=TEST_WINDOW_SECONDS, max_points=TEST_MAX_WINDOW_POINTS)
 
         for i in range(20):
             window.add_point(float(i))
 
-        assert len(window.data_points) == 10
+        assert len(window.data_points) == TEST_MAX_WINDOW_POINTS
 
     def test_statistics_calculation(self):
         """Test: Calculate statistics for window"""
-        window = TimeSeriesWindow(window_seconds=60)
+        window = TimeSeriesWindow(window_seconds=TEST_WINDOW_SECONDS)
 
         for value in [10.0, 20.0, 30.0, 40.0, 50.0]:
             window.add_point(value)
@@ -501,7 +513,7 @@ class TestPublisherManager:
 
         await manager.start_all()
 
-        assert len(manager.publishers) == 6  # 6 publisher types
+        assert len(manager.publishers) == TEST_PUBLISHER_COUNT  # 6 publisher types
         assert all(p.running for p in manager.publishers)
 
         await manager.stop_all()
@@ -547,27 +559,27 @@ class TestWebSocketIntegration:
         # Connect and subscribe
         connection_id = "test-connection"
         await manager.connect(ws, connection_id)
-        await manager.subscribe_to_room(connection_id, "test-room")
+        await manager.subscribe_to_room(connection_id, TEST_ROOM_NAME)
 
         # Broadcast message
         message = {"type": "test", "data": "integration-test"}
-        await manager.broadcast_to_room(message, "test-room")
+        await manager.broadcast_to_room(message, TEST_ROOM_NAME)
 
         # Verify message received
-        assert ws.send_json.call_count >= 2  # welcome + test message
+        assert ws.send_json.call_count >= TEST_MIN_MESSAGE_COUNT  # welcome + test message
 
         await manager.stop()
 
     @pytest.mark.asyncio
     async def test_load_handling(self):
-        """Test: Handle high load (100 concurrent connections)"""
+        """Test: Handle high load (TEST_CONNECTIONS_LARGE concurrent connections)"""
         manager = ConnectionManager()
         await manager.start()
 
         connections = []
 
-        # Create 100 connections
-        for i in range(100):
+        # Create TEST_CONNECTIONS_LARGE connections
+        for i in range(TEST_CONNECTIONS_LARGE):
             ws = AsyncMock(spec=WebSocket)
             ws.accept = AsyncMock()
             ws.send_json = AsyncMock()
@@ -575,7 +587,7 @@ class TestWebSocketIntegration:
             await manager.connect(ws, connection_id)
             connections.append((connection_id, ws))
 
-        assert len(manager.active_connections) == 100
+        assert len(manager.active_connections) == TEST_CONNECTIONS_LARGE
 
         # Broadcast to all
         await manager.broadcast_to_all({"type": "load_test"})

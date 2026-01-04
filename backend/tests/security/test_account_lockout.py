@@ -15,15 +15,35 @@ from server.models.database import User
 from server.auth.jwt_utils import verify_password, get_password_hash
 from server.database import get_db
 
+from tests.constants import (
+    TEST_BASE_URL,
+    TEST_USER_PASSWORD,
+    TEST_MAX_LOGIN_ATTEMPTS,
+    TEST_LOCKOUT_DURATION_MINUTES,
+    TEST_LOCKOUT_DURATION_VARIANCE,
+    TEST_FAILED_ATTEMPTS_BEFORE_LOCK,
+    TEST_NONEXISTENT_USER_ATTEMPTS,
+    TEST_RATE_LIMIT_ATTEMPTS,
+    TEST_SLEEP_SHORT,
+    HTTP_OK,
+    HTTP_CREATED,
+    HTTP_UNAUTHORIZED,
+    HTTP_FORBIDDEN,
+    HTTP_NOT_FOUND,
+    HTTP_LOCKED,
+    HTTP_TOO_MANY_REQUESTS,
+    HTTP_NOT_IMPLEMENTED,
+)
+
 
 # Test configuration
-BASE_URL = "http://localhost:8000"
+BASE_URL = TEST_BASE_URL
 TEST_EMAIL = f"lockout_test_{int(time.time())}@example.com"
 TEST_USERNAME = f"lockout_user_{int(time.time())}"
-TEST_PASSWORD = "CorrectPassword123"
+TEST_PASSWORD = TEST_USER_PASSWORD
 WRONG_PASSWORD = "WrongPassword456"
-MAX_FAILED_ATTEMPTS = 5
-LOCKOUT_DURATION_MINUTES = 30
+MAX_FAILED_ATTEMPTS = TEST_MAX_LOGIN_ATTEMPTS
+LOCKOUT_DURATION_MINUTES = TEST_LOCKOUT_DURATION_MINUTES
 
 
 @pytest.fixture
@@ -44,7 +64,7 @@ async def registered_user(test_user):
             f"{BASE_URL}/api/auth/register",
             json=test_user
         )
-        assert response.status_code == 201
+        assert response.status_code == HTTP_CREATED
         return {**response.json(), "password": test_user["password"]}
 
 
@@ -53,13 +73,13 @@ async def registered_user(test_user):
 async def test_track_failed_login_attempts(registered_user):
     """Test that failed login attempts are tracked"""
     async with httpx.AsyncClient() as client:
-        # Attempt 3 failed logins
-        for i in range(3):
+        # Attempt TEST_FAILED_ATTEMPTS_BEFORE_LOCK failed logins
+        for i in range(TEST_FAILED_ATTEMPTS_BEFORE_LOCK):
             response = await client.post(
                 f"{BASE_URL}/api/auth/login",
                 json={"username": registered_user["username"], "password": WRONG_PASSWORD}
             )
-            assert response.status_code == 401
+            assert response.status_code == HTTP_UNAUTHORIZED
 
             # Check if response includes failed attempt count (if implemented)
             if "remaining_attempts" in response.json():
@@ -74,13 +94,13 @@ async def test_track_failed_login_attempts(registered_user):
 async def test_account_lockout_after_max_attempts(registered_user):
     """Test that account is locked after 5 consecutive failed login attempts"""
     async with httpx.AsyncClient() as client:
-        # Attempt 5 failed logins
+        # Attempt MAX_FAILED_ATTEMPTS failed logins
         for i in range(MAX_FAILED_ATTEMPTS):
             response = await client.post(
                 f"{BASE_URL}/api/auth/login",
                 json={"username": registered_user["username"], "password": WRONG_PASSWORD}
             )
-            assert response.status_code == 401
+            assert response.status_code == HTTP_UNAUTHORIZED
 
         # 6th attempt should indicate account is locked
         response = await client.post(
@@ -88,8 +108,8 @@ async def test_account_lockout_after_max_attempts(registered_user):
             json={"username": registered_user["username"], "password": WRONG_PASSWORD}
         )
 
-        # Should return 403 (Forbidden) or 423 (Locked)
-        assert response.status_code in [401, 403, 423]
+        # Should return HTTP_FORBIDDEN or HTTP_LOCKED
+        assert response.status_code in [HTTP_UNAUTHORIZED, HTTP_FORBIDDEN, HTTP_LOCKED]
         data = response.json()
         assert "locked" in data["detail"].lower() or "too many" in data["detail"].lower()
 
@@ -112,7 +132,7 @@ async def test_locked_account_rejects_correct_password(registered_user):
             json={"username": registered_user["username"], "password": registered_user["password"]}
         )
 
-        assert response.status_code in [401, 403, 423]
+        assert response.status_code in [HTTP_UNAUTHORIZED, HTTP_FORBIDDEN, HTTP_LOCKED]
         data = response.json()
         assert "locked" in data["detail"].lower() or "too many" in data["detail"].lower()
 
@@ -145,7 +165,7 @@ async def test_lockout_duration_tracking():
             json={"username": test_user["username"], "password": TEST_PASSWORD}
         )
 
-        assert response.status_code in [401, 403, 423]
+        assert response.status_code in [HTTP_UNAUTHORIZED, HTTP_FORBIDDEN, HTTP_LOCKED]
 
         # Check if response includes lockout time information
         data = response.json()
@@ -155,7 +175,9 @@ async def test_lockout_duration_tracking():
                 locked_until = datetime.fromisoformat(data["locked_until"].replace("Z", "+00:00"))
                 now = datetime.utcnow()
                 duration = (locked_until - now).total_seconds() / 60
-                assert 28 < duration < 32  # Allow 2-minute variance
+                min_duration = LOCKOUT_DURATION_MINUTES - TEST_LOCKOUT_DURATION_VARIANCE
+                max_duration = LOCKOUT_DURATION_MINUTES + TEST_LOCKOUT_DURATION_VARIANCE
+                assert min_duration < duration < max_duration  # Allow variance
 
 
 # Test 5: Successful Login Resets Failed Attempt Counter
@@ -163,38 +185,38 @@ async def test_lockout_duration_tracking():
 async def test_successful_login_resets_counter(registered_user):
     """Test that successful login resets failed attempt counter"""
     async with httpx.AsyncClient() as client:
-        # Attempt 3 failed logins
-        for i in range(3):
+        # Attempt TEST_FAILED_ATTEMPTS_BEFORE_LOCK failed logins
+        for i in range(TEST_FAILED_ATTEMPTS_BEFORE_LOCK):
             response = await client.post(
                 f"{BASE_URL}/api/auth/login",
                 json={"username": registered_user["username"], "password": WRONG_PASSWORD}
             )
-            assert response.status_code == 401
+            assert response.status_code == HTTP_UNAUTHORIZED
 
         # Successful login
         response = await client.post(
             f"{BASE_URL}/api/auth/login",
             json={"username": registered_user["username"], "password": registered_user["password"]}
         )
-        assert response.status_code == 200
+        assert response.status_code == HTTP_OK
 
-        # Now try 5 more failed attempts (counter should have reset)
+        # Now try MAX_FAILED_ATTEMPTS more failed attempts (counter should have reset)
         for i in range(MAX_FAILED_ATTEMPTS):
             response = await client.post(
                 f"{BASE_URL}/api/auth/login",
                 json={"username": registered_user["username"], "password": WRONG_PASSWORD}
             )
-            # First 4 should be normal failures
+            # First (MAX_FAILED_ATTEMPTS - 1) should be normal failures
             if i < MAX_FAILED_ATTEMPTS - 1:
-                assert response.status_code == 401
+                assert response.status_code == HTTP_UNAUTHORIZED
 
-        # After 5 new failed attempts, should be locked again
+        # After MAX_FAILED_ATTEMPTS new failed attempts, should be locked again
         response = await client.post(
             f"{BASE_URL}/api/auth/login",
             json={"username": registered_user["username"], "password": WRONG_PASSWORD}
         )
         data = response.json()
-        assert response.status_code in [401, 403, 423]
+        assert response.status_code in [HTTP_UNAUTHORIZED, HTTP_FORBIDDEN, HTTP_LOCKED]
 
 
 # Test 6: Unlock Mechanism (Manual Admin Unlock)
@@ -214,7 +236,7 @@ async def test_admin_unlock_mechanism(registered_user):
             f"{BASE_URL}/api/auth/login",
             json={"username": registered_user["username"], "password": registered_user["password"]}
         )
-        assert response.status_code in [401, 403, 423]
+        assert response.status_code in [HTTP_UNAUTHORIZED, HTTP_FORBIDDEN, HTTP_LOCKED]
 
         # Admin unlock (requires admin token - mock if endpoint exists)
         # This tests the unlock endpoint if implemented
@@ -226,8 +248,8 @@ async def test_admin_unlock_mechanism(registered_user):
             headers={"Authorization": "Bearer admin_token_mock"}
         )
 
-        # Endpoint may not exist yet (501 Not Implemented) or require auth (401/403)
-        assert unlock_response.status_code in [200, 401, 403, 404, 501]
+        # Endpoint may not exist yet (HTTP_NOT_IMPLEMENTED) or require auth (HTTP_UNAUTHORIZED/HTTP_FORBIDDEN)
+        assert unlock_response.status_code in [HTTP_OK, HTTP_UNAUTHORIZED, HTTP_FORBIDDEN, HTTP_NOT_FOUND, HTTP_NOT_IMPLEMENTED]
 
 
 # Test 7: Lockout Notification Email
@@ -257,15 +279,15 @@ async def test_no_tracking_for_nonexistent_users():
     async with httpx.AsyncClient() as client:
         # Attempt multiple logins for non-existent user
         responses = []
-        for i in range(10):
+        for i in range(TEST_NONEXISTENT_USER_ATTEMPTS):
             response = await client.post(
                 f"{BASE_URL}/api/auth/login",
                 json={"username": "nonexistent_user_12345", "password": WRONG_PASSWORD}
             )
             responses.append(response.status_code)
 
-        # All should return same error (401) without lockout
-        assert all(status == 401 for status in responses)
+        # All should return same error (HTTP_UNAUTHORIZED) without lockout
+        assert all(status == HTTP_UNAUTHORIZED for status in responses)
 
 
 # Test 9: Lockout Information in Response
@@ -286,7 +308,7 @@ async def test_lockout_information_in_response(registered_user):
             json={"username": registered_user["username"], "password": registered_user["password"]}
         )
 
-        assert response.status_code in [401, 403, 423]
+        assert response.status_code in [HTTP_UNAUTHORIZED, HTTP_FORBIDDEN, HTTP_LOCKED]
         data = response.json()
 
         # Should include lockout information
@@ -315,7 +337,7 @@ async def test_attempt_counter_increments():
                 json={"username": test_user["username"], "password": WRONG_PASSWORD}
             )
 
-            assert response.status_code == 401
+            assert response.status_code == HTTP_UNAUTHORIZED
 
             # If response includes remaining attempts, verify count
             if "remaining_attempts" in response.json():
@@ -343,7 +365,7 @@ async def test_lockout_persists_across_sessions(registered_user):
             json={"username": registered_user["username"], "password": registered_user["password"]}
         )
 
-        assert response.status_code in [401, 403, 423]
+        assert response.status_code in [HTTP_UNAUTHORIZED, HTTP_FORBIDDEN, HTTP_LOCKED]
         data = response.json()
         assert "locked" in data["detail"].lower() or "too many" in data["detail"].lower()
 
@@ -367,7 +389,7 @@ async def test_case_insensitive_lockout(registered_user):
         )
 
         # Should still be locked
-        assert response.status_code in [401, 403, 423]
+        assert response.status_code in [HTTP_UNAUTHORIZED, HTTP_FORBIDDEN, HTTP_LOCKED]
 
 
 # Test 13: Lockout Does Not Affect Other Users
@@ -403,14 +425,14 @@ async def test_lockout_isolation():
             f"{BASE_URL}/api/auth/login",
             json={"username": user1["username"], "password": user1["password"]}
         )
-        assert response1.status_code in [401, 403, 423]
+        assert response1.status_code in [HTTP_UNAUTHORIZED, HTTP_FORBIDDEN, HTTP_LOCKED]
 
         # Verify user2 can still login
         response2 = await client.post(
             f"{BASE_URL}/api/auth/login",
             json={"username": user2["username"], "password": user2["password"]}
         )
-        assert response2.status_code == 200
+        assert response2.status_code == HTTP_OK
 
 
 # Test 14: Lockout Timing Information
@@ -446,7 +468,7 @@ async def test_lockout_timing_accuracy():
         time_after_lock = datetime.utcnow()
 
         # Verify timing is reasonable (locked within last few seconds)
-        assert response.status_code in [401, 403, 423]
+        assert response.status_code in [HTTP_UNAUTHORIZED, HTTP_FORBIDDEN, HTTP_LOCKED]
 
         # If timing info is in response, verify it
         data = response.json()
@@ -471,16 +493,16 @@ async def test_rate_limiting_vs_lockout():
 
         # Rapid requests (rate limiting)
         responses = []
-        for i in range(20):
+        for i in range(TEST_RATE_LIMIT_ATTEMPTS):
             response = await client.post(
                 f"{BASE_URL}/api/auth/login",
                 json={"username": test_user["username"], "password": WRONG_PASSWORD}
             )
             responses.append(response.status_code)
-            await asyncio.sleep(0.05)  # Very fast requests
+            await asyncio.sleep(TEST_SLEEP_SHORT)  # Very fast requests
 
-        # Should see mix of 401 (wrong password), 429 (rate limit), or 423 (locked)
-        assert all(status in [401, 423, 429] for status in responses)
+        # Should see mix of HTTP_UNAUTHORIZED (wrong password), HTTP_TOO_MANY_REQUESTS (rate limit), or HTTP_LOCKED (locked)
+        assert all(status in [HTTP_UNAUTHORIZED, HTTP_LOCKED, HTTP_TOO_MANY_REQUESTS] for status in responses)
 
 
 # Test Summary
