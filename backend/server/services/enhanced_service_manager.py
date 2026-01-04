@@ -160,7 +160,11 @@ class EnhancedServiceManager:
 
         is_ci = os.getenv('CI') == 'true'
         skip_external = os.getenv('SKIP_EXTERNAL_SERVICES', '').lower() == 'true' or is_ci
-        init_timeout = int(os.getenv('SERVICE_INIT_TIMEOUT', '30'))
+        try:
+            init_timeout = int(os.getenv('SERVICE_INIT_TIMEOUT', '30'))
+        except ValueError:
+            logger.warning("Invalid SERVICE_INIT_TIMEOUT value; defaulting to 30s")
+            init_timeout = 30
 
         skip_services: Set[str] = set()
         if skip_external:
@@ -291,18 +295,36 @@ class EnhancedServiceManager:
             elif service_name == "bitchat":
                 await self._init_bitchat()
 
-            state.status = ServiceStatus.RUNNING
-            self.registry.update_status(service_name, ServiceStatus.RUNNING)
-            self.registry.heartbeat(service_name)
-
-            logger.info(f"    ✓ {service_name} initialized successfully")
-
         except Exception as e:
             state.status = ServiceStatus.FAILED
             state.last_error = str(e)
             self.registry.update_status(service_name, ServiceStatus.FAILED)
             logger.error(f"    ✗ {service_name} initialization failed: {e}")
             raise
+
+        # Post-initialization validation to avoid false positives
+        if state.instance is None:
+            if not state.is_critical:
+                state.status = ServiceStatus.STOPPED
+                self.registry.update_status(service_name, ServiceStatus.STOPPED)
+                logger.warning(
+                    f"    ⚠️ {service_name} has no instance; marked as stopped (non-critical)"
+                )
+                return
+
+            state.status = ServiceStatus.FAILED
+            state.last_error = state.last_error or "Instance not created during initialization"
+            self.registry.update_status(service_name, ServiceStatus.FAILED)
+            logger.error(
+                f"    ✗ {service_name} failed post-check: instance missing (critical service)"
+            )
+            raise RuntimeError(f"Critical service '{service_name}' failed to initialize")
+
+        state.status = ServiceStatus.RUNNING
+        self.registry.update_status(service_name, ServiceStatus.RUNNING)
+        self.registry.heartbeat(service_name)
+
+        logger.info(f"    ✓ {service_name} initialized successfully")
 
     # Service initialization methods (from original service_manager.py)
     async def _init_tokenomics(self) -> None:
@@ -449,7 +471,11 @@ class EnhancedServiceManager:
             import socket
             import uuid
 
-            timeout_seconds = int(os.getenv('P2P_TIMEOUT', '30'))
+            try:
+                timeout_seconds = int(os.getenv('P2P_TIMEOUT', '30'))
+            except ValueError:
+                logger.warning("Invalid P2P_TIMEOUT value; defaulting to 30s")
+                timeout_seconds = 30
 
             node_id = f"fog-backend-{socket.gethostname()}-{uuid.uuid4().hex[:8]}"
 
@@ -474,6 +500,13 @@ class EnhancedServiceManager:
             self.services['p2p'].instance = p2p_system
             logger.info(f"P2P system initialized and started for node {node_id}")
 
+        except asyncio.TimeoutError:
+            logger.warning(f"P2P system start timed out after {timeout_seconds}s; continuing without P2P")
+            state = self.services.get('p2p')
+            if state:
+                state.instance = None
+                state.is_critical = False
+                state.last_error = f"timeout after {timeout_seconds}s"
         except Exception as e:
             logger.error(f"Failed to initialize P2P: {e}")
             self.services['p2p'].instance = None
@@ -481,6 +514,7 @@ class EnhancedServiceManager:
             state = self.services.get('p2p')
             if state:
                 state.is_critical = False
+                state.last_error = str(e)
 
     async def _init_betanet(self) -> None:
         """Initialize Betanet privacy network"""
@@ -654,6 +688,11 @@ class EnhancedServiceManager:
             if state.is_critical
         }
 
+        failed_critical = [
+            name for name in critical_services
+            if self.services[name].status == ServiceStatus.FAILED
+        ]
+
         non_critical_failed = []
         skipped_services = []
 
@@ -671,6 +710,7 @@ class EnhancedServiceManager:
         return {
             "ready": ready,
             "critical": sorted(critical_services),
+            "critical_failed": sorted(failed_critical),
             "non_critical_failed": sorted(non_critical_failed),
             "skipped": sorted(skipped_services)
         }
