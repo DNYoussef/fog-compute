@@ -12,15 +12,28 @@ import io
 import os
 import time
 
+from backend.tests.constants import (
+    TEST_HOST,
+    TEST_LARGE_FILE_SIZE,
+    TEST_MAX_LOGIN_ATTEMPTS,
+    TEST_MEDIUM_FILE_SIZE,
+    TEST_PAGE_SIZE,
+    TEST_PORT,
+    TEST_SMALL_FILE_SIZE,
+    TEST_TIMEOUT_MEDIUM,
+    TEST_USER_EMAIL,
+    TEST_USER_PASSWORD,
+)
+
 # Test configuration
-BASE_URL = "http://localhost:8000"
+BASE_URL = f"http://{TEST_HOST}:{TEST_PORT}"
 TEST_USERNAME = f"upload_user_{int(time.time())}"
-TEST_EMAIL = f"upload_{int(time.time())}@example.com"
-TEST_PASSWORD = "UploadTest123"
+TEST_EMAIL = f"upload_{int(time.time())}@{TEST_USER_EMAIL.split('@')[1]}"
+TEST_PASSWORD = TEST_USER_PASSWORD
 
 # File size limits (in bytes)
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
-SMALL_FILE_SIZE = 1024  # 1KB
+MAX_FILE_SIZE = TEST_LARGE_FILE_SIZE
+SMALL_FILE_SIZE = TEST_SMALL_FILE_SIZE // 1024  # 1KB derived from test constant
 
 # Allowed file types
 ALLOWED_EXTENSIONS = [".txt", ".pdf", ".png", ".jpg", ".jpeg", ".csv", ".json"]
@@ -146,7 +159,7 @@ async def test_blocked_file_types(authenticated_user):
 async def test_file_size_within_limit(authenticated_user):
     """Test uploading file within size limit"""
     # Create 1MB file
-    file_size = 1 * 1024 * 1024
+    file_size = TEST_SMALL_FILE_SIZE
     async with httpx.AsyncClient() as client:
         file_content = create_test_file("large.txt", file_size)
 
@@ -165,7 +178,7 @@ async def test_file_size_within_limit(authenticated_user):
 async def test_file_size_exceeds_limit(authenticated_user):
     """Test that files exceeding size limit are rejected"""
     # Create 15MB file (exceeds 10MB limit)
-    file_size = 15 * 1024 * 1024
+    file_size = TEST_LARGE_FILE_SIZE + TEST_MEDIUM_FILE_SIZE
 
     async with httpx.AsyncClient() as client:
         file_content = create_test_file("too_large.txt", file_size)
@@ -174,7 +187,7 @@ async def test_file_size_exceeds_limit(authenticated_user):
             f"{BASE_URL}/api/files/upload",
             headers={"Authorization": f"Bearer {authenticated_user['token']}"},
             files={"file": ("too_large.txt", file_content, "text/plain")},
-            timeout=30.0  # Longer timeout for large file
+            timeout=TEST_TIMEOUT_MEDIUM  # Longer timeout for large file
         )
 
         # Should reject oversized files (unless not implemented)
@@ -337,7 +350,7 @@ async def test_concurrent_file_uploads(authenticated_user):
     async with httpx.AsyncClient() as client:
         # Prepare multiple files
         upload_tasks = []
-        for i in range(5):
+        for i in range(TEST_MAX_LOGIN_ATTEMPTS):
             file_content = create_test_file(f"concurrent_{i}.txt", 512)
             task = client.post(
                 f"{BASE_URL}/api/files/upload",
@@ -413,7 +426,7 @@ async def test_file_upload_rate_limiting(authenticated_user):
         responses = []
 
         # Rapid upload attempts
-        for i in range(20):
+        for i in range(TEST_PAGE_SIZE * 2):
             file_content = create_test_file(f"rate_test_{i}.txt", 512)
 
             response = await client.post(

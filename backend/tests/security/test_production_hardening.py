@@ -13,6 +13,14 @@ import time
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
 from sqlalchemy import select
+from backend.tests.constants import (
+    ONE_MINUTE,
+    TEST_MAX_LOGIN_ATTEMPTS,
+    TEST_PAGE_SIZE,
+    TEST_TIMEOUT_MEDIUM,
+    TEST_USER_EMAIL,
+    TEST_USER_PASSWORD,
+)
 
 # Import application components
 from server.main import app
@@ -36,7 +44,7 @@ class TestErrorHandling:
 
     def test_circuit_breaker_opens_after_failures(self):
         """Test circuit breaker opens after threshold failures"""
-        cb = CircuitBreaker(failure_threshold=3, timeout_seconds=60)
+        cb = CircuitBreaker(failure_threshold=3, timeout_seconds=ONE_MINUTE)
 
         def failing_function():
             raise Exception("Service failure")
@@ -57,7 +65,7 @@ class TestErrorHandling:
 
     def test_circuit_breaker_blocks_requests_when_open(self):
         """Test circuit breaker blocks requests when open"""
-        cb = CircuitBreaker(failure_threshold=2, timeout_seconds=60)
+        cb = CircuitBreaker(failure_threshold=2, timeout_seconds=ONE_MINUTE)
 
         def failing_function():
             raise Exception("Service failure")
@@ -149,7 +157,7 @@ class TestErrorHandling:
         """Test retry logic implements exponential backoff"""
         from backend.server.middleware.error_handling import RetryStrategy
 
-        delays = [RetryStrategy.calculate_delay(i) for i in range(5)]
+        delays = [RetryStrategy.calculate_delay(i) for i in range(TEST_MAX_LOGIN_ATTEMPTS)]
 
         # Should increase exponentially: 1, 2, 4, 8, 16
         assert delays[0] == 1.0
@@ -186,8 +194,8 @@ class TestSecurityVulnerabilities:
         # Attempt XSS via registration
         response = client.post("/api/auth/register", json={
             "username": "<script>alert('XSS')</script>",
-            "email": "test@example.com",
-            "password": "SecurePass123!"
+            "email": TEST_USER_EMAIL,
+            "password": TEST_USER_PASSWORD
         })
 
         if response.status_code == 201:
@@ -214,7 +222,7 @@ class TestSecurityVulnerabilities:
         client = TestClient(app)
 
         # Make many failed login attempts
-        for i in range(15):
+        for i in range(TEST_PAGE_SIZE + TEST_MAX_LOGIN_ATTEMPTS):
             response = client.post("/api/auth/login", json={
                 "username": "attacker",
                 "password": f"attempt{i}"
@@ -258,7 +266,7 @@ class TestSecurityVulnerabilities:
         """Test passwords are hashed with strong algorithm"""
         from backend.server.auth.jwt_utils import get_password_hash, verify_password
 
-        password = "MySecurePassword123!"
+        password = TEST_USER_PASSWORD
         hashed = get_password_hash(password)
 
         # Should use bcrypt (starts with $2b$)
@@ -338,8 +346,8 @@ class TestRateLimiting:
         limiter = RateLimiter()
 
         # 5 requests should be allowed (limit is 10)
-        for i in range(5):
-            is_allowed, count, reset_time = limiter.is_allowed("test_user", "/api/test", 10)
+        for i in range(TEST_MAX_LOGIN_ATTEMPTS):
+            is_allowed, count, reset_time = limiter.is_allowed("test_user", "/api/test", TEST_PAGE_SIZE)
             assert is_allowed
 
     def test_rate_limiter_blocks_over_limit(self):
@@ -347,11 +355,11 @@ class TestRateLimiting:
         limiter = RateLimiter()
 
         # Make 11 requests with limit of 10
-        for i in range(10):
-            limiter.is_allowed("test_user", "/api/test", 10)
+        for i in range(TEST_PAGE_SIZE):
+            limiter.is_allowed("test_user", "/api/test", TEST_PAGE_SIZE)
 
         # 11th request should be blocked
-        is_allowed, count, reset_time = limiter.is_allowed("test_user", "/api/test", 10)
+        is_allowed, count, reset_time = limiter.is_allowed("test_user", "/api/test", TEST_PAGE_SIZE)
         assert not is_allowed
 
     def test_rate_limiter_per_endpoint(self):
@@ -359,11 +367,11 @@ class TestRateLimiting:
         limiter = RateLimiter()
 
         # Fill limit for endpoint1
-        for i in range(10):
-            limiter.is_allowed("test_user", "/api/endpoint1", 10)
+        for i in range(TEST_PAGE_SIZE):
+            limiter.is_allowed("test_user", "/api/endpoint1", TEST_PAGE_SIZE)
 
         # endpoint2 should still have capacity
-        is_allowed, count, reset_time = limiter.is_allowed("test_user", "/api/endpoint2", 10)
+        is_allowed, count, reset_time = limiter.is_allowed("test_user", "/api/endpoint2", TEST_PAGE_SIZE)
         assert is_allowed
 
     def test_rate_limiter_sliding_window(self):
@@ -372,14 +380,14 @@ class TestRateLimiting:
         limiter.window_size = 2  # 2 second window for testing
 
         # Make 5 requests
-        for i in range(5):
-            limiter.is_allowed("test_user", "/api/test", 10)
+        for i in range(TEST_MAX_LOGIN_ATTEMPTS):
+            limiter.is_allowed("test_user", "/api/test", TEST_PAGE_SIZE)
 
         # Wait for window to slide
         time.sleep(2.1)
 
         # Old requests should be expired, new request allowed
-        is_allowed, count, reset_time = limiter.is_allowed("test_user", "/api/test", 10)
+        is_allowed, count, reset_time = limiter.is_allowed("test_user", "/api/test", TEST_PAGE_SIZE)
         assert is_allowed
         assert count == 1  # Only current request counted
 
@@ -388,11 +396,11 @@ class TestRateLimiting:
         limiter = RateLimiter()
 
         # Fill limit
-        for i in range(10):
-            limiter.is_allowed("test_user", "/api/test", 10)
+        for i in range(TEST_PAGE_SIZE):
+            limiter.is_allowed("test_user", "/api/test", TEST_PAGE_SIZE)
 
         # Check retry-after is returned
-        is_allowed, count, reset_time = limiter.is_allowed("test_user", "/api/test", 10)
+        is_allowed, count, reset_time = limiter.is_allowed("test_user", "/api/test", TEST_PAGE_SIZE)
         assert not is_allowed
         assert reset_time > 0
         assert reset_time <= limiter.window_size
@@ -419,11 +427,11 @@ class TestAuthentication:
         client.post("/api/auth/register", json={
             "username": "locktest",
             "email": "locktest@example.com",
-            "password": "SecurePass123!"
+            "password": TEST_USER_PASSWORD
         })
 
         # Make 6 failed login attempts
-        for i in range(6):
+        for i in range(TEST_MAX_LOGIN_ATTEMPTS + 1):
             response = client.post("/api/auth/login", json={
                 "username": "locktest",
                 "password": "WrongPassword"
@@ -455,11 +463,11 @@ class TestAuthentication:
         client.post("/api/auth/register", json={
             "username": "apikeyuser",
             "email": "apikey@example.com",
-            "password": "SecurePass123!"
+            "password": TEST_USER_PASSWORD
         })
         login_response = client.post("/api/auth/login", json={
             "username": "apikeyuser",
-            "password": "SecurePass123!"
+            "password": TEST_USER_PASSWORD
         })
         token = login_response.json()["access_token"]
 
@@ -469,7 +477,7 @@ class TestAuthentication:
             headers={"Authorization": f"Bearer {token}"},
             json={
                 "name": "Test Service Account",
-                "expires_in_days": 30,
+                "expires_in_days": TEST_TIMEOUT_MEDIUM,
                 "rate_limit": 1000
             }
         )
@@ -524,7 +532,7 @@ class TestInputValidation:
         response = client.post("/api/auth/register", json={
             "username": "testuser",
             "email": "invalid-email",
-            "password": "SecurePass123!"
+            "password": TEST_USER_PASSWORD
         })
 
         assert response.status_code == 422  # Validation error
@@ -544,7 +552,7 @@ class TestInputValidation:
         for weak_pass in weak_passwords:
             response = client.post("/api/auth/register", json={
                 "username": "testuser",
-                "email": "test@example.com",
+                "email": TEST_USER_EMAIL,
                 "password": weak_pass
             })
             assert response.status_code == 422
@@ -556,16 +564,16 @@ class TestInputValidation:
         # Too short
         response = client.post("/api/auth/register", json={
             "username": "ab",  # Less than 3 chars
-            "email": "test@example.com",
-            "password": "SecurePass123!"
+            "email": TEST_USER_EMAIL,
+            "password": TEST_USER_PASSWORD
         })
         assert response.status_code == 422
 
         # Too long (if limit is enforced)
         response = client.post("/api/auth/register", json={
             "username": "a" * 100,  # Very long
-            "email": "test@example.com",
-            "password": "SecurePass123!"
+            "email": TEST_USER_EMAIL,
+            "password": TEST_USER_PASSWORD
         })
         # Should either fail validation or succeed (depending on max length)
         assert response.status_code in [201, 422]
@@ -577,8 +585,8 @@ class TestInputValidation:
         # Input with special characters
         response = client.post("/api/auth/register", json={
             "username": "user<script>alert(1)</script>",
-            "email": "test@example.com",
-            "password": "SecurePass123!"
+            "email": TEST_USER_EMAIL,
+            "password": TEST_USER_PASSWORD
         })
 
         # Should sanitize input (if successful)
@@ -718,7 +726,7 @@ class TestMonitoringAndLogging:
             response = await ac.post("/api/auth/register", json={
                 "username": "audit_test_user",
                 "email": "audit@test.com",
-                "password": "SecurePass123!"
+                "password": TEST_USER_PASSWORD
             })
 
             # Allow time for batch logging to flush

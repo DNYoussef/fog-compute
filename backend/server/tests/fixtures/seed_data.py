@@ -25,6 +25,14 @@ from backend.server.models.database import (
     Base, Job, TokenBalance, Device, Circuit,
     DAOProposal, Stake, BetanetNode
 )
+from backend.tests.constants import (
+    ONE_DAY,
+    ONE_HOUR,
+    ONE_MINUTE,
+    TEST_MAX_LOGIN_ATTEMPTS,
+    TEST_PAGE_SIZE,
+    TEST_TIMEOUT_MEDIUM,
+)
 
 
 # Database URL - Read from environment (set by CI) or use local default
@@ -57,7 +65,7 @@ async def seed_betanet_nodes(session: AsyncSession):
     statuses = ['active', 'active', 'active', 'active', 'deploying', 'stopped']
 
     nodes = []
-    for i in range(15):
+    for i in range(TEST_PAGE_SIZE + TEST_MAX_LOGIN_ATTEMPTS):
         node = BetanetNode(
             node_id=uuid.uuid4(),
             node_type='mixnode',
@@ -65,9 +73,9 @@ async def seed_betanet_nodes(session: AsyncSession):
             status=random.choice(statuses),
             ip_address=f"192.168.{random.randint(1, 254)}.{random.randint(1, 254)}",
             packets_processed=random.randint(10000, 1000000),
-            uptime_seconds=random.randint(3600, 2592000),  # 1 hour to 30 days
+            uptime_seconds=random.randint(ONE_HOUR, ONE_DAY * 30),  # 1 hour to 30 days
             deployed_at=datetime.now(timezone.utc) - timedelta(days=random.randint(1, 60)),
-            last_seen=datetime.now(timezone.utc) - timedelta(minutes=random.randint(0, 30))
+            last_seen=datetime.now(timezone.utc) - timedelta(minutes=random.randint(0, TEST_TIMEOUT_MEDIUM))
         )
         nodes.append(node)
 
@@ -96,8 +104,10 @@ async def seed_jobs(session: AsyncSession):
 
             # Calculate timestamps based on status
             submitted_at = datetime.now(timezone.utc) - timedelta(hours=random.randint(1, 72))
-            started_at = submitted_at + timedelta(minutes=random.randint(1, 30)) if status != 'pending' else None
-            completed_at = started_at + timedelta(minutes=random.randint(5, 120)) if status in ['completed', 'failed'] else None
+            started_at = submitted_at + timedelta(minutes=random.randint(1, TEST_TIMEOUT_MEDIUM)) if status != 'pending' else None
+            completed_at = started_at + timedelta(
+                minutes=random.randint(TEST_MAX_LOGIN_ATTEMPTS, TEST_TIMEOUT_MEDIUM * 4)
+            ) if status in ['completed', 'failed'] else None
 
             job = Job(
                 id=uuid.uuid4(),
@@ -107,9 +117,9 @@ async def seed_jobs(session: AsyncSession):
                 cpu_required=round(random.uniform(0.5, 8.0), 2),
                 memory_required=round(random.uniform(512, 16384), 2),  # MB
                 gpu_required=round(random.uniform(0.0, 2.0), 2) if random.random() > 0.7 else 0.0,
-                duration_estimate=round(random.uniform(60, 3600), 2),  # seconds
+                duration_estimate=round(random.uniform(ONE_MINUTE, ONE_HOUR), 2),  # seconds
                 data_size_mb=round(random.uniform(100, 10000), 2),
-                assigned_node=f"node-{random.randint(1, 15):02d}" if status != 'pending' else None,
+                assigned_node=f"node-{random.randint(1, TEST_PAGE_SIZE + TEST_MAX_LOGIN_ATTEMPTS):02d}" if status != 'pending' else None,
                 submitted_at=submitted_at,
                 started_at=started_at,
                 completed_at=completed_at,
@@ -181,7 +191,7 @@ async def seed_token_balances(session: AsyncSession):
     """Seed 10 wallet addresses with token balances"""
     balances = []
 
-    for i in range(10):
+    for i in range(TEST_PAGE_SIZE):
         balance = TokenBalance(
             address=f"0x{uuid.uuid4().hex[:40]}",  # 42 chars total (0x + 40 hex)
             balance=round(random.uniform(1000, 1000000), 2),
@@ -202,7 +212,7 @@ async def seed_circuits(session: AsyncSession):
     """Seed 20 VPN/Onion circuits"""
     circuits = []
 
-    for i in range(20):
+    for i in range(TEST_PAGE_SIZE * 2):
         num_hops = random.choice([3, 4, 5])  # Typical onion routing uses 3 hops
         hops = [f"node-{uuid.uuid4().hex[:8]}" for _ in range(num_hops)]
 
@@ -249,9 +259,9 @@ async def seed_dao_proposals(session: AsyncSession, balances):
             status=statuses[i],
             votes_for=votes_for,
             votes_against=votes_against,
-            created_at=datetime.now(timezone.utc) - timedelta(days=random.randint(5, 30)),
+            created_at=datetime.now(timezone.utc) - timedelta(days=random.randint(TEST_MAX_LOGIN_ATTEMPTS, TEST_TIMEOUT_MEDIUM)),
             voting_ends_at=datetime.now(timezone.utc) + timedelta(days=random.randint(1, 14)) if statuses[i] == 'active' else datetime.now(timezone.utc) - timedelta(days=random.randint(1, 7)),
-            executed_at=datetime.now(timezone.utc) - timedelta(days=random.randint(1, 5)) if statuses[i] == 'executed' else None
+            executed_at=datetime.now(timezone.utc) - timedelta(days=random.randint(1, TEST_MAX_LOGIN_ATTEMPTS)) if statuses[i] == 'executed' else None
         )
         proposals.append(proposal)
 
@@ -265,7 +275,7 @@ async def seed_stakes(session: AsyncSession, balances):
     """Seed 5 staking records"""
     stakes = []
 
-    for i in range(min(5, len(balances))):
+    for i in range(min(TEST_MAX_LOGIN_ATTEMPTS, len(balances))):
         balance = balances[i]
 
         stake = Stake(
@@ -348,7 +358,7 @@ async def quick_seed():
 
         # Seed 10 jobs instead of 50
         jobs = []
-        for i in range(10):
+        for i in range(TEST_PAGE_SIZE):
             job = Job(
                 id=uuid.uuid4(),
                 name=f"test-job-{i}",
@@ -364,7 +374,7 @@ async def quick_seed():
 
         # Seed 20 devices instead of 100
         devices = []
-        for i in range(20):
+        for i in range(TEST_PAGE_SIZE * 2):
             device = Device(
                 device_id=f"test-device-{i}",
                 device_type=random.choice(['android', 'ios', 'desktop']),

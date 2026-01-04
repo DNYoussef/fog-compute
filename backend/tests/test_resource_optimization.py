@@ -47,6 +47,7 @@ from scheduler.profiler import (
     ProfilerMode,
     get_profiler,
 )
+from backend.tests.constants import ONE_MB, TEN_MB
 
 # Add backend to path
 backend_path = Path(__file__).parent.parent / "server"
@@ -191,7 +192,7 @@ class TestMemoryOptimization:
 
     def test_memory_arena_allocation(self):
         """Test memory arena allocation and deallocation"""
-        arena = MemoryArena(size_bytes=10 * 1024 * 1024)  # 10 MB
+        arena = MemoryArena(size_bytes=TEN_MB)  # 10 MB
 
         # Allocate some buffers
         buffer1 = arena.allocate(1024)
@@ -218,7 +219,7 @@ class TestMemoryOptimization:
 
     def test_memory_arena_reuse(self):
         """Test memory arena allocation reuse reduces allocations"""
-        arena = MemoryArena(size_bytes=1 * 1024 * 1024)  # 1 MB
+        arena = MemoryArena(size_bytes=ONE_MB)  # 1 MB
 
         # Without arena (baseline): simulate allocations
         baseline_allocations = 1000

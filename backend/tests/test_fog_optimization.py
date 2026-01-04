@@ -15,6 +15,12 @@ from datetime import datetime, timedelta
 
 import pytest
 
+from backend.tests.constants import (
+    ONE_MINUTE,
+    TEST_LOCKOUT_DURATION,
+    TEST_MAX_LOGIN_ATTEMPTS,
+    TEST_PAGE_SIZE,
+)
 # Import FOG components
 import sys
 sys.path.append('c:/Users/17175/Desktop/fog-compute/src')
@@ -34,7 +40,7 @@ from fog.coordinator_interface import FogNode, NodeStatus, NodeType
 @pytest.fixture
 async def fog_cache():
     """Create FOG cache instance"""
-    cache = FogCache(redis_url="redis://localhost:6379", default_ttl=300, lru_capacity=5000)
+    cache = FogCache(redis_url="redis://localhost:6379", default_ttl=TEST_LOCKOUT_DURATION, lru_capacity=5000)
     await cache.connect()
     yield cache
     await cache.disconnect()
@@ -44,7 +50,7 @@ async def fog_cache():
 def mock_nodes():
     """Create mock nodes for testing"""
     nodes = []
-    for i in range(10):
+    for i in range(TEST_PAGE_SIZE):
         node = FogNode(
             node_id=f"node-{i}",
             node_type=NodeType.COMPUTE_NODE,
@@ -76,7 +82,7 @@ def load_balancer():
 @pytest.fixture
 def circuit_breaker():
     """Create circuit breaker instance"""
-    return CircuitBreaker(failure_threshold=5, timeout_seconds=60)
+    return CircuitBreaker(failure_threshold=TEST_MAX_LOGIN_ATTEMPTS, timeout_seconds=ONE_MINUTE)
 
 
 # ==================== CACHE TESTS ====================
@@ -281,7 +287,7 @@ def test_circuit_breaker_failure_threshold(circuit_breaker):
     node_id = "failing-node"
 
     # Record failures below threshold
-    for _ in range(4):
+    for _ in range(TEST_MAX_LOGIN_ATTEMPTS - 1):
         circuit_breaker.record_failure(node_id)
         assert circuit_breaker.is_available(node_id), "Should remain available"
 
@@ -298,7 +304,7 @@ def test_circuit_breaker_timeout_recovery(circuit_breaker):
     node_id = "timeout-node"
 
     # Open circuit
-    for _ in range(5):
+    for _ in range(TEST_MAX_LOGIN_ATTEMPTS):
         circuit_breaker.record_failure(node_id)
 
     assert not circuit_breaker.is_available(node_id)
@@ -317,7 +323,7 @@ def test_circuit_breaker_success_recovery(circuit_breaker):
     node_id = "recovering-node"
 
     # Open circuit
-    for _ in range(5):
+    for _ in range(TEST_MAX_LOGIN_ATTEMPTS):
         circuit_breaker.record_failure(node_id)
 
     # Expire timeout to allow retry
@@ -338,7 +344,7 @@ def test_circuit_breaker_success_recovery(circuit_breaker):
 def test_circuit_breaker_integration(load_balancer, mock_nodes):
     """Test circuit breaker integrated with load balancer"""
     # Mark node-0 as failing
-    for _ in range(5):
+    for _ in range(TEST_MAX_LOGIN_ATTEMPTS):
         load_balancer.circuit_breaker.record_failure("node-0")
 
     # Select node (should skip node-0)
