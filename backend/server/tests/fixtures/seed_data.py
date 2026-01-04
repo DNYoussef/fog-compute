@@ -16,6 +16,12 @@ from pathlib import Path
 from datetime import datetime, timedelta, timezone
 import random
 
+from backend.tests.constants import (
+    TEST_HOST,
+    TEST_PAGE_SIZE,
+    TEST_MAX_LOGIN_ATTEMPTS,
+)
+
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent))
 
@@ -29,10 +35,8 @@ from backend.server.models.database import (
 
 # Database URL - Read from environment (set by CI) or use local default
 # CI may provide postgres:// or postgresql://, normalize to postgresql+asyncpg://
-db_url = os.environ.get(
-    'DATABASE_URL',
-    "postgresql+asyncpg://postgres:postgres@localhost:5432/fog_compute_test"
-)
+default_db_url = f"postgresql+asyncpg://postgres:postgres@{TEST_HOST}:5432/fog_compute_test"
+db_url = os.environ.get('DATABASE_URL', default_db_url)
 
 # Ensure asyncpg driver is used (CI might provide postgres:// or postgresql:// without +asyncpg)
 if db_url.startswith('postgresql://') and '+asyncpg' not in db_url:
@@ -181,7 +185,7 @@ async def seed_token_balances(session: AsyncSession):
     """Seed 10 wallet addresses with token balances"""
     balances = []
 
-    for i in range(10):
+    for i in range(TEST_PAGE_SIZE):
         balance = TokenBalance(
             address=f"0x{uuid.uuid4().hex[:40]}",  # 42 chars total (0x + 40 hex)
             balance=round(random.uniform(1000, 1000000), 2),
@@ -265,7 +269,7 @@ async def seed_stakes(session: AsyncSession, balances):
     """Seed 5 staking records"""
     stakes = []
 
-    for i in range(min(5, len(balances))):
+    for i in range(min(TEST_MAX_LOGIN_ATTEMPTS, len(balances))):
         balance = balances[i]
 
         stake = Stake(
@@ -348,7 +352,7 @@ async def quick_seed():
 
         # Seed 10 jobs instead of 50
         jobs = []
-        for i in range(10):
+        for i in range(TEST_PAGE_SIZE):
             job = Job(
                 id=uuid.uuid4(),
                 name=f"test-job-{i}",
@@ -364,7 +368,7 @@ async def quick_seed():
 
         # Seed 20 devices instead of 100
         devices = []
-        for i in range(20):
+        for i in range(TEST_PAGE_SIZE * 2):
             device = Device(
                 device_id=f"test-device-{i}",
                 device_type=random.choice(['android', 'ios', 'desktop']),

@@ -8,6 +8,8 @@ unit conversions explicit across the codebase.
 # File size constants
 ONE_KB = 1024
 ONE_MB = ONE_KB * 1024
+FIVE_MB = ONE_MB * 5
+TEN_MB = ONE_MB * 10
 ONE_GB = ONE_MB * 1024
 
 # Time constants
