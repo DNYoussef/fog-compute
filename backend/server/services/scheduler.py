@@ -21,6 +21,15 @@ from ..models.deployment import (
     DeploymentStatus,
     ReplicaStatus
 )
+from ..constants import (
+    DEFAULT_STORAGE_GB,
+    RESOURCE_SCORE_WEIGHT,
+    LOAD_SCORE_PERCENTAGE_BASE,
+    LOAD_SCORE_WEIGHT,
+    LOCALITY_SCORE_DEFAULT,
+    SCHEDULER_QUEUE_TIMEOUT,
+    SCHEDULER_ERROR_SLEEP,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +68,7 @@ class DeploymentScheduler:
         cpu_cores: float,
         memory_mb: int,
         gpu_units: int = 0,
-        storage_gb: int = 10
+        storage_gb: int = DEFAULT_STORAGE_GB
     ) -> Dict:
         """
         Schedule deployment to available fog nodes
@@ -270,17 +279,17 @@ class DeploymentScheduler:
             # Factor 1: Resource availability (40%)
             cpu_availability = (node.cpu_cores - cpu_required) / node.cpu_cores
             memory_availability = (node.memory_mb - memory_required) / node.memory_mb
-            resource_score = (cpu_availability + memory_availability) / 2 * 0.4
+            resource_score = (cpu_availability + memory_availability) / 2 * RESOURCE_SCORE_WEIGHT
 
             # Factor 2: Current load (30%)
-            cpu_load_score = (100 - node.cpu_usage_percent) / 100 * 0.15
-            memory_load_score = (100 - node.memory_usage_percent) / 100 * 0.15
+            cpu_load_score = (LOAD_SCORE_PERCENTAGE_BASE - node.cpu_usage_percent) / LOAD_SCORE_PERCENTAGE_BASE * LOAD_SCORE_WEIGHT
+            memory_load_score = (LOAD_SCORE_PERCENTAGE_BASE - node.memory_usage_percent) / LOAD_SCORE_PERCENTAGE_BASE * LOAD_SCORE_WEIGHT
             load_score = cpu_load_score + memory_load_score
 
             # Factor 3: Network locality (30%)
             # TODO: Implement region-based scoring
             # For now, equal weight for all nodes
-            locality_score = 0.3
+            locality_score = LOCALITY_SCORE_DEFAULT
 
             # Total score (0.0 to 1.0)
             total_score = resource_score + load_score + locality_score
@@ -460,7 +469,7 @@ class DeploymentScheduler:
                 # Wait for deployment in queue (with timeout to check is_running)
                 try:
                     deployment_task = await asyncio.wait_for(
-                        self.queue.get(), timeout=1.0
+                        self.queue.get(), timeout=SCHEDULER_QUEUE_TIMEOUT
                     )
                 except asyncio.TimeoutError:
                     continue
@@ -476,7 +485,7 @@ class DeploymentScheduler:
                     cpu_cores=deployment_task['cpu_cores'],
                     memory_mb=deployment_task['memory_mb'],
                     gpu_units=deployment_task.get('gpu_units', 0),
-                    storage_gb=deployment_task.get('storage_gb', 10)
+                    storage_gb=deployment_task.get('storage_gb', DEFAULT_STORAGE_GB)
                 )
 
                 if result['success']:
@@ -488,7 +497,7 @@ class DeploymentScheduler:
 
             except Exception as e:
                 logger.error(f"Scheduler worker error: {e}", exc_info=True)
-                await asyncio.sleep(1)
+                await asyncio.sleep(SCHEDULER_ERROR_SLEEP)
 
         logger.info("Scheduler worker stopped")
 

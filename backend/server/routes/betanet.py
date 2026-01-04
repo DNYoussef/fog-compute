@@ -9,6 +9,13 @@ import logging
 import httpx
 
 from ..services.enhanced_service_manager import enhanced_service_manager as service_manager
+from ..constants import (
+    HEALTH_CHECK_TIMEOUT,
+    SHORT_REQUEST_TIMEOUT,
+    LONG_REQUEST_TIMEOUT,
+    MOCK_BANDWIDTH,
+    MOCK_THROUGHPUT,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/betanet", tags=["betanet"])
@@ -72,7 +79,7 @@ async def check_betanet_health() -> Dict[str, Any]:
         }
 
     try:
-        async with httpx.AsyncClient(timeout=2.0) as client:
+        async with httpx.AsyncClient(timeout=HEALTH_CHECK_TIMEOUT) as client:
             response = await client.get(f"{betanet_client.url}/status")
 
             if response.status_code == 200:
@@ -134,8 +141,8 @@ async def get_betanet_status() -> Dict[str, Any]:
             },
             "network": {
                 "latency": status_dict.get('avg_latency_ms', 0),
-                "bandwidth": 1024,  # Mock value
-                "throughput": 850,  # Mock value
+                "bandwidth": MOCK_BANDWIDTH,
+                "throughput": MOCK_THROUGHPUT,
                 "packetsProcessed": status_dict.get('packets_processed', 0)
             },
             "lastUpdated": status_dict.get('timestamp', None)
@@ -193,7 +200,7 @@ async def list_nodes():
         )
 
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
+        async with httpx.AsyncClient(timeout=SHORT_REQUEST_TIMEOUT) as client:
             response = await client.get(f"{betanet_client.url}/nodes")
 
             if response.status_code != 200:
@@ -258,7 +265,7 @@ async def create_node(request: NodeCreateRequest):
 
     try:
         # Call Betanet Rust service deploy endpoint
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=LONG_REQUEST_TIMEOUT) as client:
             response = await client.post(
                 f"{betanet_client.url}/deploy",
                 json={
@@ -333,7 +340,7 @@ async def get_node(node_id: str):
         )
 
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
+        async with httpx.AsyncClient(timeout=SHORT_REQUEST_TIMEOUT) as client:
             response = await client.get(f"{betanet_client.url}/nodes/{node_id}")
 
             if response.status_code == 404:
@@ -404,7 +411,7 @@ async def update_node(node_id: str, request: NodeUpdateRequest):
                 detail="No fields provided for update"
             )
 
-        async with httpx.AsyncClient(timeout=5.0) as client:
+        async with httpx.AsyncClient(timeout=SHORT_REQUEST_TIMEOUT) as client:
             response = await client.put(
                 f"{betanet_client.url}/nodes/{node_id}",
                 json=update_data
@@ -468,7 +475,7 @@ async def delete_node(node_id: str):
         )
 
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=LONG_REQUEST_TIMEOUT) as client:
             response = await client.delete(f"{betanet_client.url}/nodes/{node_id}")
 
             if response.status_code == 404:
