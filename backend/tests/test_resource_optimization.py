@@ -18,6 +18,15 @@ from datetime import datetime, timedelta
 import sys
 from pathlib import Path
 
+from backend.tests.constants import (
+    TEST_SMALL_FILE_SIZE,
+    TEST_LARGE_FILE_SIZE,
+    TEST_MAX_RESULTS,
+    TEST_PAGE_SIZE,
+    TEST_FILE_CONTENT,
+    TEST_MAX_LOGIN_ATTEMPTS,
+)
+
 # Add src to path
 src_path = Path(__file__).parent.parent.parent / "src"
 sys.path.insert(0, str(src_path))
@@ -126,7 +135,7 @@ class TestResourcePooling:
 
         def create_resource():
             created_count["value"] += 1
-            return {"id": created_count["value"], "data": b"x" * 1024}
+            return {"id": created_count["value"], "data": TEST_FILE_CONTENT}
 
         manager.create_pool(
             name="test_pool",
@@ -137,7 +146,7 @@ class TestResourcePooling:
         )
 
         # Acquire and release many times
-        for _ in range(100):
+        for _ in range(TEST_MAX_RESULTS):
             with manager.acquire("test_pool", timeout=1.0) as resource:
                 assert resource is not None
 
@@ -191,16 +200,16 @@ class TestMemoryOptimization:
 
     def test_memory_arena_allocation(self):
         """Test memory arena allocation and deallocation"""
-        arena = MemoryArena(size_bytes=10 * 1024 * 1024)  # 10 MB
+        arena = MemoryArena(size_bytes=TEST_LARGE_FILE_SIZE)  # 10 MB
 
         # Allocate some buffers
-        buffer1 = arena.allocate(1024)
+        buffer1 = arena.allocate(len(TEST_FILE_CONTENT))
         assert buffer1 is not None
-        assert len(buffer1) == 1024
+        assert len(buffer1) == len(TEST_FILE_CONTENT)
 
-        buffer2 = arena.allocate(2048)
+        buffer2 = arena.allocate(len(TEST_FILE_CONTENT) * 2)
         assert buffer2 is not None
-        assert len(buffer2) == 2048
+        assert len(buffer2) == len(TEST_FILE_CONTENT) * 2
 
         # Check stats
         stats = arena.get_stats()
@@ -218,15 +227,15 @@ class TestMemoryOptimization:
 
     def test_memory_arena_reuse(self):
         """Test memory arena allocation reuse reduces allocations"""
-        arena = MemoryArena(size_bytes=1 * 1024 * 1024)  # 1 MB
+        arena = MemoryArena(size_bytes=TEST_SMALL_FILE_SIZE)  # 1 MB
 
         # Without arena (baseline): simulate allocations
-        baseline_allocations = 1000
+        baseline_allocations = TEST_MAX_RESULTS * 10
 
         # With arena: reuse same memory
         buffers = []
-        for _ in range(100):
-            buf = arena.allocate(1024)
+        for _ in range(TEST_MAX_RESULTS):
+            buf = arena.allocate(len(TEST_FILE_CONTENT))
             if buf:
                 buffers.append(buf)
 
@@ -235,8 +244,8 @@ class TestMemoryOptimization:
             arena.deallocate(buf)
 
         # Allocate again (should reuse)
-        for _ in range(100):
-            buf = arena.allocate(1024)
+        for _ in range(TEST_MAX_RESULTS):
+            buf = arena.allocate(len(TEST_FILE_CONTENT))
             if buf:
                 arena.deallocate(buf)  # Immediate dealloc
 
@@ -425,7 +434,7 @@ class TestIntelligentScheduler:
         scheduler = IntelligentScheduler(strategy=SchedulingStrategy.ML_ADAPTIVE)
 
         # Register multiple workers
-        for i in range(5):
+        for i in range(TEST_MAX_LOGIN_ATTEMPTS):
             scheduler.register_worker(
                 f"worker{i}",
                 cpu_cores=4,
@@ -435,7 +444,7 @@ class TestIntelligentScheduler:
         # Submit many tasks
         start_time = time.time()
 
-        for i in range(50):
+        for i in range(TEST_MAX_RESULTS // 2):
             scheduler.submit_task(
                 f"task{i}",
                 priority=TaskPriority.MEDIUM,
@@ -712,7 +721,7 @@ class TestResourceOptimizationIntegration:
         profiler.start(ProfilerMode.ALL)
 
         # Submit tasks
-        for i in range(20):
+        for i in range(TEST_PAGE_SIZE * 2):
             scheduler.submit_task(
                 f"task{i}",
                 priority=TaskPriority.MEDIUM,

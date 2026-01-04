@@ -19,6 +19,14 @@ import pytest
 import sys
 sys.path.append('c:/Users/17175/Desktop/fog-compute/src')
 
+from backend.tests.constants import (
+    TEST_HOST,
+    TEST_PAGE_SIZE,
+    TEST_MAX_RESULTS,
+    TEST_MAX_LOGIN_ATTEMPTS,
+    TEST_LOCKOUT_DURATION,
+)
+
 from fog.caching import FogCache, CacheMetrics
 from fog.load_balancer import (
     LoadBalancer,
@@ -34,7 +42,11 @@ from fog.coordinator_interface import FogNode, NodeStatus, NodeType
 @pytest.fixture
 async def fog_cache():
     """Create FOG cache instance"""
-    cache = FogCache(redis_url="redis://localhost:6379", default_ttl=300, lru_capacity=5000)
+    cache = FogCache(
+        redis_url=f"redis://{TEST_HOST}:6379",
+        default_ttl=TEST_LOCKOUT_DURATION,
+        lru_capacity=5000,
+    )
     await cache.connect()
     yield cache
     await cache.disconnect()
@@ -44,7 +56,7 @@ async def fog_cache():
 def mock_nodes():
     """Create mock nodes for testing"""
     nodes = []
-    for i in range(10):
+    for i in range(TEST_PAGE_SIZE):
         node = FogNode(
             node_id=f"node-{i}",
             node_type=NodeType.COMPUTE_NODE,
@@ -76,7 +88,7 @@ def load_balancer():
 @pytest.fixture
 def circuit_breaker():
     """Create circuit breaker instance"""
-    return CircuitBreaker(failure_threshold=5, timeout_seconds=60)
+    return CircuitBreaker(failure_threshold=TEST_MAX_LOGIN_ATTEMPTS, timeout_seconds=60)
 
 
 # ==================== CACHE TESTS ====================
@@ -85,17 +97,18 @@ def circuit_breaker():
 async def test_redis_cache_integration(fog_cache):
     """Test Redis cache integration with >80% hit rate"""
     # Warm cache with test data
-    test_data = {f"node-{i}": {"id": f"node-{i}", "cpu": i * 10} for i in range(100)}
+    node_count = TEST_MAX_RESULTS
+    test_data = {f"node-{i}": {"id": f"node-{i}", "cpu": i * 10} for i in range(node_count)}
     warmed = await fog_cache.warm_cache(test_data)
 
-    assert warmed == 100, "Cache warming should load 100 entries"
+    assert warmed == node_count, f"Cache warming should load {node_count} entries"
 
     # Simulate read-heavy workload
     hit_count = 0
-    total_requests = 1000
+    total_requests = TEST_MAX_RESULTS * 10
 
     for i in range(total_requests):
-        key = f"node-{i % 100}"  # 100 unique keys, reused 10x each
+        key = f"node-{i % node_count}"  # Unique keys, reused across requests
         result = await fog_cache.get(key)
         if result is not None:
             hit_count += 1
@@ -117,23 +130,24 @@ async def test_redis_cache_integration(fog_cache):
 async def test_cache_batch_operations(fog_cache):
     """Test batch cache operations for efficiency"""
     # Batch set 1000 items
-    batch_data = {f"batch-{i}": {"value": i} for i in range(1000)}
+    batch_size = TEST_MAX_RESULTS * 10
+    batch_data = {f"batch-{i}": {"value": i} for i in range(batch_size)}
 
     start = time.time()
     count = await fog_cache.batch_set(batch_data)
     batch_set_time = (time.time() - start) * 1000
 
-    assert count == 1000, "Should set 1000 items"
+    assert count == batch_size, f"Should set {batch_size} items"
     assert batch_set_time < 500, f"Batch set {batch_set_time:.2f}ms should be <500ms"
 
     # Batch get 1000 items
-    keys = [f"batch-{i}" for i in range(1000)]
+    keys = [f"batch-{i}" for i in range(batch_size)]
 
     start = time.time()
     results = await fog_cache.batch_get(keys)
     batch_get_time = (time.time() - start) * 1000
 
-    assert len(results) == 1000, "Should retrieve 1000 items"
+    assert len(results) == batch_size, f"Should retrieve {batch_size} items"
     assert batch_get_time < 500, f"Batch get {batch_get_time:.2f}ms should be <500ms"
 
     print(f"✅ Batch operations: set={batch_set_time:.2f}ms, get={batch_get_time:.2f}ms")
@@ -183,7 +197,7 @@ def test_load_balancer_round_robin(load_balancer, mock_nodes):
     """Test round-robin distribution"""
     selections = []
 
-    for _ in range(30):
+    for _ in range(TEST_MAX_RESULTS // 3):
         node = load_balancer.select_node(
             mock_nodes, algorithm=LoadBalancingAlgorithm.ROUND_ROBIN
         )
@@ -220,7 +234,7 @@ def test_load_balancer_weighted_round_robin(load_balancer, mock_nodes):
     mock_nodes[1].cpu_usage_percent = 90.0  # Heavily loaded
 
     selections = []
-    for _ in range(100):
+    for _ in range(TEST_MAX_RESULTS):
         node = load_balancer.select_node(
             mock_nodes, algorithm=LoadBalancingAlgorithm.WEIGHTED_ROUND_ROBIN
         )
@@ -243,7 +257,7 @@ def test_load_balancer_consistent_hash(load_balancer, mock_nodes):
 
     # Multiple selections with same session should go to same node
     selections = []
-    for _ in range(10):
+    for _ in range(TEST_PAGE_SIZE):
         node = load_balancer.select_node(
             mock_nodes,
             algorithm=LoadBalancingAlgorithm.CONSISTENT_HASH,
@@ -281,16 +295,17 @@ def test_circuit_breaker_failure_threshold(circuit_breaker):
     node_id = "failing-node"
 
     # Record failures below threshold
-    for _ in range(4):
+    for _ in range(TEST_MAX_LOGIN_ATTEMPTS - 1):
         circuit_breaker.record_failure(node_id)
         assert circuit_breaker.is_available(node_id), "Should remain available"
 
-    # 5th failure should open circuit
+    # Final failure should open circuit
     circuit_breaker.record_failure(node_id)
-    assert not circuit_breaker.is_available(node_id), "Circuit should open after 5 failures"
+    assert not circuit_breaker.is_available(node_id), \
+        f"Circuit should open after {TEST_MAX_LOGIN_ATTEMPTS} failures"
     assert circuit_breaker.get_status(node_id) == NodeHealth.CIRCUIT_OPEN
 
-    print(f"✅ Circuit breaker opened after 5 failures")
+    print(f"✅ Circuit breaker opened after {TEST_MAX_LOGIN_ATTEMPTS} failures")
 
 
 def test_circuit_breaker_timeout_recovery(circuit_breaker):
@@ -298,7 +313,7 @@ def test_circuit_breaker_timeout_recovery(circuit_breaker):
     node_id = "timeout-node"
 
     # Open circuit
-    for _ in range(5):
+    for _ in range(TEST_MAX_LOGIN_ATTEMPTS):
         circuit_breaker.record_failure(node_id)
 
     assert not circuit_breaker.is_available(node_id)
@@ -317,7 +332,7 @@ def test_circuit_breaker_success_recovery(circuit_breaker):
     node_id = "recovering-node"
 
     # Open circuit
-    for _ in range(5):
+    for _ in range(TEST_MAX_LOGIN_ATTEMPTS):
         circuit_breaker.record_failure(node_id)
 
     # Expire timeout to allow retry
@@ -338,7 +353,7 @@ def test_circuit_breaker_success_recovery(circuit_breaker):
 def test_circuit_breaker_integration(load_balancer, mock_nodes):
     """Test circuit breaker integrated with load balancer"""
     # Mark node-0 as failing
-    for _ in range(5):
+    for _ in range(TEST_MAX_LOGIN_ATTEMPTS):
         load_balancer.circuit_breaker.record_failure("node-0")
 
     # Select node (should skip node-0)
@@ -408,6 +423,7 @@ async def test_batch_node_registration_performance():
     await cache.connect()
 
     # Create 100 mock nodes
+    node_count = TEST_MAX_RESULTS
     nodes_data = {
         f"node-{i}": {
             "node_id": f"node-{i}",
@@ -415,7 +431,7 @@ async def test_batch_node_registration_performance():
             "memory": 8192,
             "status": "active",
         }
-        for i in range(100)
+        for i in range(node_count)
     }
 
     # Measure batch set time
@@ -423,12 +439,12 @@ async def test_batch_node_registration_performance():
     count = await cache.batch_set(nodes_data)
     elapsed_ms = (time.time() - start) * 1000
 
-    assert count == 100, "Should register 100 nodes"
+    assert count == node_count, f"Should register {node_count} nodes"
     assert elapsed_ms < 500, f"Batch registration {elapsed_ms:.2f}ms should be <500ms"
 
     await cache.disconnect()
 
-    print(f"✅ Batch registration: 100 nodes in {elapsed_ms:.2f}ms")
+    print(f"✅ Batch registration: {node_count} nodes in {elapsed_ms:.2f}ms")
 
 
 def test_load_balancer_distribution_efficiency(load_balancer, mock_nodes):
@@ -436,7 +452,8 @@ def test_load_balancer_distribution_efficiency(load_balancer, mock_nodes):
     selections = []
 
     # Select 1000 times
-    for _ in range(1000):
+    distribution_samples = TEST_MAX_RESULTS * 10
+    for _ in range(distribution_samples):
         node = load_balancer.select_node(mock_nodes)
         selections.append(node.node_id)
 
@@ -444,7 +461,7 @@ def test_load_balancer_distribution_efficiency(load_balancer, mock_nodes):
     selection_counts = {node.node_id: selections.count(node.node_id) for node in mock_nodes}
 
     # Calculate standard deviation
-    avg_count = 1000 / len(mock_nodes)
+    avg_count = distribution_samples / len(mock_nodes)
     variance = sum((count - avg_count) ** 2 for count in selection_counts.values()) / len(selection_counts)
     std_dev = variance ** 0.5
 
@@ -464,7 +481,7 @@ async def test_full_stack_integration(fog_cache, load_balancer, mock_nodes):
     await fog_cache.warm_cache(nodes_data)
 
     # Select nodes 100 times
-    for i in range(100):
+    for i in range(TEST_MAX_RESULTS):
         selected = load_balancer.select_node(mock_nodes)
 
         # Update cache

@@ -12,15 +12,23 @@ import io
 import os
 import time
 
+from backend.tests.constants import (
+    TEST_BASE_URL,
+    TEST_SMALL_FILE_SIZE,
+    TEST_MEDIUM_FILE_SIZE,
+    TEST_LARGE_FILE_SIZE,
+    TEST_TIMEOUT_MEDIUM,
+)
+
 # Test configuration
-BASE_URL = "http://localhost:8000"
+BASE_URL = TEST_BASE_URL
 TEST_USERNAME = f"upload_user_{int(time.time())}"
 TEST_EMAIL = f"upload_{int(time.time())}@example.com"
 TEST_PASSWORD = "UploadTest123"
 
 # File size limits (in bytes)
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
-SMALL_FILE_SIZE = 1024  # 1KB
+MAX_FILE_SIZE = TEST_LARGE_FILE_SIZE
+SMALL_FILE_SIZE = TEST_SMALL_FILE_SIZE
 
 # Allowed file types
 ALLOWED_EXTENSIONS = [".txt", ".pdf", ".png", ".jpg", ".jpeg", ".csv", ".json"]
@@ -146,7 +154,7 @@ async def test_blocked_file_types(authenticated_user):
 async def test_file_size_within_limit(authenticated_user):
     """Test uploading file within size limit"""
     # Create 1MB file
-    file_size = 1 * 1024 * 1024
+    file_size = TEST_SMALL_FILE_SIZE
     async with httpx.AsyncClient() as client:
         file_content = create_test_file("large.txt", file_size)
 
@@ -165,7 +173,7 @@ async def test_file_size_within_limit(authenticated_user):
 async def test_file_size_exceeds_limit(authenticated_user):
     """Test that files exceeding size limit are rejected"""
     # Create 15MB file (exceeds 10MB limit)
-    file_size = 15 * 1024 * 1024
+    file_size = TEST_LARGE_FILE_SIZE + TEST_MEDIUM_FILE_SIZE
 
     async with httpx.AsyncClient() as client:
         file_content = create_test_file("too_large.txt", file_size)
@@ -174,7 +182,7 @@ async def test_file_size_exceeds_limit(authenticated_user):
             f"{BASE_URL}/api/files/upload",
             headers={"Authorization": f"Bearer {authenticated_user['token']}"},
             files={"file": ("too_large.txt", file_content, "text/plain")},
-            timeout=30.0  # Longer timeout for large file
+            timeout=TEST_TIMEOUT_MEDIUM  # Longer timeout for large file
         )
 
         # Should reject oversized files (unless not implemented)

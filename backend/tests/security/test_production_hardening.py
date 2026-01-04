@@ -26,6 +26,14 @@ from server.middleware.rate_limit import RateLimiter, rate_limiter
 from server.auth.jwt_utils import create_access_token, verify_token
 from server.config import settings
 
+from backend.tests.constants import (
+    TEST_MAX_LOGIN_ATTEMPTS,
+    TEST_PAGE_SIZE,
+    TEST_MAX_RESULTS,
+    TEST_SMALL_FILE_SIZE,
+    TEST_TOKEN_LENGTH,
+)
+
 
 ##############################################################################
 # 1. ERROR HANDLING TESTS (8 tests)
@@ -214,7 +222,8 @@ class TestSecurityVulnerabilities:
         client = TestClient(app)
 
         # Make many failed login attempts
-        for i in range(15):
+        attempt_count = TEST_MAX_LOGIN_ATTEMPTS + TEST_PAGE_SIZE
+        for i in range(attempt_count):
             response = client.post("/api/auth/login", json={
                 "username": "attacker",
                 "password": f"attempt{i}"
@@ -337,21 +346,21 @@ class TestRateLimiting:
         """Test rate limiter allows requests within limit"""
         limiter = RateLimiter()
 
-        # 5 requests should be allowed (limit is 10)
-        for i in range(5):
-            is_allowed, count, reset_time = limiter.is_allowed("test_user", "/api/test", 10)
+        # Requests should be allowed while under the configured limit
+        for i in range(TEST_MAX_LOGIN_ATTEMPTS):
+            is_allowed, count, reset_time = limiter.is_allowed("test_user", "/api/test", TEST_PAGE_SIZE)
             assert is_allowed
 
     def test_rate_limiter_blocks_over_limit(self):
         """Test rate limiter blocks requests over limit"""
         limiter = RateLimiter()
 
-        # Make 11 requests with limit of 10
-        for i in range(10):
-            limiter.is_allowed("test_user", "/api/test", 10)
+        # Exhaust limit
+        for i in range(TEST_PAGE_SIZE):
+            limiter.is_allowed("test_user", "/api/test", TEST_PAGE_SIZE)
 
-        # 11th request should be blocked
-        is_allowed, count, reset_time = limiter.is_allowed("test_user", "/api/test", 10)
+        # Next request should be blocked
+        is_allowed, count, reset_time = limiter.is_allowed("test_user", "/api/test", TEST_PAGE_SIZE)
         assert not is_allowed
 
     def test_rate_limiter_per_endpoint(self):
@@ -359,11 +368,11 @@ class TestRateLimiting:
         limiter = RateLimiter()
 
         # Fill limit for endpoint1
-        for i in range(10):
-            limiter.is_allowed("test_user", "/api/endpoint1", 10)
+        for i in range(TEST_PAGE_SIZE):
+            limiter.is_allowed("test_user", "/api/endpoint1", TEST_PAGE_SIZE)
 
         # endpoint2 should still have capacity
-        is_allowed, count, reset_time = limiter.is_allowed("test_user", "/api/endpoint2", 10)
+        is_allowed, count, reset_time = limiter.is_allowed("test_user", "/api/endpoint2", TEST_PAGE_SIZE)
         assert is_allowed
 
     def test_rate_limiter_sliding_window(self):
@@ -371,15 +380,15 @@ class TestRateLimiting:
         limiter = RateLimiter()
         limiter.window_size = 2  # 2 second window for testing
 
-        # Make 5 requests
-        for i in range(5):
-            limiter.is_allowed("test_user", "/api/test", 10)
+        # Make requests within the window
+        for i in range(TEST_MAX_LOGIN_ATTEMPTS):
+            limiter.is_allowed("test_user", "/api/test", TEST_PAGE_SIZE)
 
         # Wait for window to slide
         time.sleep(2.1)
 
         # Old requests should be expired, new request allowed
-        is_allowed, count, reset_time = limiter.is_allowed("test_user", "/api/test", 10)
+        is_allowed, count, reset_time = limiter.is_allowed("test_user", "/api/test", TEST_PAGE_SIZE)
         assert is_allowed
         assert count == 1  # Only current request counted
 
@@ -388,11 +397,11 @@ class TestRateLimiting:
         limiter = RateLimiter()
 
         # Fill limit
-        for i in range(10):
-            limiter.is_allowed("test_user", "/api/test", 10)
+        for i in range(TEST_PAGE_SIZE):
+            limiter.is_allowed("test_user", "/api/test", TEST_PAGE_SIZE)
 
         # Check retry-after is returned
-        is_allowed, count, reset_time = limiter.is_allowed("test_user", "/api/test", 10)
+        is_allowed, count, reset_time = limiter.is_allowed("test_user", "/api/test", TEST_PAGE_SIZE)
         assert not is_allowed
         assert reset_time > 0
         assert reset_time <= limiter.window_size
@@ -422,8 +431,8 @@ class TestAuthentication:
             "password": "SecurePass123!"
         })
 
-        # Make 6 failed login attempts
-        for i in range(6):
+        # Make repeated failed login attempts
+        for i in range(TEST_MAX_LOGIN_ATTEMPTS + 1):
             response = client.post("/api/auth/login", json={
                 "username": "locktest",
                 "password": "WrongPassword"
@@ -483,7 +492,7 @@ class TestAuthentication:
         # Note: This test validates the key creation and format
         # Actual endpoint authentication with X-API-Key header
         # should be tested in integration tests
-        assert len(secret_key) > 40  # Key should be sufficiently long
+        assert len(secret_key) >= TEST_TOKEN_LENGTH  # Key should be sufficiently long
         assert api_key_data["is_active"] is True
         assert api_key_data["rate_limit"] == 1000
 
@@ -595,7 +604,7 @@ class TestInputValidation:
         client = TestClient(app)
 
         # Very large payload
-        large_payload = {"data": "x" * 1000000}  # 1MB of data
+        large_payload = {"data": "x" * TEST_SMALL_FILE_SIZE}  # 1MB of data
 
         response = client.post("/api/auth/login", json=large_payload)
 
@@ -758,15 +767,17 @@ class TestPerformance:
         """Test API response time p95 < 200ms"""
         async with AsyncClient(app=app, base_url="http://test") as ac:
             response_times = []
+            sample_size = TEST_MAX_RESULTS
 
-            for i in range(100):
+            for i in range(sample_size):
                 start = time.time()
                 await ac.get("/health")
                 end = time.time()
                 response_times.append((end - start) * 1000)  # Convert to ms
 
             response_times.sort()
-            p95 = response_times[94]  # 95th percentile
+            p95_index = max(0, int(sample_size * 0.95) - 1)
+            p95 = response_times[p95_index]  # 95th percentile
 
             # Target: p95 < 200ms
             assert p95 < 200, f"P95 response time {p95}ms exceeds 200ms target"
@@ -781,8 +792,8 @@ class TestPerformance:
         def make_request():
             return client.get("/health")
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-            futures = [executor.submit(make_request) for _ in range(50)]
+        with concurrent.futures.ThreadPoolExecutor(max_workers=TEST_PAGE_SIZE) as executor:
+            futures = [executor.submit(make_request) for _ in range(TEST_MAX_RESULTS // 2)]
             results = [f.result() for f in concurrent.futures.as_completed(futures)]
 
         # All requests should succeed
