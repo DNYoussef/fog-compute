@@ -3,17 +3,24 @@ Deployment Database Models
 SQLAlchemy models for fog-compute deployment system
 Handles deployments, replicas, resources, and status tracking
 """
-from sqlalchemy import Column, String, Integer, Float, DateTime, ForeignKey, Enum as SQLEnum
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
+from __future__ import annotations
+
 from datetime import datetime, timezone
-import uuid
 import enum
+from typing import TYPE_CHECKING
+import uuid
+
+from sqlalchemy import DateTime, Enum as SQLEnum, Float, ForeignKey, Integer, String
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
 
+if TYPE_CHECKING:
+    from .database import Node, User
 
-def utc_now():
+
+def utc_now() -> datetime:
     """Return timezone-aware UTC datetime for SQLAlchemy defaults."""
     return datetime.now(timezone.utc)
 
@@ -45,24 +52,24 @@ class Deployment(Base):
     """
     __tablename__ = 'deployments'
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name = Column(String(100), nullable=False)
-    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False, index=True)
-    container_image = Column(String(500), nullable=False)
-    status = Column(SQLEnum(DeploymentStatus), default=DeploymentStatus.PENDING, nullable=False, index=True)
-    target_replicas = Column(Integer, default=1, nullable=False)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False, index=True)
+    container_image: Mapped[str] = mapped_column(String(500), nullable=False)
+    status: Mapped[DeploymentStatus] = mapped_column(SQLEnum(DeploymentStatus), default=DeploymentStatus.PENDING, nullable=False, index=True)
+    target_replicas: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
 
     # Timestamps
-    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
-    deleted_at = Column(DateTime(timezone=True), nullable=True, index=True)  # Soft delete
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)  # Soft delete
 
     # Relationships
-    replicas = relationship("DeploymentReplica", back_populates="deployment", cascade="all, delete-orphan")
-    resources = relationship("DeploymentResource", back_populates="deployment", cascade="all, delete-orphan", uselist=False)
-    status_history = relationship("DeploymentStatusHistory", back_populates="deployment", cascade="all, delete-orphan")
+    replicas: Mapped[list["DeploymentReplica"]] = relationship("DeploymentReplica", back_populates="deployment", cascade="all, delete-orphan")
+    resources: Mapped["DeploymentResource | None"] = relationship("DeploymentResource", back_populates="deployment", cascade="all, delete-orphan", uselist=False)
+    status_history: Mapped[list["DeploymentStatusHistory"]] = relationship("DeploymentStatusHistory", back_populates="deployment", cascade="all, delete-orphan")
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, str | int | None]:
         """Convert to dictionary for API responses"""
         return {
             'id': str(self.id),
@@ -84,22 +91,22 @@ class DeploymentReplica(Base):
     """
     __tablename__ = 'deployment_replicas'
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    deployment_id = Column(UUID(as_uuid=True), ForeignKey('deployments.id'), nullable=False, index=True)
-    node_id = Column(UUID(as_uuid=True), ForeignKey('nodes.id'), nullable=True, index=True)
-    status = Column(SQLEnum(ReplicaStatus), default=ReplicaStatus.PENDING, nullable=False, index=True)
-    container_id = Column(String(255), nullable=True)  # Docker/container runtime ID
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    deployment_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey('deployments.id'), nullable=False, index=True)
+    node_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey('nodes.id'), nullable=True, index=True)
+    status: Mapped[ReplicaStatus] = mapped_column(SQLEnum(ReplicaStatus), default=ReplicaStatus.PENDING, nullable=False, index=True)
+    container_id: Mapped[str | None] = mapped_column(String(255), nullable=True)  # Docker/container runtime ID
 
     # Timestamps
-    started_at = Column(DateTime(timezone=True), nullable=True)
-    stopped_at = Column(DateTime(timezone=True), nullable=True)
-    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    stopped_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
     # Relationships
-    deployment = relationship("Deployment", back_populates="replicas")
+    deployment: Mapped["Deployment"] = relationship("Deployment", back_populates="replicas")
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, str | None]:
         """Convert to dictionary for API responses"""
         return {
             'id': str(self.id),
@@ -120,21 +127,21 @@ class DeploymentResource(Base):
     """
     __tablename__ = 'deployment_resources'
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    deployment_id = Column(UUID(as_uuid=True), ForeignKey('deployments.id'), nullable=False, unique=True, index=True)
-    cpu_cores = Column(Float, nullable=False)  # Decimal for fractional cores (e.g., 0.5, 1.5)
-    memory_mb = Column(Integer, nullable=False)
-    gpu_units = Column(Integer, default=0, nullable=False)  # Optional GPU allocation
-    storage_gb = Column(Integer, nullable=False)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    deployment_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey('deployments.id'), nullable=False, unique=True, index=True)
+    cpu_cores: Mapped[float] = mapped_column(Float, nullable=False)  # Decimal for fractional cores (e.g., 0.5, 1.5)
+    memory_mb: Mapped[int] = mapped_column(Integer, nullable=False)
+    gpu_units: Mapped[int] = mapped_column(Integer, default=0, nullable=False)  # Optional GPU allocation
+    storage_gb: Mapped[int] = mapped_column(Integer, nullable=False)
 
     # Timestamps
-    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
     # Relationships
-    deployment = relationship("Deployment", back_populates="resources")
+    deployment: Mapped["Deployment"] = relationship("Deployment", back_populates="resources")
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, str | float | int | None]:
         """Convert to dictionary for API responses"""
         return {
             'id': str(self.id),
@@ -155,18 +162,18 @@ class DeploymentStatusHistory(Base):
     """
     __tablename__ = 'deployment_status_history'
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    deployment_id = Column(UUID(as_uuid=True), ForeignKey('deployments.id'), nullable=False, index=True)
-    old_status = Column(String(50), nullable=False)
-    new_status = Column(String(50), nullable=False)
-    changed_by = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=True, index=True)
-    changed_at = Column(DateTime(timezone=True), default=utc_now, nullable=False, index=True)
-    reason = Column(String(500), nullable=True)  # Optional reason for status change
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    deployment_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey('deployments.id'), nullable=False, index=True)
+    old_status: Mapped[str] = mapped_column(String(50), nullable=False)
+    new_status: Mapped[str] = mapped_column(String(50), nullable=False)
+    changed_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=True, index=True)
+    changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False, index=True)
+    reason: Mapped[str | None] = mapped_column(String(500), nullable=True)  # Optional reason for status change
 
     # Relationships
-    deployment = relationship("Deployment", back_populates="status_history")
+    deployment: Mapped["Deployment"] = relationship("Deployment", back_populates="status_history")
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, str | None]:
         """Convert to dictionary for API responses"""
         return {
             'id': str(self.id),
