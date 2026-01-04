@@ -15,14 +15,32 @@ from server.models.database import User
 from server.auth.jwt_utils import create_access_token, verify_token
 from server.database import get_db
 
+from tests.constants import (
+    TEST_BASE_URL,
+    TEST_USER_PASSWORD,
+    TEST_ACCESS_TOKEN_EXPIRY_MINUTES,
+    TEST_REFRESH_TOKEN_EXPIRY_DAYS,
+    TEST_MIN_TOKEN_LENGTH,
+    TEST_SIX_DAYS_SECONDS,
+    TEST_REFRESH_RATE_LIMIT_ATTEMPTS,
+    TEST_SLEEP_MEDIUM,
+    HTTP_OK,
+    HTTP_CREATED,
+    HTTP_UNAUTHORIZED,
+    HTTP_FORBIDDEN,
+    HTTP_NOT_FOUND,
+    HTTP_NOT_IMPLEMENTED,
+    HTTP_TOO_MANY_REQUESTS,
+)
+
 
 # Test configuration
-BASE_URL = "http://localhost:8000"
+BASE_URL = TEST_BASE_URL
 TEST_EMAIL = f"refresh_test_{int(time.time())}@example.com"
 TEST_USERNAME = f"refresh_user_{int(time.time())}"
-TEST_PASSWORD = "TestPassword123"
-ACCESS_TOKEN_EXPIRY = 15  # 15 minutes
-REFRESH_TOKEN_EXPIRY = 7  # 7 days
+TEST_PASSWORD = TEST_USER_PASSWORD
+ACCESS_TOKEN_EXPIRY = TEST_ACCESS_TOKEN_EXPIRY_MINUTES  # 15 minutes
+REFRESH_TOKEN_EXPIRY = TEST_REFRESH_TOKEN_EXPIRY_DAYS  # 7 days
 
 
 @pytest.fixture
@@ -44,7 +62,7 @@ async def registered_user_with_tokens(test_user):
             f"{BASE_URL}/api/auth/register",
             json=test_user
         )
-        assert register_response.status_code == 201
+        assert register_response.status_code == HTTP_CREATED
         user_data = register_response.json()
 
         # Login to get tokens
@@ -52,7 +70,7 @@ async def registered_user_with_tokens(test_user):
             f"{BASE_URL}/api/auth/login",
             json={"username": test_user["username"], "password": test_user["password"]}
         )
-        assert login_response.status_code == 200
+        assert login_response.status_code == HTTP_OK
         tokens = login_response.json()
 
         return {
@@ -77,7 +95,7 @@ async def test_refresh_token_generated_on_login(test_user):
             json={"username": test_user["username"], "password": test_user["password"]}
         )
 
-        assert response.status_code == 200
+        assert response.status_code == HTTP_OK
         data = response.json()
 
         # Should have both access and refresh tokens
@@ -85,7 +103,7 @@ async def test_refresh_token_generated_on_login(test_user):
         assert "refresh_token" in data or "refresh_token" in response.cookies
 
         if "refresh_token" in data:
-            assert len(data["refresh_token"]) > 20  # Reasonable token length
+            assert len(data["refresh_token"]) > TEST_MIN_TOKEN_LENGTH  # Reasonable token length
 
 
 # Test 2: Refresh Token Has Longer Expiry Than Access Token
@@ -111,7 +129,7 @@ async def test_refresh_token_longer_expiry():
 
     # Refresh token should expire much later (at least 6 days later)
     time_diff = (refresh_exp - access_exp).total_seconds()
-    assert time_diff > 6 * 24 * 3600  # At least 6 days difference
+    assert time_diff > TEST_SIX_DAYS_SECONDS  # At least 6 days difference
 
 
 # Test 3: Use Refresh Token to Get New Access Token
@@ -127,7 +145,7 @@ async def test_use_refresh_token_to_get_new_access_token(registered_user_with_to
             json={"refresh_token": registered_user_with_tokens["refresh_token"]}
         )
 
-        assert response.status_code == 200
+        assert response.status_code == HTTP_OK
         data = response.json()
 
         # Should get new access token
@@ -153,7 +171,7 @@ async def test_refresh_token_rotation(registered_user_with_tokens):
             json={"refresh_token": old_refresh_token}
         )
 
-        assert response.status_code == 200
+        assert response.status_code == HTTP_OK
         data = response.json()
 
         # Should get new refresh token (rotation)
@@ -166,7 +184,7 @@ async def test_refresh_token_rotation(registered_user_with_tokens):
                 f"{BASE_URL}/api/auth/refresh",
                 json={"refresh_token": old_refresh_token}
             )
-            assert old_token_response.status_code in [401, 403]
+            assert old_token_response.status_code in [HTTP_UNAUTHORIZED, HTTP_FORBIDDEN]
 
 
 # Test 5: Invalid Refresh Token Rejected
@@ -179,7 +197,7 @@ async def test_invalid_refresh_token_rejected():
             json={"refresh_token": "invalid_token_xyz123"}
         )
 
-        assert response.status_code in [401, 403]
+        assert response.status_code in [HTTP_UNAUTHORIZED, HTTP_FORBIDDEN]
         data = response.json()
         assert "invalid" in data["detail"].lower() or "token" in data["detail"].lower()
 
@@ -202,7 +220,7 @@ async def test_expired_refresh_token_rejected():
             json={"refresh_token": expired_token}
         )
 
-        assert response.status_code in [401, 403]
+        assert response.status_code in [HTTP_UNAUTHORIZED, HTTP_FORBIDDEN]
         data = response.json()
         assert "expired" in data["detail"].lower() or "invalid" in data["detail"].lower()
 
@@ -219,7 +237,7 @@ async def test_access_token_cannot_refresh(registered_user_with_tokens):
         )
 
         # Should reject (if token type validation is implemented)
-        assert response.status_code in [401, 403]
+        assert response.status_code in [HTTP_UNAUTHORIZED, HTTP_FORBIDDEN]
 
 
 # Test 8: Revoke Refresh Token
@@ -239,14 +257,14 @@ async def test_revoke_refresh_token(registered_user_with_tokens):
         )
 
         # Revoke endpoint may not be implemented yet
-        if revoke_response.status_code == 200:
+        if revoke_response.status_code == HTTP_OK:
             # Try to use revoked token
             response = await client.post(
                 f"{BASE_URL}/api/auth/refresh",
                 json={"refresh_token": refresh_token}
             )
 
-            assert response.status_code in [401, 403]
+            assert response.status_code in [HTTP_UNAUTHORIZED, HTTP_FORBIDDEN]
             data = response.json()
             assert "revoked" in data["detail"].lower() or "invalid" in data["detail"].lower()
 
@@ -269,14 +287,14 @@ async def test_logout_revokes_refresh_token(registered_user_with_tokens):
         )
 
         # Logout may not be implemented yet
-        if logout_response.status_code == 200:
+        if logout_response.status_code == HTTP_OK:
             # Try to use refresh token after logout
             response = await client.post(
                 f"{BASE_URL}/api/auth/refresh",
                 json={"refresh_token": refresh_token}
             )
 
-            assert response.status_code in [401, 403]
+            assert response.status_code in [HTTP_UNAUTHORIZED, HTTP_FORBIDDEN]
 
 
 # Test 10: Token Family Invalidation (Detect Reuse)
@@ -309,7 +327,7 @@ async def test_token_family_invalidation():
             json={"refresh_token": token1}
         )
 
-        if refresh1.status_code != 200 or "refresh_token" not in refresh1.json():
+        if refresh1.status_code != HTTP_OK or "refresh_token" not in refresh1.json():
             pytest.skip("Token rotation not implemented yet")
 
         token2 = refresh1.json()["refresh_token"]
@@ -319,7 +337,7 @@ async def test_token_family_invalidation():
             f"{BASE_URL}/api/auth/refresh",
             json={"refresh_token": token2}
         )
-        assert refresh2.status_code == 200
+        assert refresh2.status_code == HTTP_OK
 
         # Now try to reuse token1 (should detect reuse and invalidate family)
         reuse_response = await client.post(
@@ -328,14 +346,14 @@ async def test_token_family_invalidation():
         )
 
         # Should detect reuse attack
-        assert reuse_response.status_code in [401, 403]
+        assert reuse_response.status_code in [HTTP_UNAUTHORIZED, HTTP_FORBIDDEN]
 
         # token2 should also be invalid now (family invalidation)
         token2_response = await client.post(
             f"{BASE_URL}/api/auth/refresh",
             json={"refresh_token": token2}
         )
-        assert token2_response.status_code in [401, 403]
+        assert token2_response.status_code in [HTTP_UNAUTHORIZED, HTTP_FORBIDDEN]
 
 
 # Test 11: Refresh Token Stored Securely
@@ -399,8 +417,8 @@ async def test_multiple_refresh_tokens_per_user():
             json={"refresh_token": tokens2["refresh_token"]}
         )
 
-        assert refresh1_response.status_code == 200
-        assert refresh2_response.status_code == 200
+        assert refresh1_response.status_code == HTTP_OK
+        assert refresh2_response.status_code == HTTP_OK
 
 
 # Test 13: Refresh Token Includes User Context
@@ -417,7 +435,7 @@ async def test_refresh_token_includes_user_context(registered_user_with_tokens):
             json={"refresh_token": registered_user_with_tokens["refresh_token"]}
         )
 
-        assert response.status_code == 200
+        assert response.status_code == HTTP_OK
         new_access_token = response.json()["access_token"]
 
         # Use new access token to access protected endpoint
@@ -426,7 +444,7 @@ async def test_refresh_token_includes_user_context(registered_user_with_tokens):
             headers={"Authorization": f"Bearer {new_access_token}"}
         )
 
-        assert me_response.status_code == 200
+        assert me_response.status_code == HTTP_OK
         user_data = me_response.json()
 
         # Should match original user
@@ -446,7 +464,7 @@ async def test_refresh_token_rate_limiting(registered_user_with_tokens):
         current_token = registered_user_with_tokens["refresh_token"]
 
         # Rapid refresh attempts
-        for i in range(10):
+        for i in range(TEST_REFRESH_RATE_LIMIT_ATTEMPTS):
             response = await client.post(
                 f"{BASE_URL}/api/auth/refresh",
                 json={"refresh_token": current_token}
@@ -454,13 +472,13 @@ async def test_refresh_token_rate_limiting(registered_user_with_tokens):
             responses.append(response.status_code)
 
             # Update token if rotation is implemented
-            if response.status_code == 200 and "refresh_token" in response.json():
+            if response.status_code == HTTP_OK and "refresh_token" in response.json():
                 current_token = response.json()["refresh_token"]
 
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(TEST_SLEEP_MEDIUM)
 
-        # Should see rate limiting (429) or all succeed (200)
-        assert all(status in [200, 429] for status in responses)
+        # Should see rate limiting (HTTP_TOO_MANY_REQUESTS) or all succeed (HTTP_OK)
+        assert all(status in [HTTP_OK, HTTP_TOO_MANY_REQUESTS] for status in responses)
 
 
 # Test 15: Refresh Token Cleanup on Password Change
@@ -485,15 +503,15 @@ async def test_refresh_tokens_invalidated_on_password_change(registered_user_wit
         )
 
         # Password change endpoint may not exist yet
-        if password_change_response.status_code in [200, 404, 501]:
+        if password_change_response.status_code in [HTTP_OK, HTTP_NOT_FOUND, HTTP_NOT_IMPLEMENTED]:
             # If password was changed, old refresh token should be invalid
-            if password_change_response.status_code == 200:
+            if password_change_response.status_code == HTTP_OK:
                 refresh_response = await client.post(
                     f"{BASE_URL}/api/auth/refresh",
                     json={"refresh_token": old_refresh_token}
                 )
 
-                assert refresh_response.status_code in [401, 403]
+                assert refresh_response.status_code in [HTTP_UNAUTHORIZED, HTTP_FORBIDDEN]
 
 
 # Test Summary
