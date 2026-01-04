@@ -59,3 +59,6 @@ cachetools==5.3.2
 
 # Container Orchestration
 aiodocker==0.21.0
+
+# Multi-Factor Authentication (TOTP)
+pyotp==2.9.0

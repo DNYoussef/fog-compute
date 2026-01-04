@@ -54,7 +54,7 @@ from .websocket.publishers import publisher_manager
 from .services.metrics_aggregator import metrics_aggregator
 
 # Import middleware
-from .middleware import RateLimitMiddleware, CSRFMiddleware, SecurityHeadersMiddleware
+from .middleware import RateLimitMiddleware, CSRFMiddleware, SecurityHeadersMiddleware, ErrorHandlingMiddleware
 
 
 @asynccontextmanager
@@ -227,6 +227,9 @@ app.add_middleware(
 
 # Rate limiting middleware
 app.add_middleware(RateLimitMiddleware)
+
+# Error handling middleware (outermost - catches all errors, adds correlation IDs)
+app.add_middleware(ErrorHandlingMiddleware)
 
 
 # Health check endpoint
