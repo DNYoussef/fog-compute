@@ -6,6 +6,8 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 
+from ..constants import MAX_ATTACHMENT_SIZE
+
 
 class PeerRegisterRequest(BaseModel):
     """Request to register a new peer"""
@@ -139,7 +141,7 @@ class GroupMessageSendRequest(BaseModel):
 class FileUploadInitRequest(BaseModel):
     """Request to initialize file upload"""
     filename: str = Field(..., description="File name", min_length=1)
-    file_size: int = Field(..., description="File size in bytes", gt=0, le=1073741824)  # Max 1GB
+    file_size: int = Field(..., description="File size in bytes", gt=0, le=MAX_ATTACHMENT_SIZE)  # Max 1GB
     uploaded_by: str = Field(..., description="Uploader peer ID")
     mime_type: Optional[str] = Field(None, description="MIME type")
 

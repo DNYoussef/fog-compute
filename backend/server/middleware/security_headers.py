@@ -8,6 +8,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
+from ..constants import HSTS_MAX_AGE
+
 logger = logging.getLogger(__name__)
 
 
@@ -31,7 +33,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         content_type_options: str = "nosniff",
         frame_options: str = "DENY",
         xss_protection: str = "1; mode=block",
-        hsts_max_age: int = 31536000,
+        hsts_max_age: int = HSTS_MAX_AGE,
         hsts_include_subdomains: bool = True,
         csp_policy: str = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'",
         referrer_policy: str = "strict-origin-when-cross-origin",
