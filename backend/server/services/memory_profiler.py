@@ -44,6 +44,8 @@ from ..constants import (
     DRIFT_OBJECT_THRESHOLD,
     DRIFT_GC_THRESHOLD,
     ONE_HOUR,
+    MEMORY_THRESHOLD_CRITICAL,
+    MEMORY_THRESHOLD_WARNING,
 )
 
 logger = logging.getLogger(__name__)
@@ -233,10 +235,17 @@ class MemoryProfiler:
         self._alert_callbacks: List[Callable[[Dict[str, Any]], None]] = []
 
         # Thresholds
+<<<<<<< HEAD
         self.heap_warning_percent = HEAP_WARNING_PERCENT
         self.heap_critical_percent = HEAP_CRITICAL_PERCENT
         self.growth_rate_warning = GROWTH_RATE_WARNING
         self.gc_spike_threshold = GC_SPIKE_THRESHOLD
+=======
+        self.heap_warning_percent = MEMORY_THRESHOLD_WARNING
+        self.heap_critical_percent = MEMORY_THRESHOLD_CRITICAL
+        self.growth_rate_warning = 10.0  # % per hour
+        self.gc_spike_threshold = 2.0  # multiplier
+>>>>>>> origin/main
 
         # Metrics
         self._last_gc_count = (0, 0, 0)

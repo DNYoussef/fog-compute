@@ -13,6 +13,7 @@ from datetime import datetime
 # Add src to Python path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "src"))
 
+from backend.server.constants import BETANET_CONNECTION_TIMEOUT
 from .dependencies import (
     DependencyGraph,
     create_default_dependency_graph,
@@ -520,7 +521,10 @@ class EnhancedServiceManager:
         """Initialize Betanet privacy network"""
         try:
             from .betanet_client import BetanetClient
-            betanet_client = BetanetClient(url="http://localhost:9000", timeout=5)
+            betanet_client = BetanetClient(
+                url="http://localhost:9000",
+                timeout=BETANET_CONNECTION_TIMEOUT,
+            )
             self.services['betanet'].instance = betanet_client
         except Exception as e:
             logger.error(f"Failed to initialize Betanet: {e}")

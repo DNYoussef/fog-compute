@@ -35,8 +35,12 @@ from ..constants import (
     ALERTS_MAX,
     CPU_WARNING_THRESHOLD,
     CPU_CRITICAL_THRESHOLD,
+    CPU_THRESHOLD_CRITICAL,
+    CPU_THRESHOLD_WARNING,
     MEMORY_WARNING_THRESHOLD,
     MEMORY_CRITICAL_THRESHOLD,
+    MEMORY_THRESHOLD_CRITICAL,
+    MEMORY_THRESHOLD_WARNING,
     DISK_WARNING_THRESHOLD,
     DISK_CRITICAL_THRESHOLD,
     NETWORK_WARNING_THRESHOLD,
@@ -297,10 +301,25 @@ class ResourceMonitor:
 
         # Thresholds
         self._thresholds = {
+<<<<<<< HEAD
             ResourceType.CPU: Threshold(ResourceType.CPU, CPU_WARNING_THRESHOLD, CPU_CRITICAL_THRESHOLD),
             ResourceType.MEMORY: Threshold(ResourceType.MEMORY, MEMORY_WARNING_THRESHOLD, MEMORY_CRITICAL_THRESHOLD),
             ResourceType.DISK: Threshold(ResourceType.DISK, DISK_WARNING_THRESHOLD, DISK_CRITICAL_THRESHOLD),
             ResourceType.NETWORK: Threshold(ResourceType.NETWORK, NETWORK_WARNING_THRESHOLD, NETWORK_CRITICAL_THRESHOLD),
+=======
+            ResourceType.CPU: Threshold(
+                ResourceType.CPU,
+                CPU_THRESHOLD_WARNING,
+                CPU_THRESHOLD_CRITICAL,
+            ),
+            ResourceType.MEMORY: Threshold(
+                ResourceType.MEMORY,
+                MEMORY_THRESHOLD_WARNING,
+                MEMORY_THRESHOLD_CRITICAL,
+            ),
+            ResourceType.DISK: Threshold(ResourceType.DISK, 85.0, 95.0),
+            ResourceType.NETWORK: Threshold(ResourceType.NETWORK, 80.0, 95.0),
+>>>>>>> origin/main
         }
 
         # Trending

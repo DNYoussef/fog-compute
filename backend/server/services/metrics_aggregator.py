@@ -10,13 +10,19 @@ from collections import deque, defaultdict
 import statistics
 import json
 
+from backend.server.constants import (
+    METRICS_BATCH_SIZE,
+    METRICS_FLUSH_INTERVAL,
+    ONE_MINUTE,
+)
+
 logger = logging.getLogger(__name__)
 
 
 class TimeSeriesWindow:
     """Manages time-series data for a specific window"""
 
-    def __init__(self, window_seconds: int, max_points: int = 1000):
+    def __init__(self, window_seconds: int, max_points: int = METRICS_BATCH_SIZE):
         self.window_seconds = window_seconds
         self.max_points = max_points
         self.data_points = deque(maxlen=max_points)
@@ -110,9 +116,9 @@ class MetricAggregator:
     def __init__(self):
         # Time windows: 1 minute, 5 minutes, 1 hour
         self.windows = {
-            "1m": 60,
-            "5m": 300,
-            "1h": 3600
+            "1m": ONE_MINUTE,
+            "5m": 5 * ONE_MINUTE,
+            "1h": 60 * ONE_MINUTE
         }
 
         # Metric storage: {metric_name: {window: TimeSeriesWindow}}
@@ -165,7 +171,7 @@ class MetricAggregator:
 
         # Add to historical data with compression
         if len(self.historical_data[metric_name]) == 0 or \
-           (timestamp - datetime.fromisoformat(self.historical_data[metric_name][-1]["timestamp"])).seconds >= 60:
+           (timestamp - datetime.fromisoformat(self.historical_data[metric_name][-1]["timestamp"])).seconds >= METRICS_FLUSH_INTERVAL:
             self.historical_data[metric_name].append({
                 "value": value,
                 "timestamp": timestamp.isoformat(),
