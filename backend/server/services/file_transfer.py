@@ -16,6 +16,7 @@ from sqlalchemy import select, and_
 from fastapi import UploadFile
 
 from ..models.database import FileTransfer, FileChunk, Peer
+from ..constants import DEFAULT_CHUNK_SIZE
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +67,7 @@ class FileTransferService:
     def __init__(
         self,
         storage_path: str = "./data/bitchat/files",
-        chunk_size: int = 1048576,  # 1MB
+        chunk_size: int = DEFAULT_CHUNK_SIZE,  # 1MB
         max_parallel_chunks: int = 5,
         bandwidth_limit_mbps: Optional[float] = None
     ):

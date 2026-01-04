@@ -8,6 +8,8 @@ from sqlalchemy.dialects.postgresql import UUID
 from datetime import datetime, timezone
 import uuid
 
+from ..constants import ONE_MB
+
 
 def utc_now():
     """Return timezone-aware UTC datetime for SQLAlchemy defaults."""
@@ -584,7 +586,7 @@ class FileTransfer(Base):
     mime_type = Column(String(100), nullable=True)
 
     # Chunking metadata
-    chunk_size = Column(Integer, default=1048576, nullable=False)  # 1MB chunks
+    chunk_size = Column(Integer, default=ONE_MB, nullable=False)  # 1MB chunks
     total_chunks = Column(Integer, nullable=False)
     uploaded_chunks = Column(Integer, default=0, nullable=False)
 

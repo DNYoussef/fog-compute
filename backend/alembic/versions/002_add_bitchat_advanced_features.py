@@ -9,6 +9,8 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
+from backend.server.constants import ONE_MB
+
 # revision identifiers, used by Alembic.
 revision = '002_advanced_bitchat'
 down_revision = '001_fog_optimization'
@@ -54,7 +56,7 @@ def upgrade():
         sa.Column('filename', sa.String(255), nullable=False),
         sa.Column('file_size', sa.Integer, nullable=False),
         sa.Column('mime_type', sa.String(100), nullable=True),
-        sa.Column('chunk_size', sa.Integer, default=1048576, nullable=False),
+        sa.Column('chunk_size', sa.Integer, default=ONE_MB, nullable=False),
         sa.Column('total_chunks', sa.Integer, nullable=False),
         sa.Column('uploaded_chunks', sa.Integer, default=0, nullable=False),
         sa.Column('uploaded_by', sa.String(255), sa.ForeignKey('peers.peer_id'), nullable=False, index=True),
