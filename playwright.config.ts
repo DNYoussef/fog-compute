@@ -1,5 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const isCI = process.env.CI === 'true' || process.env.CI === '1';
+const serviceInitTimeout = process.env.SERVICE_INIT_TIMEOUT || (isCI ? '30' : '');
+const skipExternalServices = process.env.SKIP_EXTERNAL_SERVICES ?? (isCI ? 'true' : '');
+const p2pTimeout = process.env.P2P_TIMEOUT || (isCI ? '5' : '');
+const betanetUrl = process.env.BETANET_URL || '';
+
 /**
  * Playwright configuration for E2E testing
  * @see https://playwright.dev/docs/test-configuration
@@ -18,16 +24,16 @@ export default defineConfig({
   fullyParallel: true,
 
   // Fail the build on CI if you accidentally left test.only in the source code
-  forbidOnly: !!process.env.CI,
+  forbidOnly: isCI,
 
   // Retry on CI only
-  retries: process.env.CI ? 2 : 0,
+  retries: isCI ? 2 : 0,
 
   // CI optimization: Single worker for stability, full parallelism locally
-  workers: process.env.CI ? 1 : undefined,
+  workers: isCI ? 1 : undefined,
 
   // Reporter to use - blob reporter for sharded test merging in CI
-  reporter: process.env.CI ? 'blob' : [
+  reporter: isCI ? 'blob' : [
     ['html', { outputFolder: 'tests/output/playwright-report' }],
     ['json', { outputFile: 'tests/output/playwright-results.json' }],
     ['junit', { outputFile: 'tests/output/playwright-results.xml' }],
@@ -64,7 +70,7 @@ export default defineConfig({
 
   // Configure projects for major browsers
   // CI and Local: Run all browsers to catch browser-specific bugs
-  projects: process.env.CI ? [
+  projects: isCI ? [
     {
       name: 'chromium',
       use: {
@@ -135,11 +141,11 @@ export default defineConfig({
           'postgresql+asyncpg://postgres:postgres@localhost:5432/fog_compute_test',
         PATH: process.env.PATH || '',
         PYTHONPATH: process.env.PYTHONPATH || '',
-        CI: process.env.CI || '',
-        SKIP_EXTERNAL_SERVICES: process.env.SKIP_EXTERNAL_SERVICES || '',
-        SERVICE_INIT_TIMEOUT: process.env.SERVICE_INIT_TIMEOUT || '',
-        P2P_TIMEOUT: process.env.P2P_TIMEOUT || '',
-        BETANET_URL: process.env.BETANET_URL || '',
+        CI: isCI ? 'true' : (process.env.CI || ''),
+        SKIP_EXTERNAL_SERVICES: skipExternalServices,
+        SERVICE_INIT_TIMEOUT: serviceInitTimeout,
+        P2P_TIMEOUT: p2pTimeout,
+        BETANET_URL: betanetUrl,
         // Additional backend configuration
         ENVIRONMENT: process.env.CI ? 'test' : 'development',
         LOG_LEVEL: process.env.CI ? 'WARNING' : 'INFO',

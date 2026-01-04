@@ -232,8 +232,8 @@ app.add_middleware(RateLimitMiddleware)
 # Health check endpoint
 @app.get("/health")
 async def health_check():
-    """System health check"""
-    service_health = enhanced_service_manager.get_health()
+    """System health check with graceful degradation for optional services"""
+    status_snapshot = enhanced_service_manager.get_status()
     readiness = enhanced_service_manager.get_readiness_summary()
     is_ready = readiness.get("ready", False)
     composite_health = enhanced_service_manager.health_manager.get_composite_health()
@@ -242,7 +242,10 @@ async def health_check():
         "status": "healthy" if is_ready else "degraded",
         "readiness": readiness,
         "composite_health": composite_health.value,
-        "services": service_health,
+        "services": status_snapshot.get("services", {}),
+        "health_checks": status_snapshot.get("health", {}),
+        "registry": status_snapshot.get("registry", {}),
+        "initialized": status_snapshot.get("initialized", False),
         "version": settings.API_VERSION
     }
 

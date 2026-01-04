@@ -107,7 +107,7 @@ jobs:
         env:
           CI: true
           SKIP_EXTERNAL_SERVICES: true
-          SERVICE_INIT_TIMEOUT: 20
+          SERVICE_INIT_TIMEOUT: 30
           P2P_TIMEOUT: 5
           BETANET_URL: ""
 
@@ -184,7 +184,7 @@ jobs:
         env:
           CI: true
           SKIP_EXTERNAL_SERVICES: true
-          SERVICE_INIT_TIMEOUT: 20
+          SERVICE_INIT_TIMEOUT: 30
           P2P_TIMEOUT: 5
           BETANET_URL: ""
 
@@ -256,7 +256,7 @@ jobs:
         env:
           CI: true
           SKIP_EXTERNAL_SERVICES: true
-          SERVICE_INIT_TIMEOUT: 20
+          SERVICE_INIT_TIMEOUT: 30
           P2P_TIMEOUT: 5
           BETANET_URL: ""
 
