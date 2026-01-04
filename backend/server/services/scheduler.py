@@ -12,6 +12,11 @@ from sqlalchemy import select, and_, func
 from uuid import UUID
 import uuid
 
+from ..constants import (
+    SCHEDULER_DEFAULT_STORAGE_GB,
+    SCHEDULER_QUEUE_WAIT_TIMEOUT_SECONDS,
+    SCHEDULER_WORKER_ERROR_SLEEP_SECONDS,
+)
 from ..models.database import Node
 from ..models.deployment import (
     Deployment,
@@ -59,7 +64,7 @@ class DeploymentScheduler:
         cpu_cores: float,
         memory_mb: int,
         gpu_units: int = 0,
-        storage_gb: int = 10
+        storage_gb: int = SCHEDULER_DEFAULT_STORAGE_GB
     ) -> Dict:
         """
         Schedule deployment to available fog nodes
@@ -460,7 +465,7 @@ class DeploymentScheduler:
                 # Wait for deployment in queue (with timeout to check is_running)
                 try:
                     deployment_task = await asyncio.wait_for(
-                        self.queue.get(), timeout=1.0
+                        self.queue.get(), timeout=SCHEDULER_QUEUE_WAIT_TIMEOUT_SECONDS
                     )
                 except asyncio.TimeoutError:
                     continue
@@ -476,7 +481,7 @@ class DeploymentScheduler:
                     cpu_cores=deployment_task['cpu_cores'],
                     memory_mb=deployment_task['memory_mb'],
                     gpu_units=deployment_task.get('gpu_units', 0),
-                    storage_gb=deployment_task.get('storage_gb', 10)
+                    storage_gb=deployment_task.get('storage_gb', SCHEDULER_DEFAULT_STORAGE_GB)
                 )
 
                 if result['success']:
@@ -488,7 +493,7 @@ class DeploymentScheduler:
 
             except Exception as e:
                 logger.error(f"Scheduler worker error: {e}", exc_info=True)
-                await asyncio.sleep(1)
+                await asyncio.sleep(SCHEDULER_WORKER_ERROR_SLEEP_SECONDS)
 
         logger.info("Scheduler worker stopped")
 

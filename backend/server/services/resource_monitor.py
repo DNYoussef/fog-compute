@@ -20,6 +20,26 @@ from enum import Enum
 from typing import Any, Callable, Deque, Dict, List, Optional
 
 import psutil
+from ..constants import (
+    RESOURCE_MONITOR_ALERT_HISTORY_MAX_LEN,
+    RESOURCE_MONITOR_CAPACITY_ALERT_THRESHOLD,
+    RESOURCE_MONITOR_CAPACITY_MONITOR_THRESHOLD,
+    RESOURCE_MONITOR_CPU_CRITICAL_PERCENT,
+    RESOURCE_MONITOR_CPU_PERCENT_INTERVAL,
+    RESOURCE_MONITOR_CPU_WARNING_PERCENT,
+    RESOURCE_MONITOR_DEFAULT_INTERVAL_SECONDS,
+    RESOURCE_MONITOR_DISK_CRITICAL_PERCENT,
+    RESOURCE_MONITOR_DISK_WARNING_PERCENT,
+    RESOURCE_MONITOR_HISTORY_MAX_LEN,
+    RESOURCE_MONITOR_HISTORY_SECONDS_DEFAULT,
+    RESOURCE_MONITOR_MIN_TREND_SAMPLES,
+    RESOURCE_MONITOR_NETWORK_CRITICAL_PERCENT,
+    RESOURCE_MONITOR_NETWORK_WARNING_PERCENT,
+    RESOURCE_MONITOR_RECENT_ALERTS_DEFAULT,
+    RESOURCE_MONITOR_STOP_GRACE_SECONDS,
+    RESOURCE_MONITOR_TREND_DIFF_THRESHOLD,
+    RESOURCE_MONITOR_TREND_WINDOW_SIZE,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +93,7 @@ class ResourceMetrics:
     def capture(cls) -> 'ResourceMetrics':
         """Capture current resource metrics"""
         # CPU
-        cpu_percent = psutil.cpu_percent(interval=0.1)
+        cpu_percent = psutil.cpu_percent(interval=RESOURCE_MONITOR_CPU_PERCENT_INTERVAL)
         cpu_count = psutil.cpu_count()
         cpu_freq = psutil.cpu_freq()
 
@@ -172,7 +192,7 @@ class Threshold:
 class ResourceTrend:
     """Track resource usage trends for capacity planning"""
 
-    def __init__(self, window_size: int = 60):
+    def __init__(self, window_size: int = RESOURCE_MONITOR_TREND_WINDOW_SIZE):
         self.window_size = window_size  # Number of samples
         self._cpu_history: Deque[float] = deque(maxlen=window_size)
         self._memory_history: Deque[float] = deque(maxlen=window_size)
@@ -186,21 +206,25 @@ class ResourceTrend:
 
     def _calculate_trend(self, history: Deque[float]) -> str:
         """Calculate trend direction"""
-        if len(history) < 10:
+        if len(history) < RESOURCE_MONITOR_MIN_TREND_SAMPLES:
             return "insufficient_data"
 
         # Simple linear regression
-        recent = list(history)[-10:]
-        older = list(history)[-20:-10] if len(history) >= 20 else list(history)[:-10]
+        recent = list(history)[-RESOURCE_MONITOR_MIN_TREND_SAMPLES:]
+        older = (
+            list(history)[-2 * RESOURCE_MONITOR_MIN_TREND_SAMPLES:-RESOURCE_MONITOR_MIN_TREND_SAMPLES]
+            if len(history) >= 2 * RESOURCE_MONITOR_MIN_TREND_SAMPLES
+            else list(history)[:-RESOURCE_MONITOR_MIN_TREND_SAMPLES]
+        )
 
         recent_avg = sum(recent) / len(recent)
         older_avg = sum(older) / len(older) if older else recent_avg
 
         diff = recent_avg - older_avg
 
-        if diff > 5:
+        if diff > RESOURCE_MONITOR_TREND_DIFF_THRESHOLD:
             return "increasing"
-        elif diff < -5:
+        elif diff < -RESOURCE_MONITOR_TREND_DIFF_THRESHOLD:
             return "decreasing"
         else:
             return "stable"
@@ -233,12 +257,12 @@ class ResourceTrend:
 
         for resource, data in trends.items():
             if data["trend"] == "increasing":
-                if data["current_avg"] > 70:
+                if data["current_avg"] > RESOURCE_MONITOR_CAPACITY_ALERT_THRESHOLD:
                     recommendations.append(
                         f"{resource.upper()} usage is increasing and currently at {data['current_avg']:.1f}%. "
                         f"Consider adding more {resource} capacity."
                     )
-                elif data["current_avg"] > 50:
+                elif data["current_avg"] > RESOURCE_MONITOR_CAPACITY_MONITOR_THRESHOLD:
                     recommendations.append(
                         f"{resource.upper()} usage trending upward ({data['current_avg']:.1f}%). "
                         f"Monitor for potential capacity needs."
@@ -257,25 +281,25 @@ class ResourceMonitor:
     Tracks CPU, memory, disk, and network usage with configurable thresholds
     """
 
-    def __init__(self, interval: float = 5.0):
+    def __init__(self, interval: float = RESOURCE_MONITOR_DEFAULT_INTERVAL_SECONDS):
         self.interval = interval
         self._monitoring = False
         self._monitor_thread: Optional[threading.Thread] = None
 
         # Metrics storage
         self._current_metrics: Optional[ResourceMetrics] = None
-        self._metrics_history: Deque[ResourceMetrics] = deque(maxlen=1000)
+        self._metrics_history: Deque[ResourceMetrics] = deque(maxlen=RESOURCE_MONITOR_HISTORY_MAX_LEN)
 
         # Alerts
-        self._alerts: Deque[Alert] = deque(maxlen=100)
+        self._alerts: Deque[Alert] = deque(maxlen=RESOURCE_MONITOR_ALERT_HISTORY_MAX_LEN)
         self._alert_callbacks: List[Callable[[Alert], None]] = []
 
         # Thresholds
         self._thresholds = {
-            ResourceType.CPU: Threshold(ResourceType.CPU, 80.0, 95.0),
-            ResourceType.MEMORY: Threshold(ResourceType.MEMORY, 85.0, 95.0),
-            ResourceType.DISK: Threshold(ResourceType.DISK, 85.0, 95.0),
-            ResourceType.NETWORK: Threshold(ResourceType.NETWORK, 80.0, 95.0),
+            ResourceType.CPU: Threshold(ResourceType.CPU, RESOURCE_MONITOR_CPU_WARNING_PERCENT, RESOURCE_MONITOR_CPU_CRITICAL_PERCENT),
+            ResourceType.MEMORY: Threshold(ResourceType.MEMORY, RESOURCE_MONITOR_MEMORY_WARNING_PERCENT, RESOURCE_MONITOR_MEMORY_CRITICAL_PERCENT),
+            ResourceType.DISK: Threshold(ResourceType.DISK, RESOURCE_MONITOR_DISK_WARNING_PERCENT, RESOURCE_MONITOR_DISK_CRITICAL_PERCENT),
+            ResourceType.NETWORK: Threshold(ResourceType.NETWORK, RESOURCE_MONITOR_NETWORK_WARNING_PERCENT, RESOURCE_MONITOR_NETWORK_CRITICAL_PERCENT),
         }
 
         # Trending
@@ -421,7 +445,7 @@ class ResourceMonitor:
         """Stop monitoring"""
         self._monitoring = False
         if self._monitor_thread:
-            self._monitor_thread.join(timeout=self.interval + 1.0)
+            self._monitor_thread.join(timeout=self.interval + RESOURCE_MONITOR_STOP_GRACE_SECONDS)
             self._monitor_thread = None
         logger.info("Resource monitoring stopped")
 
@@ -431,7 +455,7 @@ class ResourceMonitor:
             return self._current_metrics.to_dict()
         return None
 
-    def get_metrics_history(self, seconds: int = 60) -> List[Dict[str, Any]]:
+    def get_metrics_history(self, seconds: int = RESOURCE_MONITOR_HISTORY_SECONDS_DEFAULT) -> List[Dict[str, Any]]:
         """Get metrics history for the last N seconds"""
         cutoff = datetime.now() - timedelta(seconds=seconds)
         return [
@@ -440,7 +464,7 @@ class ResourceMonitor:
             if m.timestamp >= cutoff
         ]
 
-    def get_recent_alerts(self, count: int = 10) -> List[Dict[str, Any]]:
+    def get_recent_alerts(self, count: int = RESOURCE_MONITOR_RECENT_ALERTS_DEFAULT) -> List[Dict[str, Any]]:
         """Get recent alerts"""
         return [alert.to_dict() for alert in list(self._alerts)[-count:]]
 
