@@ -2,20 +2,29 @@
 SQLAlchemy Database Models
 Defines database schemas for all fog-compute entities
 """
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, JSON, Text, ForeignKey
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.dialects.postgresql import UUID
+from __future__ import annotations
+
 from datetime import datetime, timezone
+from typing import Any, TYPE_CHECKING
 import uuid
+
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, JSON, String, Text
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import Mapped, mapped_column
 
 from ..constants import ONE_MB
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import DeclarativeMeta
 
-def utc_now():
+
+def utc_now() -> datetime:
     """Return timezone-aware UTC datetime for SQLAlchemy defaults."""
     return datetime.now(timezone.utc)
 
-Base = declarative_base()
+
+Base: "DeclarativeMeta" = declarative_base()
 
 
 class Job(Base):
@@ -25,24 +34,24 @@ class Job(Base):
     """
     __tablename__ = 'jobs'
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name = Column(String(255), nullable=False)
-    sla_tier = Column(String(50), nullable=False)  # platinum, gold, silver, bronze
-    status = Column(String(50), default='pending')  # pending, running, completed, failed
-    cpu_required = Column(Float, nullable=False)
-    memory_required = Column(Float, nullable=False)
-    gpu_required = Column(Float, default=0.0)
-    duration_estimate = Column(Float, nullable=True)
-    data_size_mb = Column(Float, nullable=True)
-    assigned_node = Column(String(255), nullable=True)
-    submitted_at = Column(DateTime(timezone=True), default=utc_now)
-    started_at = Column(DateTime(timezone=True), nullable=True)
-    completed_at = Column(DateTime(timezone=True), nullable=True)
-    progress = Column(Float, default=0.0)
-    result = Column(JSON, nullable=True)
-    logs = Column(Text, nullable=True)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    sla_tier: Mapped[str] = mapped_column(String(50), nullable=False)  # platinum, gold, silver, bronze
+    status: Mapped[str] = mapped_column(String(50), default='pending')  # pending, running, completed, failed
+    cpu_required: Mapped[float] = mapped_column(Float, nullable=False)
+    memory_required: Mapped[float] = mapped_column(Float, nullable=False)
+    gpu_required: Mapped[float] = mapped_column(Float, default=0.0)
+    duration_estimate: Mapped[float | None] = mapped_column(Float, nullable=True)
+    data_size_mb: Mapped[float | None] = mapped_column(Float, nullable=True)
+    assigned_node: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    progress: Mapped[float] = mapped_column(Float, default=0.0)
+    result: Mapped[Any | None] = mapped_column(JSON, nullable=True)
+    logs: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API responses"""
         return {
             'id': str(self.id),
@@ -67,14 +76,14 @@ class TokenBalance(Base):
     """
     __tablename__ = 'token_balances'
 
-    address = Column(String(66), primary_key=True)  # 0x + 64 hex chars
-    balance = Column(Float, default=0.0)
-    staked = Column(Float, default=0.0)
-    rewards = Column(Float, default=0.0)
-    created_at = Column(DateTime(timezone=True), default=utc_now)
-    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+    address: Mapped[str] = mapped_column(String(66), primary_key=True)  # 0x + 64 hex chars
+    balance: Mapped[float] = mapped_column(Float, default=0.0)
+    staked: Mapped[float] = mapped_column(Float, default=0.0)
+    rewards: Mapped[float] = mapped_column(Float, default=0.0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         return {
             'address': self.address,
             'balance': self.balance,
@@ -92,20 +101,20 @@ class Device(Base):
     """
     __tablename__ = 'devices'
 
-    device_id = Column(String(255), primary_key=True)
-    device_type = Column(String(50), nullable=False)  # android, ios, desktop
-    status = Column(String(50), default='idle')  # idle, active, harvesting, offline
-    battery_percent = Column(Float, default=100.0)
-    is_charging = Column(Boolean, default=False)
-    cpu_cores = Column(Integer, default=1)
-    memory_mb = Column(Integer, default=1024)
-    cpu_temp_celsius = Column(Float, nullable=True)
-    tasks_completed = Column(Integer, default=0)
-    compute_hours = Column(Float, default=0.0)
-    registered_at = Column(DateTime(timezone=True), default=utc_now)
-    last_heartbeat = Column(DateTime(timezone=True), default=utc_now)
+    device_id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    device_type: Mapped[str] = mapped_column(String(50), nullable=False)  # android, ios, desktop
+    status: Mapped[str] = mapped_column(String(50), default='idle')  # idle, active, harvesting, offline
+    battery_percent: Mapped[float] = mapped_column(Float, default=100.0)
+    is_charging: Mapped[bool] = mapped_column(Boolean, default=False)
+    cpu_cores: Mapped[int] = mapped_column(Integer, default=1)
+    memory_mb: Mapped[int] = mapped_column(Integer, default=1024)
+    cpu_temp_celsius: Mapped[float | None] = mapped_column(Float, nullable=True)
+    tasks_completed: Mapped[int] = mapped_column(Integer, default=0)
+    compute_hours: Mapped[float] = mapped_column(Float, default=0.0)
+    registered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    last_heartbeat: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         return {
             'id': self.device_id,
             'type': self.device_type,
@@ -128,15 +137,15 @@ class Circuit(Base):
     """
     __tablename__ = 'circuits'
 
-    circuit_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    hops = Column(JSON, nullable=False)  # List of node IDs
-    bandwidth = Column(Float, default=0.0)
-    latency_ms = Column(Float, default=0.0)
-    health = Column(Float, default=1.0)  # 0.0 to 1.0
-    created_at = Column(DateTime(timezone=True), default=utc_now)
-    destroyed_at = Column(DateTime(timezone=True), nullable=True)
+    circuit_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    hops: Mapped[list[str]] = mapped_column(JSON, nullable=False)  # List of node IDs
+    bandwidth: Mapped[float] = mapped_column(Float, default=0.0)
+    latency_ms: Mapped[float] = mapped_column(Float, default=0.0)
+    health: Mapped[float] = mapped_column(Float, default=1.0)  # 0.0 to 1.0
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    destroyed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         return {
             'id': str(self.circuit_id),
             'hops': self.hops,
@@ -154,18 +163,18 @@ class DAOProposal(Base):
     """
     __tablename__ = 'dao_proposals'
 
-    proposal_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    title = Column(String(255), nullable=False)
-    description = Column(Text, nullable=False)
-    proposer = Column(String(66), nullable=False)
-    status = Column(String(50), default='active')  # active, passed, rejected, executed
-    votes_for = Column(Integer, default=0)
-    votes_against = Column(Integer, default=0)
-    created_at = Column(DateTime(timezone=True), default=utc_now)
-    voting_ends_at = Column(DateTime(timezone=True), nullable=True)
-    executed_at = Column(DateTime(timezone=True), nullable=True)
+    proposal_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    proposer: Mapped[str] = mapped_column(String(66), nullable=False)
+    status: Mapped[str] = mapped_column(String(50), default='active')  # active, passed, rejected, executed
+    votes_for: Mapped[int] = mapped_column(Integer, default=0)
+    votes_against: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    voting_ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    executed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         return {
             'id': str(self.proposal_id),
             'title': self.title,
@@ -185,14 +194,14 @@ class Stake(Base):
     """
     __tablename__ = 'stakes'
 
-    stake_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    address = Column(String(66), ForeignKey('token_balances.address'), nullable=False)
-    amount = Column(Float, nullable=False)
-    rewards_earned = Column(Float, default=0.0)
-    staked_at = Column(DateTime(timezone=True), default=utc_now)
-    unstaked_at = Column(DateTime(timezone=True), nullable=True)
+    stake_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    address: Mapped[str] = mapped_column(String(66), ForeignKey('token_balances.address'), nullable=False)
+    amount: Mapped[float] = mapped_column(Float, nullable=False)
+    rewards_earned: Mapped[float] = mapped_column(Float, default=0.0)
+    staked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    unstaked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         return {
             'id': str(self.stake_id),
             'address': self.address,
@@ -209,17 +218,17 @@ class BetanetNode(Base):
     """
     __tablename__ = 'betanet_nodes'
 
-    node_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    node_type = Column(String(50), default='mixnode')
-    region = Column(String(50), nullable=True)
-    status = Column(String(50), default='deploying')  # deploying, active, stopped, failed
-    ip_address = Column(String(45), nullable=True)
-    packets_processed = Column(Integer, default=0)
-    uptime_seconds = Column(Integer, default=0)
-    deployed_at = Column(DateTime(timezone=True), default=utc_now)
-    last_seen = Column(DateTime(timezone=True), default=utc_now)
+    node_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    node_type: Mapped[str] = mapped_column(String(50), default='mixnode')
+    region: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    status: Mapped[str] = mapped_column(String(50), default='deploying')  # deploying, active, stopped, failed
+    ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
+    packets_processed: Mapped[int] = mapped_column(Integer, default=0)
+    uptime_seconds: Mapped[int] = mapped_column(Integer, default=0)
+    deployed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         return {
             'id': str(self.node_id),
             'type': self.node_type,
@@ -239,17 +248,17 @@ class User(Base):
     """
     __tablename__ = 'users'
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    username = Column(String(50), unique=True, nullable=False, index=True)
-    email = Column(String(100), unique=True, nullable=False, index=True)
-    hashed_password = Column(String(255), nullable=False)
-    is_active = Column(Boolean, default=True, nullable=False)
-    is_admin = Column(Boolean, default=False, nullable=False)
-    tier = Column(String(50), default='free', nullable=False, index=True)  # free, pro, enterprise
-    created_at = Column(DateTime(timezone=True), default=utc_now)
-    last_login = Column(DateTime(timezone=True), nullable=True)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
+    email: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
+    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    tier: Mapped[str] = mapped_column(String(50), default='free', nullable=False, index=True)  # free, pro, enterprise
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    last_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         return {
             'id': str(self.id),
             'username': self.username,
@@ -268,17 +277,17 @@ class APIKey(Base):
     """
     __tablename__ = 'api_keys'
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False)
-    key_hash = Column(String(255), nullable=False, unique=True)
-    name = Column(String(100), nullable=False)
-    is_active = Column(Boolean, default=True, nullable=False)
-    rate_limit = Column(Integer, default=1000, nullable=False)  # requests per hour
-    created_at = Column(DateTime(timezone=True), default=utc_now)
-    last_used = Column(DateTime(timezone=True), nullable=True)
-    expires_at = Column(DateTime(timezone=True), nullable=True)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False)
+    key_hash: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    rate_limit: Mapped[int] = mapped_column(Integer, default=1000, nullable=False)  # requests per hour
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    last_used: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         return {
             'id': str(self.id),
             'name': self.name,
@@ -295,14 +304,14 @@ class RateLimitEntry(Base):
     """
     __tablename__ = 'rate_limits'
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    identifier = Column(String(100), nullable=False, index=True)  # IP or user ID
-    endpoint = Column(String(200), nullable=False, index=True)
-    request_count = Column(Integer, default=0, nullable=False)
-    window_start = Column(DateTime(timezone=True), default=utc_now, nullable=False)
-    last_request = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    identifier: Mapped[str] = mapped_column(String(100), nullable=False, index=True)  # IP or user ID
+    endpoint: Mapped[str] = mapped_column(String(200), nullable=False, index=True)
+    request_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    window_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    last_request: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         return {
             'identifier': self.identifier,
             'endpoint': self.endpoint,
@@ -318,18 +327,18 @@ class Peer(Base):
     """
     __tablename__ = 'peers'
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    peer_id = Column(String(255), unique=True, nullable=False, index=True)  # Unique peer identifier
-    public_key = Column(Text, nullable=False)  # Peer's public key for encryption
-    display_name = Column(String(100), nullable=True)
-    last_seen = Column(DateTime(timezone=True), default=utc_now, nullable=False)
-    is_online = Column(Boolean, default=False, nullable=False)
-    trust_score = Column(Float, default=0.5, nullable=False)  # 0.0 to 1.0
-    messages_sent = Column(Integer, default=0, nullable=False)
-    messages_received = Column(Integer, default=0, nullable=False)
-    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    peer_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)  # Unique peer identifier
+    public_key: Mapped[str] = mapped_column(Text, nullable=False)  # Peer's public key for encryption
+    display_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    is_online: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    trust_score: Mapped[float] = mapped_column(Float, default=0.5, nullable=False)  # 0.0 to 1.0
+    messages_sent: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    messages_received: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         return {
             'id': str(self.id),
             'peer_id': self.peer_id,
@@ -351,21 +360,21 @@ class Message(Base):
     """
     __tablename__ = 'messages'
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    message_id = Column(String(255), unique=True, nullable=False, index=True)  # Unique message ID
-    from_peer_id = Column(String(255), ForeignKey('peers.peer_id'), nullable=False, index=True)
-    to_peer_id = Column(String(255), ForeignKey('peers.peer_id'), nullable=True, index=True)  # Null for group messages
-    group_id = Column(String(255), nullable=True, index=True)  # For group chats
-    content = Column(Text, nullable=False)  # Encrypted message content
-    encryption_algorithm = Column(String(50), default='AES-256-GCM', nullable=False)
-    nonce = Column(String(255), nullable=True)  # Encryption nonce/IV
-    status = Column(String(50), default='pending', nullable=False)  # pending, sent, delivered, read, failed
-    sent_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
-    delivered_at = Column(DateTime(timezone=True), nullable=True)
-    ttl = Column(Integer, default=3600, nullable=False)  # Time to live in seconds
-    hop_count = Column(Integer, default=0, nullable=False)  # For onion routing
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    message_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)  # Unique message ID
+    from_peer_id: Mapped[str] = mapped_column(String(255), ForeignKey('peers.peer_id'), nullable=False, index=True)
+    to_peer_id: Mapped[str | None] = mapped_column(String(255), ForeignKey('peers.peer_id'), nullable=True, index=True)  # Null for group messages
+    group_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)  # For group chats
+    content: Mapped[str] = mapped_column(Text, nullable=False)  # Encrypted message content
+    encryption_algorithm: Mapped[str] = mapped_column(String(50), default='AES-256-GCM', nullable=False)
+    nonce: Mapped[str | None] = mapped_column(String(255), nullable=True)  # Encryption nonce/IV
+    status: Mapped[str] = mapped_column(String(50), default='pending', nullable=False)  # pending, sent, delivered, read, failed
+    sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ttl: Mapped[int] = mapped_column(Integer, default=3600, nullable=False)  # Time to live in seconds
+    hop_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)  # For onion routing
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         return {
             'id': str(self.id),
             'message_id': self.message_id,
@@ -394,37 +403,37 @@ class Node(Base):
         {'extend_existing': True}
     )
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    node_id = Column(String(255), unique=True, nullable=False, index=True)
-    node_type = Column(String(50), nullable=False, index=True)  # edge_device, relay_node, mixnode, compute_node, gateway
-    region = Column(String(100), nullable=True, index=True)
-    status = Column(String(50), default='idle', nullable=False, index=True)  # idle, active, busy, offline, maintenance
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    node_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    node_type: Mapped[str] = mapped_column(String(50), nullable=False, index=True)  # edge_device, relay_node, mixnode, compute_node, gateway
+    region: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+    status: Mapped[str] = mapped_column(String(50), default='idle', nullable=False, index=True)  # idle, active, busy, offline, maintenance
 
     # Hardware specs
-    cpu_cores = Column(Integer, default=1, nullable=False)
-    memory_mb = Column(Integer, default=1024, nullable=False)
-    storage_gb = Column(Integer, default=10, nullable=False)
-    gpu_available = Column(Boolean, default=False, nullable=False)
+    cpu_cores: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    memory_mb: Mapped[int] = mapped_column(Integer, default=1024, nullable=False)
+    storage_gb: Mapped[int] = mapped_column(Integer, default=10, nullable=False)
+    gpu_available: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Performance metrics
-    cpu_usage_percent = Column(Float, default=0.0, nullable=False)
-    memory_usage_percent = Column(Float, default=0.0, nullable=False)
-    network_bandwidth_mbps = Column(Float, default=0.0, nullable=False)
+    cpu_usage_percent: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    memory_usage_percent: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    network_bandwidth_mbps: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
 
     # Task tracking
-    active_tasks = Column(Integer, default=0, nullable=False)
-    completed_tasks = Column(Integer, default=0, nullable=False)
-    failed_tasks = Column(Integer, default=0, nullable=False)
+    active_tasks: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    completed_tasks: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    failed_tasks: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     # Privacy features
-    supports_onion_routing = Column(Boolean, default=False, nullable=False)
-    circuit_participation_count = Column(Integer, default=0, nullable=False)
+    supports_onion_routing: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    circuit_participation_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     # Timestamps
-    registered_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
-    last_heartbeat = Column(DateTime(timezone=True), default=utc_now, nullable=False, index=True)
+    registered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    last_heartbeat: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False, index=True)
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         return {
             'id': str(self.id),
             'node_id': self.node_id,
@@ -459,32 +468,32 @@ class TaskAssignment(Base):
         {'extend_existing': True}
     )
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    task_id = Column(String(255), unique=True, nullable=False, index=True)
-    node_id = Column(String(255), ForeignKey('nodes.node_id'), nullable=False, index=True)
-    job_id = Column(UUID(as_uuid=True), ForeignKey('jobs.id'), nullable=True, index=True)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    task_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    node_id: Mapped[str] = mapped_column(String(255), ForeignKey('nodes.node_id'), nullable=False, index=True)
+    job_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey('jobs.id'), nullable=True, index=True)
 
     # Task details
-    task_type = Column(String(100), nullable=False)
-    priority = Column(Integer, default=5, nullable=False)
+    task_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    priority: Mapped[int] = mapped_column(Integer, default=5, nullable=False)
 
     # Resource requirements
-    cpu_required = Column(Float, default=1.0, nullable=False)
-    memory_required = Column(Float, default=512.0, nullable=False)
-    gpu_required = Column(Boolean, default=False, nullable=False)
+    cpu_required: Mapped[float] = mapped_column(Float, default=1.0, nullable=False)
+    memory_required: Mapped[float] = mapped_column(Float, default=512.0, nullable=False)
+    gpu_required: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Execution tracking
-    status = Column(String(50), default='pending', nullable=False, index=True)  # pending, assigned, running, completed, failed
-    assigned_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
-    started_at = Column(DateTime(timezone=True), nullable=True)
-    completed_at = Column(DateTime(timezone=True), nullable=True)
+    status: Mapped[str] = mapped_column(String(50), default='pending', nullable=False, index=True)  # pending, assigned, running, completed, failed
+    assigned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Performance metrics
-    execution_time_ms = Column(Float, nullable=True)
-    retry_count = Column(Integer, default=0, nullable=False)
-    error_message = Column(Text, nullable=True)
+    execution_time_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
+    retry_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         return {
             'id': str(self.id),
             'task_id': self.task_id,
@@ -511,21 +520,21 @@ class GroupChat(Base):
     """
     __tablename__ = 'group_chats'
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    group_id = Column(String(255), unique=True, nullable=False, index=True)
-    name = Column(String(255), nullable=False)
-    description = Column(Text, nullable=True)
-    created_by = Column(String(255), ForeignKey('peers.peer_id'), nullable=False)
-    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
-    is_active = Column(Boolean, default=True, nullable=False)
-    member_count = Column(Integer, default=1, nullable=False)
-    message_count = Column(Integer, default=0, nullable=False)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    group_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_by: Mapped[str] = mapped_column(String(255), ForeignKey('peers.peer_id'), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    member_count: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    message_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     # Gossip protocol metadata
-    vector_clock = Column(JSON, default={}, nullable=False)  # Vector clock for message ordering
-    last_sync = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    vector_clock: Mapped[dict[str, Any]] = mapped_column(JSON, default={}, nullable=False)  # Vector clock for message ordering
+    last_sync: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         return {
             'id': str(self.id),
             'group_id': self.group_id,
@@ -550,16 +559,16 @@ class GroupMembership(Base):
         {'extend_existing': True}
     )
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    group_id = Column(String(255), ForeignKey('group_chats.group_id'), nullable=False, index=True)
-    peer_id = Column(String(255), ForeignKey('peers.peer_id'), nullable=False, index=True)
-    role = Column(String(50), default='member', nullable=False)  # admin, moderator, member
-    joined_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
-    left_at = Column(DateTime(timezone=True), nullable=True)
-    is_active = Column(Boolean, default=True, nullable=False)
-    messages_sent = Column(Integer, default=0, nullable=False)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    group_id: Mapped[str] = mapped_column(String(255), ForeignKey('group_chats.group_id'), nullable=False, index=True)
+    peer_id: Mapped[str] = mapped_column(String(255), ForeignKey('peers.peer_id'), nullable=False, index=True)
+    role: Mapped[str] = mapped_column(String(50), default='member', nullable=False)  # admin, moderator, member
+    joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    left_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    messages_sent: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         return {
             'id': str(self.id),
             'group_id': self.group_id,
@@ -579,30 +588,30 @@ class FileTransfer(Base):
     """
     __tablename__ = 'file_transfers'
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    file_id = Column(String(255), unique=True, nullable=False, index=True)
-    filename = Column(String(255), nullable=False)
-    file_size = Column(Integer, nullable=False)  # Size in bytes
-    mime_type = Column(String(100), nullable=True)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    file_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    file_size: Mapped[int] = mapped_column(Integer, nullable=False)  # Size in bytes
+    mime_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     # Chunking metadata
-    chunk_size = Column(Integer, default=ONE_MB, nullable=False)  # 1MB chunks
-    total_chunks = Column(Integer, nullable=False)
-    uploaded_chunks = Column(Integer, default=0, nullable=False)
+    chunk_size: Mapped[int] = mapped_column(Integer, default=ONE_MB, nullable=False)  # 1MB chunks
+    total_chunks: Mapped[int] = mapped_column(Integer, nullable=False)
+    uploaded_chunks: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     # Ownership and encryption
-    uploaded_by = Column(String(255), ForeignKey('peers.peer_id'), nullable=False, index=True)
-    encryption_key_hash = Column(String(255), nullable=True)  # Hash of encryption key
+    uploaded_by: Mapped[str] = mapped_column(String(255), ForeignKey('peers.peer_id'), nullable=False, index=True)
+    encryption_key_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)  # Hash of encryption key
 
     # Status tracking
-    status = Column(String(50), default='pending', nullable=False, index=True)  # pending, uploading, completed, failed
-    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
-    completed_at = Column(DateTime(timezone=True), nullable=True)
+    status: Mapped[str] = mapped_column(String(50), default='pending', nullable=False, index=True)  # pending, uploading, completed, failed
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Multi-source download tracking
-    download_sources = Column(JSON, default=[], nullable=False)  # List of peer IDs with complete file
+    download_sources: Mapped[list[str]] = mapped_column(JSON, default=[], nullable=False)  # List of peer IDs with complete file
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         return {
             'id': str(self.id),
             'file_id': self.file_id,
@@ -631,19 +640,19 @@ class FileChunk(Base):
         {'extend_existing': True}
     )
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    file_id = Column(String(255), ForeignKey('file_transfers.file_id'), nullable=False, index=True)
-    chunk_index = Column(Integer, nullable=False)
-    chunk_hash = Column(String(64), nullable=False)  # SHA-256 hash
-    chunk_size = Column(Integer, nullable=False)
-    uploaded = Column(Boolean, default=False, nullable=False)
-    uploaded_at = Column(DateTime(timezone=True), nullable=True)
-    stored_path = Column(String(500), nullable=True)  # Path to stored chunk
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    file_id: Mapped[str] = mapped_column(String(255), ForeignKey('file_transfers.file_id'), nullable=False, index=True)
+    chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    chunk_hash: Mapped[str] = mapped_column(String(64), nullable=False)  # SHA-256 hash
+    chunk_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    uploaded: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    uploaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    stored_path: Mapped[str | None] = mapped_column(String(500), nullable=True)  # Path to stored chunk
 
     # Multi-source tracking
-    available_from = Column(JSON, default=[], nullable=False)  # List of peer IDs with this chunk
+    available_from: Mapped[list[str]] = mapped_column(JSON, default=[], nullable=False)  # List of peer IDs with this chunk
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         return {
             'id': str(self.id),
             'file_id': self.file_id,
