@@ -808,15 +808,83 @@ class TestPerformance:
         assert hasattr(engine.pool, '_pool')
 
     def test_memory_leak_detection(self):
-        """Test for memory leaks in long-running operations"""
-        # This would require monitoring memory over time
-        # TODO: Implement memory profiling
-        pass
+        """Test for memory leaks using memory profiler service"""
+        import asyncio
+        from backend.server.services.memory_profiler import memory_profiler
+
+        async def test_memory_monitoring():
+            # Start profiler
+            await memory_profiler.start()
+
+            try:
+                # Take initial snapshot
+                initial_snapshot = await memory_profiler.take_snapshot()
+                assert initial_snapshot is not None
+                assert initial_snapshot.heap_size_mb > 0
+
+                # Simulate some operations
+                data = []
+                for i in range(100):
+                    data.append({"key": f"value_{i}" * 100})
+
+                # Take another snapshot
+                later_snapshot = await memory_profiler.take_snapshot()
+                assert later_snapshot is not None
+
+                # Check leak detection is working
+                leak_report = await memory_profiler.detect_leaks()
+                # Leak detection returns report (may or may not find leaks)
+                assert leak_report is not None
+
+                # Verify snapshot history is maintained
+                summary = await memory_profiler.get_summary()
+                assert summary["snapshot_count"] >= 2
+
+            finally:
+                await memory_profiler.stop()
+
+        asyncio.get_event_loop().run_until_complete(test_memory_monitoring())
 
     def test_cache_effectiveness(self):
-        """Test caching reduces database queries"""
-        # TODO: Implement when caching is added
-        pass
+        """Test caching service functionality"""
+        import asyncio
+        from backend.server.services.cache_service import cache_service
+
+        async def test_cache_operations():
+            # Initialize cache service
+            await cache_service.initialize()
+
+            test_namespace = "test_ns"
+            test_key = "test_key"
+            test_value = {"data": "test_value", "count": 42}
+
+            try:
+                # Test set and get
+                await cache_service.set(test_namespace, test_key, test_value, ttl=60)
+                cached_value = await cache_service.get(test_namespace, test_key)
+                assert cached_value == test_value
+
+                # Test cache hit
+                cached_value_again = await cache_service.get(test_namespace, test_key)
+                assert cached_value_again == test_value
+
+                # Test invalidation
+                await cache_service.invalidate(test_namespace, test_key)
+                invalidated_value = await cache_service.get(test_namespace, test_key)
+                assert invalidated_value is None
+
+                # Test key generation
+                generated_key = cache_service.generate_key(
+                    test_namespace, "operation", arg1="val1", arg2=123
+                )
+                assert generated_key is not None
+                assert len(generated_key) > 0
+
+            finally:
+                # Cleanup
+                await cache_service.invalidate(test_namespace, test_key)
+
+        asyncio.get_event_loop().run_until_complete(test_cache_operations())
 
 
 ##############################################################################
