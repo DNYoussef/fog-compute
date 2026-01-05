@@ -572,14 +572,29 @@ async def scale_deployment(
 
                 # Trigger container termination via Docker client
                 if replica.container_id:
-                    try:
-                        await docker_client.stop_container(replica.container_id, timeout=10)
-                        await docker_client.remove_container(replica.container_id)
-                        logger.info(f"Terminated container {replica.container_id} for replica {replica.id}")
-                    except DockerClientError as e:
-                        logger.warning(f"Failed to terminate container {replica.container_id}: {e}")
-                    except Exception as e:
-                        logger.warning(f"Container termination error for {replica.container_id}: {e}")
+                    if replica.container_id.startswith("stub-container-"):
+                        logger.info(
+                            f"Skipping container cleanup for stub container "
+                            f"{replica.container_id} on replica {replica.id}"
+                        )
+                    else:
+                        try:
+                            await docker_client.stop_container(replica.container_id, timeout=10)
+                            logger.info(
+                                f"Stopped container {replica.container_id} for replica {replica.id}"
+                            )
+                            await docker_client.remove_container(replica.container_id)
+                            logger.info(
+                                f"Removed container {replica.container_id} for replica {replica.id}"
+                            )
+                        except DockerClientError as e:
+                            logger.warning(
+                                f"Container cleanup failed for {replica.id} ({replica.container_id}): {e}"
+                            )
+                        except Exception as e:
+                            logger.warning(
+                                f"Container termination error for {replica.container_id}: {e}"
+                            )
 
                 replica.status = ReplicaStatus.STOPPED
                 replica.stopped_at = datetime.now(timezone.utc)
