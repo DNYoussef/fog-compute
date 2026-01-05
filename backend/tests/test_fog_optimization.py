@@ -63,7 +63,7 @@ def mock_nodes():
             region=f"region-{i % 3}",
             cpu_cores=4,
             memory_mb=8192,
-            storage_gb=100,
+            storage_mb=102400,  # 100 GB in MB
             gpu_available=(i % 2 == 0),
             supports_onion_routing=True,
         )
