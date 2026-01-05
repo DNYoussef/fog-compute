@@ -7,9 +7,9 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
 
-from ..main import app
-from ..database import get_db
-from ..models.database import Peer, Message
+from server.main import app
+from server.database import get_db
+from server.models.database import Peer, Message
 
 
 @pytest.fixture

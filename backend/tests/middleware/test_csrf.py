@@ -5,7 +5,7 @@ Demonstrates CSRF protection functionality
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from .csrf import CSRFMiddleware
+from server.middleware.csrf import CSRFMiddleware
 
 
 def test_csrf_middleware_basic():
