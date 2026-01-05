@@ -499,7 +499,8 @@ async def scale_deployment(
                     f"(score: {node_info['score']:.2f})"
                 )
 
-            # Transition new replicas to running (stub)
+            # Transition new replicas to running via docker_client
+            # (falls back to mock mode if Docker daemon unavailable)
             await scheduler._transition_replicas_to_running(db, new_replicas)
 
             # Update deployment target_replicas
@@ -1131,7 +1132,7 @@ async def delete_deployment(
                 replica.status = ReplicaStatus.STOPPING
                 await db.flush()  # Ensure intermediate state is visible
 
-                # Simulate stopping (stub for actual container stop)
+                # Simulate stopping until docker_client stop integration is wired
                 replica.status = ReplicaStatus.STOPPED
                 replica.stopped_at = datetime.now(timezone.utc)
                 replica.updated_at = datetime.now(timezone.utc)
