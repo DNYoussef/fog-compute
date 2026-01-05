@@ -5,6 +5,9 @@ Sets up Python path and common fixtures for backend service tests.
 """
 import os
 import sys
+import asyncio
+import inspect
+import importlib.util
 from pathlib import Path
 
 # Set up test environment variables BEFORE any imports
@@ -23,6 +26,30 @@ sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(backend_root))
 
 import pytest
+
+PYTEST_ASYNCIO_AVAILABLE = importlib.util.find_spec("pytest_asyncio") is not None
+
+if not PYTEST_ASYNCIO_AVAILABLE:
+    @pytest.hookimpl(tryfirst=True)
+    def pytest_pyfunc_call(pyfuncitem):
+        """
+        Minimal asyncio test runner fallback when pytest-asyncio is unavailable.
+        Ensures async test functions execute under an event loop.
+        """
+        if inspect.iscoroutinefunction(pyfuncitem.obj):
+            func_params = inspect.signature(pyfuncitem.obj).parameters
+            func_kwargs = {
+                name: value
+                for name, value in pyfuncitem.funcargs.items()
+                if name in func_params
+            }
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                loop.run_until_complete(pyfuncitem.obj(**func_kwargs))
+            finally:
+                loop.close()
+            return True
 
 
 @pytest.fixture(scope="session")
