@@ -57,11 +57,11 @@ from scheduler.profiler import (
     get_profiler,
 )
 
-# Add backend to path
-backend_path = Path(__file__).parent.parent / "server"
+# Add backend to path (parent of server package)
+backend_path = Path(__file__).parent.parent
 sys.path.insert(0, str(backend_path))
 
-from services.resource_monitor import (
+from server.services.resource_monitor import (
     ResourceMonitor,
     AlertLevel,
     get_resource_monitor,
