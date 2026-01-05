@@ -21,7 +21,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 
 from redis.exceptions import RedisError, LockError
-from prometheus_client import Counter, Histogram, Gauge
+from prometheus_client import Counter, Histogram, Gauge, REGISTRY
 
 from .redis_service import redis_service
 from ..config import settings
@@ -30,41 +30,63 @@ logger = logging.getLogger(__name__)
 
 
 # ============================================================================
-# Prometheus Metrics
+# Prometheus Metrics (with duplicate registration handling for tests)
 # ============================================================================
 
-cache_hits = Counter(
-    'cache_hits_total',
+def _get_or_create_counter(name: str, description: str, labels: list) -> Counter:
+    """Get existing counter or create new one (handles test reruns)."""
+    try:
+        return Counter(name, description, labels)
+    except ValueError:
+        # Already registered, get from registry
+        return REGISTRY._names_to_collectors.get(name + '_total') or REGISTRY._names_to_collectors.get(name)
+
+def _get_or_create_histogram(name: str, description: str, labels: list) -> Histogram:
+    """Get existing histogram or create new one (handles test reruns)."""
+    try:
+        return Histogram(name, description, labels)
+    except ValueError:
+        return REGISTRY._names_to_collectors.get(name)
+
+def _get_or_create_gauge(name: str, description: str, labels: list) -> Gauge:
+    """Get existing gauge or create new one (handles test reruns)."""
+    try:
+        return Gauge(name, description, labels)
+    except ValueError:
+        return REGISTRY._names_to_collectors.get(name)
+
+cache_hits = _get_or_create_counter(
+    'cache_hits',
     'Total number of cache hits',
     ['namespace', 'key']
 )
 
-cache_misses = Counter(
-    'cache_misses_total',
+cache_misses = _get_or_create_counter(
+    'cache_misses',
     'Total number of cache misses',
     ['namespace', 'key']
 )
 
-cache_errors = Counter(
-    'cache_errors_total',
+cache_errors = _get_or_create_counter(
+    'cache_errors',
     'Total number of cache errors',
     ['namespace', 'operation']
 )
 
-cache_latency = Histogram(
+cache_latency = _get_or_create_histogram(
     'cache_operation_latency_seconds',
     'Cache operation latency in seconds',
     ['namespace', 'operation']
 )
 
-cache_size = Gauge(
+cache_size = _get_or_create_gauge(
     'cache_entries_total',
     'Total number of cached entries',
     ['namespace']
 )
 
-cache_invalidations = Counter(
-    'cache_invalidations_total',
+cache_invalidations = _get_or_create_counter(
+    'cache_invalidations',
     'Total number of cache invalidations',
     ['namespace', 'reason']
 )

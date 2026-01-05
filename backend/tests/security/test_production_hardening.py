@@ -11,7 +11,7 @@ import jwt
 import time
 
 from fastapi.testclient import TestClient
-from httpx import AsyncClient
+from httpx import AsyncClient, ASGITransport
 from sqlalchemy import select
 
 # Import application components
@@ -900,13 +900,13 @@ class TestMonitoringAndLogging:
     @pytest.mark.asyncio
     async def test_audit_log_for_sensitive_operations(self):
         """Test sensitive operations are audit logged"""
-        from httpx import AsyncClient
+        from httpx import AsyncClient, ASGITransport
         from backend.server.main import app
         from backend.server.database import get_db_context
         from backend.server.models.audit_log import AuditLog
         from sqlalchemy import select, desc
 
-        async with AsyncClient(app=app, base_url="http://test") as ac:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
             # Perform a sensitive operation (registration)
             response = await ac.post("/api/auth/register", json={
                 "username": "audit_test_user",
@@ -949,7 +949,7 @@ class TestPerformance:
     @pytest.mark.asyncio
     async def test_api_response_time_p95(self):
         """Test API response time p95 < 200ms"""
-        async with AsyncClient(app=app, base_url="http://test") as ac:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
             response_times = []
             sample_size = TEST_MAX_RESULTS
 
