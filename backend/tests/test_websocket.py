@@ -125,7 +125,8 @@ class TestConnectionManager:
         await manager.connect(mock_websocket, connection_id)
         await manager.send_personal_message(message, connection_id)
 
-        mock_websocket.send_json.assert_called_once_with(message)
+        # Check message was sent (connect also sends a welcome message)
+        mock_websocket.send_json.assert_any_call(message)
         assert manager.stats["total_messages"] == 2  # 1 welcome + 1 test
 
     @pytest.mark.asyncio
@@ -275,8 +276,8 @@ class TestDataPublishers:
     @pytest.mark.asyncio
     async def test_node_status_publisher(self, mock_service_manager):
         """Test: Node status publisher collects and publishes data"""
-        with patch('backend.server.websocket.publishers.enhanced_service_manager', mock_service_manager):
-            with patch('backend.server.websocket.publishers.connection_manager') as mock_cm:
+        with patch('server.websocket.publishers.enhanced_service_manager', mock_service_manager):
+            with patch('server.websocket.publishers.connection_manager') as mock_cm:
                 mock_cm.broadcast_to_room = AsyncMock()
 
                 publisher = NodeStatusPublisher()
@@ -289,7 +290,7 @@ class TestDataPublishers:
     @pytest.mark.asyncio
     async def test_task_progress_publisher(self, mock_service_manager):
         """Test: Task progress publisher collects task data"""
-        with patch('backend.server.websocket.publishers.enhanced_service_manager', mock_service_manager):
+        with patch('server.websocket.publishers.enhanced_service_manager', mock_service_manager):
             publisher = TaskProgressPublisher()
             data = await publisher.collect_data()
 
