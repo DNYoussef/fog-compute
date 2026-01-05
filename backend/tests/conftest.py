@@ -6,6 +6,7 @@ Sets up Python path and common fixtures for backend service tests.
 import os
 import sys
 from pathlib import Path
+import types
 
 # Set up test environment variables BEFORE any imports
 # This must happen before the Settings class is instantiated
@@ -21,6 +22,17 @@ backend_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(backend_root))
+
+# Provide a lightweight stub for aiosqlite to avoid optional dependency during unit tests
+if "aiosqlite" not in sys.modules:
+    async def _aiosqlite_connect(*args, **kwargs):
+        raise RuntimeError("aiosqlite stub connection used unexpectedly during tests")
+
+    import sqlite3
+
+    aiosqlite_stub = types.SimpleNamespace(**sqlite3.__dict__)
+    aiosqlite_stub.connect = _aiosqlite_connect
+    sys.modules["aiosqlite"] = aiosqlite_stub
 
 import pytest
 

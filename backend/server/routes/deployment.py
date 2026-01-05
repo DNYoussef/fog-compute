@@ -41,6 +41,7 @@ from ..constants import (
     DEFAULT_OFFSET,
 )
 from ..services.docker_client import get_docker_client, DockerClientError
+from ..services.replica_cleanup import stop_replica_for_deletion
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/deployment", tags=["deployment"])
@@ -1125,16 +1126,11 @@ async def delete_deployment(
         replicas = replicas_result.scalars().all()
 
         replicas_stopped = 0
+        docker_client = await get_docker_client()
+
         for replica in replicas:
             if replica.status in [ReplicaStatus.RUNNING, ReplicaStatus.STARTING]:
-                # Transition: RUNNING -> STOPPING -> STOPPED
-                replica.status = ReplicaStatus.STOPPING
-                await db.flush()  # Ensure intermediate state is visible
-
-                # Simulate stopping (stub for actual container stop)
-                replica.status = ReplicaStatus.STOPPED
-                replica.stopped_at = datetime.now(timezone.utc)
-                replica.updated_at = datetime.now(timezone.utc)
+                await stop_replica_for_deletion(replica, db, docker_client)
 
                 replicas_stopped += 1
                 logger.debug(f"Stopped replica {replica.id} on node {replica.node_id}")
