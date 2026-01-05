@@ -287,7 +287,7 @@ async def test_scheduler_stub_container_on_unexpected_error(monkeypatch):
     )
 
     assert replica.status == ReplicaStatus.RUNNING
-    assert replica.container_id.startswith("stub-container-")
+    assert replica.container_id.startswith("mock-container-")
 
 
 @pytest.mark.asyncio
@@ -333,10 +333,24 @@ async def test_load_balancer_update_respects_environment(monkeypatch, deployment
     )
     assert disabled_result is True
 
-    # Enabled path with mocked configuration
+    # Enabled path with mocked HTTP client
     monkeypatch.setenv("LOAD_BALANCER_ENABLED", "true")
     monkeypatch.setenv("LOAD_BALANCER_TYPE", "nginx")
     monkeypatch.setenv("LOAD_BALANCER_API_URL", "http://lb.example/api")
+
+    # Mock httpx.AsyncClient to avoid real network calls
+    mock_response = AsyncMock()
+    mock_response.status_code = 200
+    mock_response.raise_for_status = AsyncMock()
+
+    mock_client = AsyncMock()
+    mock_client.post = AsyncMock(return_value=mock_response)
+    mock_client.delete = AsyncMock(return_value=mock_response)
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=None)
+
+    import httpx
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kwargs: mock_client)
 
     enabled_result = await deployment_routes._update_load_balancer_routes(
         deployment_id="deploy-123",
