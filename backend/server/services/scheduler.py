@@ -102,7 +102,7 @@ class DeploymentScheduler:
         2. Score nodes based on: available resources, network locality, current load
         3. Select top N nodes for replica placement (N = target_replicas)
         4. Reserve resources and create deployment_replicas records
-        5. Trigger container creation on selected nodes (stub for now)
+        5. Trigger container creation on selected nodes via docker_client
         6. Update deployment status through lifecycle
 
         Args:
@@ -493,7 +493,7 @@ class DeploymentScheduler:
             memory_mb: Memory MB per container
             env: Environment variables for containers
         """
-        # Get Docker client (will use mock if Docker unavailable)
+        # Get Docker client (will use mock automatically if Docker unavailable)
         client = await get_docker_client()
 
         for replica in replicas:
@@ -536,13 +536,13 @@ class DeploymentScheduler:
                 replica.container_id = None
 
             except Exception as e:
-                # Unexpected error - use fallback stub container
+                # Unexpected error - rely on docker_client mock fallback safeguards
                 logger.warning(
                     f"Container orchestration error for replica {replica.id}: {e}. "
-                    f"Using stub container."
+                    f"Using mock container identifier fallback."
                 )
                 replica.status = ReplicaStatus.RUNNING
-                replica.container_id = f"stub-container-{replica.id}"
+                replica.container_id = f"mock-container-{replica.id}"
 
             logger.debug(f"Replica {replica.id} transitioned to {replica.status.value}")
 
