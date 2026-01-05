@@ -9,7 +9,8 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
-from backend.server.constants import ONE_MB
+# Hardcode constant to avoid import dependency on backend module
+ONE_MB = 1024 * 1024  # 1,048,576 bytes
 
 # revision identifiers, used by Alembic.
 revision = '002_advanced_bitchat'

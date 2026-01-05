@@ -1,7 +1,7 @@
 """Add updated_at column to deployment_replicas
 
 Revision ID: 005
-Revises: 004
+Revises: 004_create_deployment
 Create Date: 2025-11-25
 
 """
@@ -11,7 +11,7 @@ from datetime import datetime
 
 
 revision = '005'
-down_revision = '004'
+down_revision = '004_create_deployment'
 branch_labels = None
 depends_on = None
 

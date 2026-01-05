@@ -1,7 +1,7 @@
 """Add MFA fields to users table
 
-Revision ID: 007_add_mfa_fields
-Revises: 006_create_usage_tracking_tables
+Revision ID: 008
+Revises: 007
 Create Date: 2026-01-04
 
 """
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = '007_add_mfa_fields'
-down_revision = '006_create_usage_tracking_tables'
+revision = '008'
+down_revision = '007'
 branch_labels = None
 depends_on = None
 

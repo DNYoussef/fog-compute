@@ -1,7 +1,7 @@
 """Add FOG optimization models (Node and TaskAssignment)
 
 Revision ID: 001_fog_optimization
-Revises: a174671c6fb7
+Revises: 8c1adce3f0c1
 Create Date: 2025-10-22
 
 """
@@ -13,7 +13,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = '001_fog_optimization'
-down_revision: Union[str, None] = 'a174671c6fb7'
+down_revision: Union[str, None] = '8c1adce3f0c1'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
