@@ -8,6 +8,7 @@ from typing import Dict, Any, Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_, func
 import logging
+import httpx
 import asyncio
 from datetime import datetime, timezone
 
@@ -76,11 +77,18 @@ async def _update_load_balancer_routes(
     # Check if load balancer integration is enabled
     lb_enabled = os.environ.get("LOAD_BALANCER_ENABLED", "false").lower() == "true"
     lb_type = os.environ.get("LOAD_BALANCER_TYPE", "nginx")  # nginx, traefik, haproxy
-    lb_api_url = os.environ.get("LOAD_BALANCER_API_URL", "")
+    lb_api_url = os.environ.get("LOAD_BALANCER_API_URL", "").rstrip("/")
 
     if not lb_enabled:
         logger.debug(f"Load balancer integration disabled. Skipping {action} for {deployment_id}")
         return True
+
+    if not lb_api_url:
+        logger.warning(
+            "Load balancer integration enabled for %s but LOAD_BALANCER_API_URL is not set",
+            lb_type,
+        )
+        return False
 
     try:
         if action == "add" and endpoints:
@@ -88,17 +96,45 @@ async def _update_load_balancer_routes(
             logger.info(f"Adding {len(endpoints)} endpoints to {lb_type} for deployment {deployment_id}")
 
             if lb_type == "traefik" and lb_api_url:
-                # Traefik dynamic configuration via file or API
-                # In production: write to dynamic config file or call API
-                pass
+                service_url = f"{lb_api_url}/api/http/services/{deployment_id}"
+                payload = {
+                    "loadBalancer": {
+                        "servers": [
+                            {"url": endpoint if endpoint.startswith("http") else f"http://{endpoint}"}
+                            for endpoint in endpoints
+                        ]
+                    }
+                }
+                logger.debug("Posting Traefik service config to %s: %s", service_url, payload)
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    response = await client.post(service_url, json=payload)
+                    response.raise_for_status()
+                logger.info("Traefik routes updated for deployment %s", deployment_id)
             elif lb_type == "nginx" and lb_api_url:
-                # nginx Plus API for dynamic upstreams
-                # In production: POST to /api/6/http/upstreams/{upstream}/servers
-                pass
+                upstream_url = f"{lb_api_url}/api/6/http/upstreams/fog-{deployment_id}/servers"
+                logger.debug("Adding servers to nginx upstream at %s", upstream_url)
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    for endpoint in endpoints:
+                        payload = {"server": endpoint}
+                        response = await client.post(upstream_url, json=payload)
+                        response.raise_for_status()
+                        logger.debug("Registered endpoint %s with nginx upstream fog-%s", endpoint, deployment_id)
+                logger.info("nginx upstream fog-%s updated with %d endpoints", deployment_id, len(endpoints))
             elif lb_type == "haproxy" and lb_api_url:
-                # HAProxy Runtime API
-                # In production: send commands via stats socket
-                pass
+                runtime_url = f"{lb_api_url}/v2/services/haproxy/runtime/execute"
+                commands = [
+                    f"add server fog-{deployment_id} srv{idx} {endpoint}"
+                    for idx, endpoint in enumerate(endpoints)
+                ]
+                payload = {"commands": commands}
+                logger.debug("Sending HAProxy runtime commands to %s: %s", runtime_url, payload)
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    response = await client.post(runtime_url, json=payload)
+                    response.raise_for_status()
+                logger.info("HAProxy runtime updated for deployment %s", deployment_id)
+            else:
+                logger.warning("Unsupported load balancer type '%s' for add action", lb_type)
+                return False
 
             logger.info(f"Added deployment {deployment_id} to {lb_type} routing")
 
@@ -107,21 +143,52 @@ async def _update_load_balancer_routes(
             logger.info(f"Removing deployment {deployment_id} from {lb_type} routing")
 
             if lb_type == "traefik" and lb_api_url:
-                # Remove from dynamic configuration
-                pass
+                service_url = f"{lb_api_url}/api/http/services/{deployment_id}"
+                logger.debug("Deleting Traefik service at %s", service_url)
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    response = await client.delete(service_url)
+                    if response.status_code == 404:
+                        logger.warning("Traefik service for deployment %s not found", deployment_id)
+                    response.raise_for_status()
+                logger.info("Traefik routes removed for deployment %s", deployment_id)
             elif lb_type == "nginx" and lb_api_url:
-                # DELETE from /api/6/http/upstreams/{upstream}/servers/{id}
-                pass
+                upstream_url = f"{lb_api_url}/api/6/http/upstreams/fog-{deployment_id}/servers"
+                logger.debug("Removing nginx upstream servers at %s", upstream_url)
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    response = await client.delete(upstream_url, params={"all": "true"})
+                    response.raise_for_status()
+                logger.info("nginx upstream fog-%s removed", deployment_id)
             elif lb_type == "haproxy" and lb_api_url:
-                # Disable/remove server from backend
-                pass
+                runtime_url = f"{lb_api_url}/v2/services/haproxy/runtime/execute"
+                commands = [f"set server fog-{deployment_id}/all state maint"]
+                payload = {"commands": commands}
+                logger.debug("Sending HAProxy removal commands to %s: %s", runtime_url, payload)
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    response = await client.post(runtime_url, json=payload)
+                    response.raise_for_status()
+                logger.info("HAProxy runtime cleared for deployment %s", deployment_id)
+            else:
+                logger.warning("Unsupported load balancer type '%s' for remove action", lb_type)
+                return False
 
             logger.info(f"Removed deployment {deployment_id} from {lb_type} routing")
+        else:
+            logger.warning("Unsupported action '%s' or missing endpoints for deployment %s", action, deployment_id)
+            return False
 
         return True
 
+    except httpx.HTTPStatusError as e:
+        status_code = e.response.status_code if e.response else "unknown"
+        logger.error(
+            "Load balancer update failed for %s: status %s - %s", deployment_id, status_code, e
+        )
+        return False
+    except httpx.RequestError as e:
+        logger.error("Load balancer API request error for %s: %s", deployment_id, e)
+        return False
     except Exception as e:
-        logger.error(f"Load balancer update failed for {deployment_id}: {e}")
+        logger.error(f"Load balancer update failed for {deployment_id}: {e}", exc_info=True)
         return False
 
 
