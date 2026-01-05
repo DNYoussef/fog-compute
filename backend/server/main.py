@@ -44,7 +44,8 @@ from .routes import (
     orchestration,
     websocket as websocket_routes,
     deployment,
-    usage
+    usage,
+    mfa
 )
 
 # Import WebSocket handlers
@@ -269,6 +270,7 @@ app.include_router(orchestration.router)  # Service orchestration
 app.include_router(websocket_routes.router)  # WebSocket management
 app.include_router(deployment.router)  # Deployment orchestration
 app.include_router(usage.router)  # Usage tracking and limits
+app.include_router(mfa.router)  # MFA authentication
 
 
 # WebSocket for real-time metrics

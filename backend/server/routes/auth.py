@@ -5,6 +5,7 @@ Implements:
 - JWT access tokens with blacklist support
 - Refresh token rotation
 - Account lockout after failed attempts
+- MFA (Multi-Factor Authentication) for admin accounts
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -16,14 +17,19 @@ import logging
 
 from ..database import get_db
 from ..models.database import User
-from ..schemas.auth import UserCreate, UserLogin, UserResponse, Token
+from ..schemas.auth import UserCreate, UserLogin, UserResponse, Token, MFAVerifyRequest
 from ..auth import create_access_token, get_password_hash, verify_password, get_current_active_user, verify_token
 from ..config import settings
 from ..services.token_service import get_token_service
+from ..services.mfa_service import get_mfa_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
 security = HTTPBearer(auto_error=False)
+
+# MFA temp token prefix for Redis
+MFA_TEMP_TOKEN_PREFIX = "mfa_pending:"
+MFA_TEMP_TOKEN_EXPIRE_SECONDS = 300  # 5 minutes
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
@@ -146,6 +152,38 @@ async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db)):
     # Record successful login (clears failed attempts)
     await token_service.record_login_attempt(str(user.id), success=True)
 
+    # Check if MFA is required for this user (admin with MFA enabled)
+    if user.is_admin and user.mfa_enabled and user.mfa_verified:
+        # Generate a temporary token for MFA verification
+        import secrets
+        temp_token = secrets.token_urlsafe(32)
+
+        # Store temp token in Redis with user_id (5 min expiry)
+        if token_service.is_connected:
+            key = f"{MFA_TEMP_TOKEN_PREFIX}{temp_token}"
+            await token_service._redis.setex(
+                key,
+                MFA_TEMP_TOKEN_EXPIRE_SECONDS,
+                str(user.id)
+            )
+        else:
+            # In-memory fallback (for dev/testing)
+            if not hasattr(token_service, '_mfa_pending'):
+                token_service._mfa_pending = {}
+            token_service._mfa_pending[temp_token] = {
+                'user_id': str(user.id),
+                'expires': datetime.now(timezone.utc) + timedelta(seconds=MFA_TEMP_TOKEN_EXPIRE_SECONDS)
+            }
+
+        logger.info(f"MFA required for admin user: {user.username}")
+
+        return {
+            "mfa_required": True,
+            "temp_token": temp_token,
+            "message": "MFA verification required. Use /api/auth/login/mfa to complete login.",
+            "expires_in": MFA_TEMP_TOKEN_EXPIRE_SECONDS
+        }
+
     # Update last login
     user.last_login = datetime.now(timezone.utc)
     await db.commit()
@@ -166,6 +204,129 @@ async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db)):
         "token_type": "bearer",
         "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
     }
+
+
+@router.post("/login/mfa")
+async def complete_mfa_login(
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Complete MFA login with TOTP code.
+
+    **Request Body:**
+    - temp_token: Temporary token from initial login
+    - mfa_code: 6-digit TOTP code or backup code
+
+    **Returns:**
+    - JWT access token
+    - Refresh token
+    - Token type
+    - Expiration time
+    """
+    try:
+        body = await request.json()
+        temp_token = body.get("temp_token")
+        mfa_code = body.get("mfa_code")
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid request body"
+        )
+
+    if not temp_token or not mfa_code:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="temp_token and mfa_code are required"
+        )
+
+    token_service = await get_token_service()
+
+    # Retrieve user_id from temp token
+    user_id = None
+    if token_service.is_connected:
+        key = f"{MFA_TEMP_TOKEN_PREFIX}{temp_token}"
+        user_id = await token_service._redis.get(key)
+        if user_id:
+            await token_service._redis.delete(key)  # One-time use
+    else:
+        # In-memory fallback
+        if hasattr(token_service, '_mfa_pending') and temp_token in token_service._mfa_pending:
+            pending = token_service._mfa_pending[temp_token]
+            if pending['expires'] > datetime.now(timezone.utc):
+                user_id = pending['user_id']
+            del token_service._mfa_pending[temp_token]
+
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired MFA token. Please login again."
+        )
+
+    # Get user from database
+    from uuid import UUID
+    result = await db.execute(select(User).where(User.id == UUID(user_id)))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found"
+        )
+
+    # Verify MFA code
+    mfa_service = get_mfa_service()
+    code = mfa_code.strip()
+    mfa_valid = False
+    backup_used = False
+
+    # Try TOTP first
+    if mfa_service.verify_totp(user.mfa_secret, code):
+        mfa_valid = True
+    elif user.mfa_backup_codes:
+        # Try backup code
+        import hashlib
+        def hash_code(c): return hashlib.sha256(c.encode()).hexdigest()
+        is_valid, used_index = mfa_service.verify_backup_code(code, user.mfa_backup_codes, hash_code)
+        if is_valid and used_index is not None:
+            mfa_valid = True
+            backup_used = True
+            user.mfa_backup_codes[used_index] = None
+            remaining = sum(1 for c in user.mfa_backup_codes if c)
+            logger.warning(f"Backup code used during login for {user.username}. {remaining} remaining.")
+
+    if not mfa_valid:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid MFA code"
+        )
+
+    # Update last login
+    user.last_login = datetime.now(timezone.utc)
+    await db.commit()
+
+    # Create access token
+    access_token = create_access_token(
+        data={"sub": str(user.id), "username": user.username}
+    )
+
+    # Create refresh token
+    refresh_token, _ = await token_service.create_refresh_token(str(user.id))
+
+    logger.info(f"MFA login completed for admin user: {user.username}")
+
+    response = {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    }
+
+    if backup_used:
+        remaining = sum(1 for c in user.mfa_backup_codes if c) if user.mfa_backup_codes else 0
+        response["warning"] = f"Backup code used. {remaining} backup codes remaining."
+
+    return response
 
 
 @router.get("/me", response_model=UserResponse)

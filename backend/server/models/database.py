@@ -258,6 +258,13 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     last_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    # MFA (Multi-Factor Authentication) fields
+    mfa_secret: Mapped[str | None] = mapped_column(String(255), nullable=True)  # Encrypted TOTP secret
+    mfa_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    mfa_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)  # Setup completed
+    mfa_backup_codes: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)  # Hashed backup codes
+    mfa_enabled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     def to_dict(self) -> dict[str, Any]:
         return {
             'id': str(self.id),
@@ -267,6 +274,7 @@ class User(Base):
             'is_admin': self.is_admin,
             'tier': self.tier,
             'created_at': self.created_at.isoformat() if self.created_at else None,
+            'mfa_enabled': self.mfa_enabled,
         }
 
 

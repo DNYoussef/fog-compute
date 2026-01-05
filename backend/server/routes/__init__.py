@@ -16,7 +16,8 @@ from . import (
     orchestration,
     websocket,
     deployment,
-    usage
+    usage,
+    mfa
 )
 
 __all__ = [
@@ -34,5 +35,6 @@ __all__ = [
     'orchestration',
     'websocket',
     'deployment',
-    'usage'
+    'usage',
+    'mfa'
 ]

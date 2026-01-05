@@ -74,3 +74,53 @@ class TokenData(BaseModel):
     """Schema for decoded token payload"""
     username: Optional[str] = None
     user_id: Optional[str] = None
+
+
+# MFA Schemas
+
+class MFASetupResponse(BaseModel):
+    """Response for MFA setup initiation"""
+    secret: str  # Only shown once during setup
+    provisioning_uri: str  # For QR code generation
+    backup_codes: list[str]  # One-time use recovery codes
+    message: str = "Scan QR code with authenticator app, then verify with a code"
+
+
+class MFAVerifyRequest(BaseModel):
+    """Request to verify MFA code"""
+    code: str = Field(..., min_length=6, max_length=10)  # 6-digit TOTP or 8-char backup
+
+
+class MFAVerifyResponse(BaseModel):
+    """Response after MFA verification"""
+    verified: bool
+    message: str
+    backup_codes_remaining: Optional[int] = None
+
+
+class MFAStatusResponse(BaseModel):
+    """MFA status for current user"""
+    mfa_enabled: bool
+    mfa_verified: bool
+    backup_codes_remaining: int
+    enabled_at: Optional[datetime] = None
+
+
+class MFADisableRequest(BaseModel):
+    """Request to disable MFA"""
+    password: str = Field(..., min_length=1)
+    code: str = Field(..., min_length=6, max_length=10)  # Requires current TOTP
+
+
+class LoginWithMFARequest(BaseModel):
+    """Login request that may include MFA code"""
+    username: str = Field(..., min_length=1)
+    password: str = Field(..., min_length=1)
+    mfa_code: Optional[str] = Field(None, min_length=6, max_length=10)
+
+
+class MFARequiredResponse(BaseModel):
+    """Response when MFA is required to complete login"""
+    mfa_required: bool = True
+    message: str = "MFA verification required"
+    temp_token: str  # Short-lived token to complete MFA
