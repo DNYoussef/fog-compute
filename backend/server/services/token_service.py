@@ -16,11 +16,13 @@ logger = logging.getLogger(__name__)
 # Token configuration constants
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 REFRESH_TOKEN_EXPIRE_DAYS = 7
+PASSWORD_RESET_EXPIRE_MINUTES = 60
 MAX_LOGIN_ATTEMPTS = 5
 LOCKOUT_DURATION_MINUTES = 30
 TOKEN_BLACKLIST_PREFIX = "token_blacklist:"
 REFRESH_TOKEN_PREFIX = "refresh_token:"
 LOGIN_ATTEMPTS_PREFIX = "login_attempts:"
+PASSWORD_RESET_PREFIX = "password_reset:"
 
 
 @dataclass
@@ -43,6 +45,17 @@ class LoginAttemptData:
     locked_until: Optional[datetime] = None
 
 
+@dataclass
+class PasswordResetTokenData:
+    """Password reset token metadata"""
+    token: str
+    user_id: str
+    email: str
+    created_at: datetime
+    expires_at: datetime
+    used: bool = False
+
+
 class TokenService:
     """
     Service for managing JWT token lifecycle:
@@ -58,6 +71,7 @@ class TokenService:
         self._blacklist: Dict[str, datetime] = {}
         self._refresh_tokens: Dict[str, RefreshTokenData] = {}
         self._login_attempts: Dict[str, LoginAttemptData] = {}
+        self._password_reset_tokens: Dict[str, PasswordResetTokenData] = {}
 
     async def connect(self) -> bool:
         """Connect to Redis for distributed token storage"""
@@ -477,6 +491,193 @@ class TokenService:
         except Exception as e:
             logger.error(f"Failed to clear login attempts: {e}")
             return False
+
+    # =========================================================================
+    # Password Reset Token Operations
+    # =========================================================================
+
+    async def create_password_reset_token(
+        self,
+        user_id: str,
+        email: str
+    ) -> PasswordResetTokenData:
+        """
+        Create a password reset token.
+
+        Args:
+            user_id: User ID requesting reset
+            email: User's email address
+
+        Returns:
+            PasswordResetTokenData with token details
+        """
+        token = secrets.token_urlsafe(32)
+        now = datetime.now(timezone.utc)
+        expires_at = now + timedelta(minutes=PASSWORD_RESET_EXPIRE_MINUTES)
+
+        token_data = PasswordResetTokenData(
+            token=token,
+            user_id=user_id,
+            email=email,
+            created_at=now,
+            expires_at=expires_at
+        )
+
+        try:
+            if self.is_connected:
+                key = f"{PASSWORD_RESET_PREFIX}{token}"
+                ttl_seconds = int((expires_at - now).total_seconds())
+                await self._redis.setex(
+                    key,
+                    ttl_seconds,
+                    f"{user_id}:{email}:{expires_at.isoformat()}"
+                )
+                logger.info(f"Created password reset token for user {user_id}")
+            else:
+                # In-memory fallback
+                self._password_reset_tokens[token] = token_data
+                logger.info(f"Created password reset token for user {user_id} (in-memory)")
+
+            return token_data
+
+        except Exception as e:
+            logger.error(f"Failed to create password reset token: {e}")
+            raise
+
+    async def validate_password_reset_token(
+        self,
+        token: str
+    ) -> Optional[PasswordResetTokenData]:
+        """
+        Validate a password reset token.
+
+        Args:
+            token: Reset token to validate
+
+        Returns:
+            PasswordResetTokenData if valid, None otherwise
+        """
+        try:
+            if self.is_connected:
+                key = f"{PASSWORD_RESET_PREFIX}{token}"
+                data = await self._redis.get(key)
+                if not data:
+                    return None
+
+                parts = data.split(":", 2)
+                if len(parts) != 3:
+                    return None
+
+                user_id, email, expires_str = parts
+                expires_at = datetime.fromisoformat(expires_str)
+
+                if expires_at < datetime.now(timezone.utc):
+                    await self._redis.delete(key)
+                    return None
+
+                return PasswordResetTokenData(
+                    token=token,
+                    user_id=user_id,
+                    email=email,
+                    created_at=datetime.now(timezone.utc),  # Not stored
+                    expires_at=expires_at
+                )
+            else:
+                # In-memory fallback
+                token_data = self._password_reset_tokens.get(token)
+                if not token_data:
+                    return None
+
+                if token_data.expires_at < datetime.now(timezone.utc):
+                    del self._password_reset_tokens[token]
+                    return None
+
+                if token_data.used:
+                    return None
+
+                return token_data
+
+        except Exception as e:
+            logger.error(f"Failed to validate password reset token: {e}")
+            return None
+
+    async def consume_password_reset_token(self, token: str) -> bool:
+        """
+        Mark a password reset token as used (single-use).
+
+        Args:
+            token: Token to consume
+
+        Returns:
+            True if token was valid and consumed
+        """
+        try:
+            if self.is_connected:
+                key = f"{PASSWORD_RESET_PREFIX}{token}"
+                result = await self._redis.delete(key)
+                if result > 0:
+                    logger.info(f"Consumed password reset token")
+                    return True
+                return False
+            else:
+                # In-memory fallback
+                token_data = self._password_reset_tokens.get(token)
+                if token_data and not token_data.used:
+                    token_data.used = True
+                    logger.info(f"Consumed password reset token (in-memory)")
+                    return True
+                return False
+
+        except Exception as e:
+            logger.error(f"Failed to consume password reset token: {e}")
+            return False
+
+    async def invalidate_user_reset_tokens(self, user_id: str) -> int:
+        """
+        Invalidate all pending password reset tokens for a user.
+        Called when user successfully resets password.
+
+        Args:
+            user_id: User ID to invalidate tokens for
+
+        Returns:
+            Number of tokens invalidated
+        """
+        invalidated_count = 0
+        try:
+            if self.is_connected:
+                cursor = 0
+                while True:
+                    cursor, keys = await self._redis.scan(
+                        cursor,
+                        match=f"{PASSWORD_RESET_PREFIX}*",
+                        count=100
+                    )
+                    for key in keys:
+                        data = await self._redis.get(key)
+                        if data and data.startswith(f"{user_id}:"):
+                            await self._redis.delete(key)
+                            invalidated_count += 1
+
+                    if cursor == 0:
+                        break
+            else:
+                # In-memory fallback
+                tokens_to_invalidate = [
+                    token for token, data in self._password_reset_tokens.items()
+                    if data.user_id == user_id and not data.used
+                ]
+                for token in tokens_to_invalidate:
+                    self._password_reset_tokens[token].used = True
+                    invalidated_count += 1
+
+            if invalidated_count > 0:
+                logger.info(f"Invalidated {invalidated_count} reset tokens for user {user_id}")
+            return invalidated_count
+
+        except Exception as e:
+            logger.error(f"Failed to invalidate reset tokens: {e}")
+            return invalidated_count
 
 
 # Global singleton instance

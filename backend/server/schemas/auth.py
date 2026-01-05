@@ -124,3 +124,33 @@ class MFARequiredResponse(BaseModel):
     mfa_required: bool = True
     message: str = "MFA verification required"
     temp_token: str  # Short-lived token to complete MFA
+
+
+# Password Reset Schemas
+
+class PasswordResetRequest(BaseModel):
+    """Request to initiate password reset"""
+    email: EmailStr
+
+
+class PasswordResetConfirm(BaseModel):
+    """Request to confirm password reset with token"""
+    token: str = Field(..., min_length=10)
+    new_password: str = Field(..., min_length=8, max_length=100)
+
+    @field_validator('new_password')
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        """Ensure password has minimum complexity"""
+        if not any(c.isupper() for c in v):
+            raise ValueError('Password must contain at least one uppercase letter')
+        if not any(c.islower() for c in v):
+            raise ValueError('Password must contain at least one lowercase letter')
+        if not any(c.isdigit() for c in v):
+            raise ValueError('Password must contain at least one digit')
+        return v
+
+
+class PasswordResetResponse(BaseModel):
+    """Response for password reset operations"""
+    message: str

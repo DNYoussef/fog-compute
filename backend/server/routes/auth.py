@@ -17,11 +17,15 @@ import logging
 
 from ..database import get_db
 from ..models.database import User
-from ..schemas.auth import UserCreate, UserLogin, UserResponse, Token, MFAVerifyRequest
+from ..schemas.auth import (
+    UserCreate, UserLogin, UserResponse, Token, MFAVerifyRequest,
+    PasswordResetRequest, PasswordResetConfirm, PasswordResetResponse
+)
 from ..auth import create_access_token, get_password_hash, verify_password, get_current_active_user, verify_token
 from ..config import settings
 from ..services.token_service import get_token_service
 from ..services.mfa_service import get_mfa_service
+from ..services.email_service import get_email_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
@@ -486,3 +490,184 @@ async def refresh_token(
         "token_type": "bearer",
         "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
     }
+
+
+# Rate limiting for password reset requests (in-memory, simple)
+_reset_request_counts: dict = {}
+_RESET_RATE_LIMIT = 3  # Max requests per email per hour
+_RESET_RATE_WINDOW = 3600  # 1 hour in seconds
+
+
+@router.post("/password-reset/request", response_model=PasswordResetResponse)
+async def request_password_reset(
+    request_data: PasswordResetRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Request a password reset email.
+
+    **Request Body:**
+    - email: Email address associated with the account
+
+    **Returns:**
+    - Success message (always returns success to prevent email enumeration)
+
+    **Security Features:**
+    - Rate limited: 3 requests per email per hour
+    - Generic response prevents email enumeration attacks
+    - Token expires in 60 minutes
+    - Token is single-use
+    """
+    email = request_data.email.lower()
+
+    # Rate limiting check
+    import time
+    current_time = time.time()
+    if email in _reset_request_counts:
+        requests = _reset_request_counts[email]
+        # Clean old requests
+        requests = [t for t in requests if current_time - t < _RESET_RATE_WINDOW]
+        _reset_request_counts[email] = requests
+
+        if len(requests) >= _RESET_RATE_LIMIT:
+            logger.warning(f"Rate limit exceeded for password reset: {email}")
+            # Still return success to prevent enumeration
+            return PasswordResetResponse(
+                message="If an account exists with that email, a password reset link has been sent."
+            )
+    else:
+        _reset_request_counts[email] = []
+
+    # Record this request
+    _reset_request_counts[email].append(current_time)
+
+    # Look up user by email
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        # Don't reveal that the email doesn't exist
+        logger.info(f"Password reset requested for non-existent email: {email}")
+        return PasswordResetResponse(
+            message="If an account exists with that email, a password reset link has been sent."
+        )
+
+    if not user.is_active:
+        # Don't reveal that the account is disabled
+        logger.info(f"Password reset requested for disabled account: {email}")
+        return PasswordResetResponse(
+            message="If an account exists with that email, a password reset link has been sent."
+        )
+
+    # Create password reset token
+    token_service = await get_token_service()
+    token_data = await token_service.create_password_reset_token(
+        user_id=str(user.id),
+        email=email
+    )
+
+    # Send password reset email
+    email_service = get_email_service()
+    email_sent = await email_service.send_password_reset_email(
+        to_email=email,
+        reset_token=token_data.token,
+        username=user.username
+    )
+
+    if not email_sent:
+        logger.error(f"Failed to send password reset email to: {email}")
+        # Still return success to prevent enumeration
+        return PasswordResetResponse(
+            message="If an account exists with that email, a password reset link has been sent."
+        )
+
+    logger.info(f"Password reset email sent to: {email}")
+
+    return PasswordResetResponse(
+        message="If an account exists with that email, a password reset link has been sent."
+    )
+
+
+@router.post("/password-reset/confirm", response_model=PasswordResetResponse)
+async def confirm_password_reset(
+    request_data: PasswordResetConfirm,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Reset password using a valid reset token.
+
+    **Request Body:**
+    - token: Password reset token from email
+    - new_password: New password (8+ chars, uppercase, lowercase, digit)
+
+    **Returns:**
+    - Success message on password reset
+
+    **Security Features:**
+    - Token is validated and consumed (single-use)
+    - All user's other reset tokens are invalidated
+    - All existing refresh tokens are revoked (logout everywhere)
+    - Password complexity is validated
+    """
+    token_service = await get_token_service()
+
+    # Validate reset token
+    token_data = await token_service.validate_password_reset_token(request_data.token)
+
+    if not token_data:
+        logger.warning(f"Invalid or expired password reset token used")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired reset token"
+        )
+
+    # Get user from database
+    from uuid import UUID
+    try:
+        user_uuid = UUID(token_data.user_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid reset token"
+        )
+
+    result = await db.execute(select(User).where(User.id == user_uuid))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        logger.warning(f"Password reset attempted for non-existent user: {token_data.user_id}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid reset token"
+        )
+
+    if not user.is_active:
+        logger.warning(f"Password reset attempted for disabled account: {user.username}")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is disabled"
+        )
+
+    # Consume the reset token (mark as used)
+    consumed = await token_service.consume_password_reset_token(request_data.token)
+    if not consumed:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Reset token has already been used"
+        )
+
+    # Invalidate all other pending reset tokens for this user
+    await token_service.invalidate_user_reset_tokens(str(user.id))
+
+    # Update the user's password
+    user.hashed_password = get_password_hash(request_data.new_password)
+    await db.commit()
+
+    # Revoke all refresh tokens for this user (security: logout everywhere)
+    await token_service.revoke_all_user_tokens(str(user.id))
+
+    logger.info(f"Password reset completed for user: {user.username}")
+
+    return PasswordResetResponse(
+        message="Password has been reset successfully. Please log in with your new password."
+    )
