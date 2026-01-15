@@ -13,7 +13,27 @@ from .quality_validator import (
     Severity,
 )
 
+from .spec_validation import (
+    SpecValidator,
+    SpecValidationResult,
+    ValidationSchema,
+    BaseValidator,
+    PrereqsValidator,
+    JSONFileValidator,
+    ContextValidator,
+    MarkdownDocumentValidator,
+    SpecDocumentValidator,
+    ImplementationPlanValidator,
+    validate_spec_directory,
+    create_validator_from_config,
+    DEFAULT_CONTEXT_SCHEMA,
+    DEFAULT_IMPLEMENTATION_PLAN_SCHEMA,
+    DEFAULT_SPEC_REQUIRED_SECTIONS,
+    DEFAULT_SPEC_RECOMMENDED_SECTIONS,
+)
+
 __all__ = [
+    # Quality Validator exports
     "QualityValidator",
     "QualityClaim",
     "QualityValidationResult",
@@ -23,4 +43,21 @@ __all__ = [
     "EvidenceQuality",
     "RiskLevel",
     "Severity",
+    # Spec Validator exports
+    "SpecValidator",
+    "SpecValidationResult",
+    "ValidationSchema",
+    "BaseValidator",
+    "PrereqsValidator",
+    "JSONFileValidator",
+    "ContextValidator",
+    "MarkdownDocumentValidator",
+    "SpecDocumentValidator",
+    "ImplementationPlanValidator",
+    "validate_spec_directory",
+    "create_validator_from_config",
+    "DEFAULT_CONTEXT_SCHEMA",
+    "DEFAULT_IMPLEMENTATION_PLAN_SCHEMA",
+    "DEFAULT_SPEC_REQUIRED_SECTIONS",
+    "DEFAULT_SPEC_RECOMMENDED_SECTIONS",
 ]
