@@ -8,7 +8,7 @@ const config = {
 
   // Module paths - DISABLED: tests require unimplemented modules
   // roots: ['<rootDir>/tests/typescript'],
-  roots: ['<rootDir>/src'],
+  roots: ['<rootDir>/src', '<rootDir>/tools/testing'],
 
   // Transform files
   transform: {
@@ -27,6 +27,8 @@ const config = {
     '^@components/(.*)$': '<rootDir>/apps/control-panel/components/$1',
     '^@hooks/(.*)$': '<rootDir>/apps/control-panel/hooks/$1',
     '^@bitchat/(.*)$': '<rootDir>/apps/bitchat/$1',
+    '^jest-setup/(.*)$': '<rootDir>/tools/testing/jest-setup/$1',
+    '^jest-setup$': '<rootDir>/tools/testing/jest-setup/index',
     '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
   },
 
