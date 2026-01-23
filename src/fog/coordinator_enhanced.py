@@ -445,6 +445,43 @@ class EnhancedFogCoordinator(IFogCoordinator):
                         }
                 return {"success": False, "error": "Node not found"}
 
+            elif request_type == "task_completed":
+                # FOG-004: Handle task completion to fix connection accounting leak
+                node_id = request_data.get("node_id")
+                task_id = request_data.get("task_id")
+                success = request_data.get("success", True)
+
+                if node_id:
+                    async with self._node_lock:
+                        if node_id in self._nodes:
+                            node = self._nodes[node_id]
+
+                            # Decrement active tasks
+                            if node.active_tasks > 0:
+                                node.active_tasks -= 1
+
+                            # Update node status if no more tasks
+                            if node.active_tasks == 0 and node.status == NodeStatus.BUSY:
+                                node.status = NodeStatus.ACTIVE
+
+                            # Record completion in load balancer
+                            if self.load_balancer:
+                                self.load_balancer.record_request_end(node_id, success=success)
+
+                            # Remove task assignment tracking
+                            if task_id and task_id in self._task_assignments:
+                                del self._task_assignments[task_id]
+
+                            # Update cache
+                            if self.cache:
+                                await self.cache.set(f"node:{node_id}", node.to_dict())
+
+                            self.metrics["tasks_completed"] = self.metrics.get("tasks_completed", 0) + 1
+                            logger.info(f"Task {task_id} completed on node {node_id} (success={success})")
+                            return {"success": True}
+
+                return {"success": False, "error": "Node not found"}
+
             elif request_type == "update_metrics":
                 node_id = request_data.get("node_id")
                 if node_id:
