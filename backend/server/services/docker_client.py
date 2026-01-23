@@ -114,11 +114,17 @@ class DockerClient:
 
         try:
             # Build Docker API config
+            # FOG-006: Added security hardening options to HostConfig
             container_config = {
                 "Image": config.image,
                 "HostConfig": {
                     "NanoCpus": int(config.cpu_limit * 1e9),  # Convert cores to nanocores
                     "Memory": config.memory_limit * 1024 * 1024,  # Convert MB to bytes
+                    # Security hardening
+                    "SecurityOpt": ["no-new-privileges"],  # Prevent privilege escalation
+                    "ReadonlyRootfs": True,  # Read-only root filesystem
+                    "CapDrop": ["ALL"],  # Drop all Linux capabilities
+                    "PidsLimit": 100,  # Limit processes to prevent fork bombs
                 },
             }
 
