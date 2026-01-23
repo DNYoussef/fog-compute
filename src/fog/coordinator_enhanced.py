@@ -239,7 +239,8 @@ class EnhancedFogCoordinator(IFogCoordinator):
             logger.info(f"Unregistered node: {node_id} (type={node.node_type.value})")
 
             # Handle any active tasks on this node
-            await self.handle_node_failure(node_id)
+            # FOG-002: Call unlocked version since we already hold _node_lock
+            await self._handle_node_failure_unlocked(node_id)
             return True
 
     async def update_node_status(self, node_id: str, status: NodeStatus) -> bool:
@@ -394,14 +395,14 @@ class EnhancedFogCoordinator(IFogCoordinator):
 
     def _node_from_dict(self, data: dict) -> FogNode:
         """Reconstruct FogNode from cached dictionary"""
-        # This is a simplified version - adjust based on actual FogNode structure
+        # FOG-003: Use storage_mb (not storage_gb) to match FogNode dataclass
         node = FogNode(
             node_id=data["node_id"],
             node_type=NodeType(data["node_type"]),
             region=data.get("region"),
             cpu_cores=data.get("cpu_cores", 1),
             memory_mb=data.get("memory_mb", 1024),
-            storage_gb=data.get("storage_gb", 10),
+            storage_mb=data.get("storage_mb", 1024),
             gpu_available=data.get("gpu_available", False),
             supports_onion_routing=data.get("supports_onion_routing", False),
         )
@@ -520,35 +521,45 @@ class EnhancedFogCoordinator(IFogCoordinator):
 
             return topology
 
-    async def handle_node_failure(self, node_id: str) -> bool:
-        """Handle node failure with circuit breaker integration"""
+    async def _handle_node_failure_unlocked(self, node_id: str) -> bool:
+        """
+        Handle node failure without acquiring _node_lock.
+        FOG-002: Internal method for when lock is already held.
+
+        MUST only be called while holding _node_lock.
+        """
         try:
-            async with self._node_lock:
-                if node_id not in self._nodes:
-                    return False
+            if node_id not in self._nodes:
+                return False
 
-                node = self._nodes[node_id]
-                node.status = NodeStatus.OFFLINE
-                node.failed_tasks += node.active_tasks
+            node = self._nodes[node_id]
+            node.status = NodeStatus.OFFLINE
+            node.failed_tasks += node.active_tasks
 
-                # Record failure in load balancer
-                if self.load_balancer:
-                    self.load_balancer.record_request_end(node_id, success=False)
+            # Record failure in load balancer
+            if self.load_balancer:
+                self.load_balancer.record_request_end(node_id, success=False)
 
-                # Update cache
-                if self.cache:
-                    await self.cache.set(f"node:{node_id}", node.to_dict())
+            # Update cache
+            if self.cache:
+                await self.cache.set(f"node:{node_id}", node.to_dict())
 
-                logger.warning(
-                    f"Node {node_id} failed with {node.active_tasks} active tasks"
-                )
+            logger.warning(
+                f"Node {node_id} failed with {node.active_tasks} active tasks"
+            )
 
-                node.active_tasks = 0
-                return True
+            node.active_tasks = 0
+            return True
 
         except Exception as e:
             logger.error(f"Error handling node failure: {e}")
             return False
+
+    async def handle_node_failure(self, node_id: str) -> bool:
+        """Handle node failure with circuit breaker integration"""
+        # FOG-002: Acquire lock and delegate to unlocked version
+        async with self._node_lock:
+            return await self._handle_node_failure_unlocked(node_id)
 
     async def health_check(self) -> dict[str, Any]:
         """Perform coordinator health check with metrics"""
@@ -588,6 +599,9 @@ class EnhancedFogCoordinator(IFogCoordinator):
         """Background task to monitor node heartbeats"""
         while self._running:
             try:
+                # FOG-001: Collect failed node IDs while holding lock, then
+                # release before calling handle_node_failure to avoid deadlock
+                failed_node_ids = []
                 async with self._node_lock:
                     now = datetime.now(UTC)
                     timeout = timedelta(seconds=self.heartbeat_timeout)
@@ -602,7 +616,11 @@ class EnhancedFogCoordinator(IFogCoordinator):
                                 f"Node {node_id} heartbeat timeout "
                                 f"({time_since_heartbeat.total_seconds()}s)"
                             )
-                            await self.handle_node_failure(node_id)
+                            failed_node_ids.append(node_id)
+
+                # Handle failures outside lock to prevent deadlock
+                for node_id in failed_node_ids:
+                    await self.handle_node_failure(node_id)
 
                 await asyncio.sleep(self.heartbeat_interval)
 
