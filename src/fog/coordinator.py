@@ -96,17 +96,22 @@ class FogCoordinator(IFogCoordinator):
 
     async def unregister_node(self, node_id: str) -> bool:
         """Unregister a fog node."""
+        # FOG-001: Extract node info while holding lock, then release before calling
+        # handle_node_failure to avoid deadlock (it also acquires _node_lock)
+        node_type_value = None
         async with self._node_lock:
             if node_id not in self._nodes:
                 logger.warning(f"Node {node_id} not found for unregistration")
                 return False
 
             node = self._nodes.pop(node_id)
-            logger.info(f"Unregistered node: {node_id} (type={node.node_type.value})")
+            node_type_value = node.node_type.value
 
-            # Handle any active tasks on this node
-            await self.handle_node_failure(node_id)
-            return True
+        logger.info(f"Unregistered node: {node_id} (type={node_type_value})")
+
+        # Handle any active tasks on this node (outside lock to prevent deadlock)
+        await self.handle_node_failure(node_id)
+        return True
 
     async def update_node_status(self, node_id: str, status: NodeStatus) -> bool:
         """Update node status."""
@@ -379,15 +384,52 @@ class FogCoordinator(IFogCoordinator):
 
                 node = self._nodes[node_id]
                 node.status = NodeStatus.OFFLINE
-                node.failed_tasks += node.active_tasks
+                tasks_to_redistribute = node.active_tasks
 
                 logger.warning(
-                    f"Node {node_id} failed with {node.active_tasks} active tasks"
+                    f"Node {node_id} failed with {tasks_to_redistribute} active tasks"
                 )
 
-                # In a real system, would redistribute tasks
-                # For now, just mark them as failed
+                # FOG-005: Implement actual task redistribution
+                # Find tasks assigned to the failed node
+                affected_tasks = [
+                    task_id for task_id, assigned_node in self._task_assignments.items()
+                    if assigned_node == node_id
+                ]
+
+                # Get eligible nodes for redistribution (excluding the failed one)
+                eligible_nodes = [
+                    n for n in self._nodes.values()
+                    if n.status == NodeStatus.ACTIVE and n.node_id != node_id
+                ]
+
+                redistributed_count = 0
+                failed_count = 0
+
+                for task_id in affected_tasks:
+                    if eligible_nodes:
+                        # Simple round-robin redistribution
+                        target_node = min(eligible_nodes, key=lambda n: n.active_tasks)
+                        target_node.active_tasks += 1
+                        self._task_assignments[task_id] = target_node.node_id
+                        redistributed_count += 1
+                        logger.info(f"Redistributed task {task_id} to node {target_node.node_id}")
+
+                        # Mark node as busy if needed
+                        if target_node.status == NodeStatus.ACTIVE:
+                            target_node.status = NodeStatus.BUSY
+                    else:
+                        # No eligible nodes - mark task as failed
+                        del self._task_assignments[task_id]
+                        failed_count += 1
+
+                node.failed_tasks += failed_count
                 node.active_tasks = 0
+
+                logger.info(
+                    f"Task redistribution complete: {redistributed_count} redistributed, "
+                    f"{failed_count} failed (no eligible nodes)"
+                )
 
                 return True
 
@@ -417,6 +459,9 @@ class FogCoordinator(IFogCoordinator):
         """Background task to monitor node heartbeats."""
         while self._running:
             try:
+                # FOG-001: Collect failed node IDs while holding lock, then
+                # release before calling handle_node_failure to avoid deadlock
+                failed_node_ids = []
                 async with self._node_lock:
                     now = datetime.now(UTC)
                     timeout = timedelta(seconds=self.heartbeat_timeout)
@@ -431,7 +476,11 @@ class FogCoordinator(IFogCoordinator):
                                 f"Node {node_id} heartbeat timeout "
                                 f"({time_since_heartbeat.total_seconds()}s)"
                             )
-                            await self.handle_node_failure(node_id)
+                            failed_node_ids.append(node_id)
+
+                # Handle failures outside lock to prevent deadlock
+                for node_id in failed_node_ids:
+                    await self.handle_node_failure(node_id)
 
                 await asyncio.sleep(self.heartbeat_interval)
 
