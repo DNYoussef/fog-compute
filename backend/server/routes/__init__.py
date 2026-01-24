@@ -17,7 +17,8 @@ from . import (
     websocket,
     deployment,
     usage,
-    mfa
+    mfa,
+    fog_bridge
 )
 
 __all__ = [
@@ -36,5 +37,6 @@ __all__ = [
     'websocket',
     'deployment',
     'usage',
-    'mfa'
+    'mfa',
+    'fog_bridge'
 ]

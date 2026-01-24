@@ -45,7 +45,8 @@ from .routes import (
     websocket as websocket_routes,
     deployment,
     usage,
-    mfa
+    mfa,
+    fog_bridge
 )
 
 # Import WebSocket handlers
@@ -56,6 +57,17 @@ from .services.metrics_aggregator import metrics_aggregator
 
 # Import middleware
 from .middleware import RateLimitMiddleware, CSRFMiddleware, SecurityHeadersMiddleware, ErrorHandlingMiddleware
+from .universal_components import (
+    init_connascence_bridge,
+    init_memory_client,
+    init_tagger,
+    init_telemetry_bridge,
+)
+
+tagger = init_tagger()
+memory_client = init_memory_client()
+telemetry_bridge = init_telemetry_bridge()
+connascence_bridge = init_connascence_bridge()
 
 
 @asynccontextmanager
@@ -271,6 +283,7 @@ app.include_router(websocket_routes.router)  # WebSocket management
 app.include_router(deployment.router)  # Deployment orchestration
 app.include_router(usage.router)  # Usage tracking and limits
 app.include_router(mfa.router)  # MFA authentication
+app.include_router(fog_bridge.router)  # Life OS Dashboard integration
 
 
 # WebSocket for real-time metrics
@@ -330,6 +343,10 @@ async def root():
             "usage_status": "/api/usage/status",
             "usage_check_limit": "/api/usage/check-limit",
             "usage_limits": "/api/usage/all-limits",
+            "fog_bridge_health": "/api/fog-bridge/health",
+            "fog_bridge_register": "/api/fog-bridge/devices/register",
+            "fog_bridge_topology": "/api/fog-bridge/topology",
+            "fog_bridge_tasks": "/api/fog-bridge/tasks",
             "websocket": "ws://localhost:8000/ws/metrics",
             "bitchat_ws": "ws://localhost:8000/api/bitchat/ws/{peer_id}"
         },
