@@ -26,37 +26,65 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# SIN-019: Real mixnet integration not yet available.
+# This flag is False until a real NymMixnetClient is implemented.
+MIXNET_AVAILABLE = False
 
-# Stub class for NymMixnetClient until real implementation is available
+# SIN-019/021: Production guard - stubs must not fake success in production.
+_ALLOW_MOCKS = os.getenv("ALLOW_MOCKS", "true").lower() == "true"
+_APP_ENV = os.getenv("APP_ENV", "development")
+
+
+def _stubs_allowed() -> bool:
+    """Return True only when stub/simulated data is permitted."""
+    return _ALLOW_MOCKS and _APP_ENV != "production"
+
+
+class StubNotAllowedError(RuntimeError):
+    """Raised when a stub is invoked in production mode."""
+
+
 class NymMixnetClient:
-    """Stub implementation of NymMixnetClient for forward compatibility."""
+    """Stub NymMixnetClient - no real mixnet integration exists yet.
+
+    SIN-019: In production mode (ALLOW_MOCKS=false) calls that would
+    return fake data raise StubNotAllowedError instead of silently
+    succeeding.  In development, methods log warnings and return
+    failure values (False/None).
+    """
 
     def __init__(self, client_id: str):
         self.client_id = client_id
         self._running = False
-        logger.warning(f"Using stub NymMixnetClient for {client_id}")
+        self._is_stub = True
+        logger.warning(f"Using STUB NymMixnetClient for {client_id} (no real mixnet)")
 
     async def start(self) -> bool:
-        """Start the mixnet client."""
-        self._running = True
-        logger.info(f"Stub mixnet client {self.client_id} started")
-        return True
+        """Start the mixnet client (stub - always returns False)."""
+        if not _stubs_allowed():
+            raise StubNotAllowedError(
+                f"NymMixnetClient.start called in {_APP_ENV} with ALLOW_MOCKS={_ALLOW_MOCKS}"
+            )
+        self._running = False  # Stub never truly runs
+        logger.warning(f"Stub mixnet client {self.client_id} cannot start (no real implementation)")
+        return False
 
     async def stop(self):
         """Stop the mixnet client."""
         self._running = False
-        logger.info(f"Stub mixnet client {self.client_id} stopped")
 
     async def send_anonymous_message(
         self,
         destination: str,
         message: bytes,
     ) -> str | None:
-        """Send anonymous message through mixnet."""
-        if not self._running:
-            return None
-        logger.debug(f"Stub mixnet sending {len(message)} bytes to {destination}")
-        return f"packet_{hashlib.sha256(message).hexdigest()[:16]}"
+        """Send anonymous message through mixnet (stub - always returns None)."""
+        if not _stubs_allowed():
+            raise StubNotAllowedError(
+                f"NymMixnetClient.send_anonymous_message called in {_APP_ENV}"
+            )
+        logger.warning(f"Stub mixnet cannot send {len(message)} bytes to {destination}")
+        return None
 
     async def get_mixnet_stats(self) -> dict[str, Any]:
         """Get mixnet statistics."""
@@ -66,6 +94,7 @@ class NymMixnetClient:
             "packets_sent": 0,
             "packets_received": 0,
             "stub_implementation": True,
+            "mixnet_available": MIXNET_AVAILABLE,
         }
 
 
@@ -217,9 +246,18 @@ class FogOnionCoordinator:
 
             # Initialize mixnet client if enabled
             if self.enable_mixnet:
+                if not MIXNET_AVAILABLE:
+                    logger.warning(
+                        "Mixnet requested but MIXNET_AVAILABLE=False; "
+                        "using stub (will fail in production mode)"
+                    )
                 self.mixnet_client = NymMixnetClient(client_id=f"fog-mixnet-{self.node_id}")
-                await self.mixnet_client.start()
-                logger.info("Mixnet client initialized")
+                started = await self.mixnet_client.start()
+                if started:
+                    logger.info("Mixnet client initialized")
+                else:
+                    logger.warning("Mixnet client failed to start (stub)")
+                    self.mixnet_client = None
 
             # Initialize circuit service
             self.circuit_service = OnionCircuitService(
@@ -591,11 +629,30 @@ class FogOnionCoordinator:
             return False
 
     async def _send_direct_gossip(self, recipient_id: str, message: bytes) -> bool:
-        """Send gossip message directly through fog coordinator."""
-        # This would integrate with the fog coordinator's P2P networking
-        # For now, simulate success
-        logger.debug(f"Sending direct gossip to {recipient_id}: {len(message)} bytes")
-        return True
+        """Send gossip message directly through fog coordinator.
+
+        SIN-021: No longer simulates success.  Attempts real delivery via
+        fog_coordinator.send_p2p_message when available, otherwise returns False.
+        """
+        if not self.fog_coordinator:
+            logger.warning("Cannot send direct gossip: no fog coordinator")
+            return False
+
+        try:
+            send_fn = getattr(self.fog_coordinator, "send_p2p_message", None)
+            if send_fn is not None:
+                result = await send_fn(recipient_id, message)
+                return bool(result)
+        except Exception as e:
+            logger.error(f"Direct gossip delivery failed to {recipient_id}: {e}")
+            return False
+
+        # No real transport path available
+        logger.warning(
+            f"Direct gossip to {recipient_id} failed: "
+            "fog_coordinator has no send_p2p_message method"
+        )
+        return False
 
     async def _start_background_tasks(self):
         """Start background maintenance tasks."""

@@ -19,6 +19,7 @@ from enum import Enum
 import hashlib
 import hmac
 import logging
+import os
 import secrets
 from typing import Any
 
@@ -184,6 +185,7 @@ class OnionRouter:
 
         # Network state
         self.consensus: dict[str, OnionNode] = {}
+        self.consensus_simulated: bool = False  # SIN-020: True when using simulated nodes
         self.guard_nodes: list[OnionNode] = []
         self.circuits: dict[str, OnionCircuit] = {}
         self.streams: dict[str, str] = {}  # stream_id -> circuit_id
@@ -229,16 +231,37 @@ class OnionRouter:
         return authorities
 
     async def fetch_consensus(self) -> bool:
-        """Fetch network consensus from directory authorities"""
+        """Fetch network consensus from directory authorities.
+
+        SIN-020: No real directory authority fetch is implemented yet.
+        In production mode (ALLOW_MOCKS=false), this will refuse to
+        generate simulated nodes and return False.  In development
+        mode it generates local-only simulated nodes and flags them.
+        """
         try:
-            # In production, this would fetch from actual directory authorities
-            # For now, simulate with some example nodes
+            # Check if real directory authorities are configured
+            # (currently none are - all are local-generated)
+            _allow_mocks = os.getenv("ALLOW_MOCKS", "true").lower() == "true"
+            _app_env = os.getenv("APP_ENV", "development")
+
+            if not (_allow_mocks and _app_env != "production"):
+                logger.error(
+                    "fetch_consensus: No real directory authorities configured. "
+                    "Cannot generate simulated nodes in production mode."
+                )
+                self.consensus_simulated = True
+                return False
+
+            logger.warning(
+                "fetch_consensus: Using SIMULATED nodes (no real directory authorities). "
+                "This is only acceptable in development/testing."
+            )
+            self.consensus_simulated = True
 
             example_nodes = []
             for i in range(20):
                 # Use different /16 subnets for family diversity
-                # Guards: 10.1.x.x, Middle: 10.2.x.x-10.4.x.x, Exit: 10.5.x.x-10.6.x.x
-                subnet = (i // 5) + 1  # 0-4=1, 5-9=2, 10-14=3, 15-19=4
+                subnet = (i // 5) + 1
                 node = OnionNode(
                     node_id=f"fog-relay-{i}",
                     address=f"10.{subnet}.{i%256}.{(i*7)%256}:9001",
@@ -266,7 +289,10 @@ class OnionRouter:
             guards = [n for n in example_nodes if NodeType.GUARD in n.node_types]
             self.guard_nodes = guards[: self.num_guards]
 
-            logger.info(f"Fetched consensus: {len(self.consensus)} nodes, {len(self.guard_nodes)} guards")
+            logger.info(
+                f"Fetched SIMULATED consensus: {len(self.consensus)} nodes, "
+                f"{len(self.guard_nodes)} guards"
+            )
             return True
 
         except Exception as e:
@@ -702,6 +728,7 @@ class OnionRouter:
             "node_id": self.node_id,
             "node_types": [t.value for t in self.node_types],
             "consensus_nodes": len(self.consensus),
+            "consensus_simulated": self.consensus_simulated,
             "guard_nodes": len(self.guard_nodes),
             "active_circuits": len(active_circuits),
             "total_circuits": len(self.circuits),
