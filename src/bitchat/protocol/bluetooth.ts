@@ -1,20 +1,32 @@
 /**
  * Bluetooth Low Energy Discovery Protocol
  * Handles nearby peer discovery using BLE mesh networking
+ *
+ * SIN-013: Replaces mock peer discovery with real BLE scan
+ * and empty array fallback when unavailable.
  */
 
 import { BitChatPeer } from '../types';
 
+/** Whether the Web Bluetooth API is available in this environment. */
+export const BLUETOOTH_AVAILABLE =
+  typeof navigator !== 'undefined' && !!navigator.bluetooth;
+
 export class BluetoothProtocol {
   private bluetoothDevice: BluetoothDevice | null = null;
+  private discoveredDevices: Map<string, BluetoothDevice> = new Map();
 
   /**
-   * Initialize Bluetooth LE discovery
+   * Initialize Bluetooth LE discovery.
+   * Returns false if BLE is not available on this platform.
    */
-  async initializeBluetoothLEDiscovery(): Promise<void> {
-    if (!navigator.bluetooth) {
-      console.warn('Bluetooth API not available, falling back to WebRTC only');
-      return;
+  async initializeBluetoothLEDiscovery(): Promise<boolean> {
+    if (!BLUETOOTH_AVAILABLE) {
+      console.warn(
+        'Bluetooth API not available on this platform. ' +
+        'BLE discovery disabled - WebRTC only.'
+      );
+      return false;
     }
 
     try {
@@ -24,61 +36,66 @@ export class BluetoothProtocol {
       });
 
       this.bluetoothDevice = device;
-      console.log('Bluetooth LE discovery initialized:', device.name);
+      return true;
     } catch (error) {
-      console.warn('Bluetooth LE unavailable, using WebRTC mesh only');
+      console.warn('Bluetooth LE initialization failed:', error);
+      return false;
     }
   }
 
   /**
-   * Discover nearby peers via Bluetooth LE
+   * Discover nearby peers via Bluetooth LE.
+   *
+   * SIN-013: Returns empty array when BLE unavailable (no mock data).
+   * Only returns real discovered devices.
    */
   async discoverPeers(): Promise<BitChatPeer[]> {
-    if (!navigator.bluetooth) {
-      return this.getMockPeers();
+    if (!BLUETOOTH_AVAILABLE) {
+      // No mock peers - return empty for honest API
+      return [];
     }
 
     try {
-      // In production, implement actual BLE scanning
-      // For now, return mock data
-      return this.getMockPeers();
+      // Request BLE device scan
+      const device = await navigator.bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: ['battery_service']
+      });
+
+      if (device && device.id) {
+        this.discoveredDevices.set(device.id, device);
+      }
+
+      // Convert discovered devices to BitChatPeer format
+      const peers: BitChatPeer[] = [];
+      for (const [id, dev] of this.discoveredDevices) {
+        peers.push({
+          id,
+          name: dev.name || `BLE-Device-${id.slice(0, 8)}`,
+          status: 'online',
+          lastSeen: new Date(),
+          // Real public key exchange happens after discovery
+          publicKey: ''
+        });
+      }
+
+      return peers;
     } catch (error) {
-      console.error('Peer discovery failed:', error);
+      // User cancelled or BLE scan failed
+      console.warn('BLE peer discovery failed:', error);
       return [];
     }
   }
 
   /**
-   * Mock peers for development
-   */
-  private getMockPeers(): BitChatPeer[] {
-    return [
-      {
-        id: 'peer-001',
-        name: 'Alice Mobile',
-        status: 'online',
-        lastSeen: new Date(),
-        publicKey: 'mock-public-key-001'
-      },
-      {
-        id: 'peer-002',
-        name: 'Bob Laptop',
-        status: 'online',
-        lastSeen: new Date(),
-        publicKey: 'mock-public-key-002'
-      }
-    ];
-  }
-
-  /**
-   * Check if Bluetooth is available
+   * Check if Bluetooth is available on this platform.
    */
   isBluetoothAvailable(): boolean {
-    return !!navigator.bluetooth;
+    return BLUETOOTH_AVAILABLE;
   }
 
   /**
-   * Get Bluetooth device info
+   * Get connected Bluetooth device info.
    */
   getDeviceInfo(): { name: string | undefined; id: string | undefined } | null {
     if (!this.bluetoothDevice) {
@@ -89,5 +106,12 @@ export class BluetoothProtocol {
       name: this.bluetoothDevice.name,
       id: this.bluetoothDevice.id
     };
+  }
+
+  /**
+   * Get count of discovered devices.
+   */
+  getDiscoveredDeviceCount(): number {
+    return this.discoveredDevices.size;
   }
 }
