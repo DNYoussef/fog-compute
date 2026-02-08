@@ -283,7 +283,7 @@ app.include_router(websocket_routes.router)  # WebSocket management
 app.include_router(deployment.router)  # Deployment orchestration
 app.include_router(usage.router)  # Usage tracking and limits
 app.include_router(mfa.router)  # MFA authentication
-app.include_router(fog_bridge.router)  # Life OS Dashboard integration
+app.include_router(fog_bridge.router)  # Fog mesh device management
 
 
 # WebSocket for real-time metrics

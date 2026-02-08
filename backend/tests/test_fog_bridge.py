@@ -1,5 +1,5 @@
 """
-Tests for Fog Bridge API - Life OS Dashboard Integration
+Tests for Fog Bridge API - Fog Compute Mesh
 
 Tests cover:
 - Device registration and authentication
@@ -22,10 +22,8 @@ from backend.server.schemas.fog_bridge import (
     DeviceRegisterRequest,
     TaskType,
     TaskPriority,
-    SyncEntityType,
     HeartbeatRequest,
     FogTaskCreate,
-    SyncRequest,
     WSMessageType,
 )
 
@@ -53,7 +51,7 @@ class TestDeviceAuthService:
                 device_name="Test Desktop",
                 device_type="desktop",
                 capabilities={"cpu_cores": 8, "memory_mb": 16384},
-                life_os_user_id="user-123",
+                owner_id="user-123",
                 region="us-east"
             )
 
@@ -115,44 +113,44 @@ class TestDeviceAuthService:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_link_to_life_os_user(self, auth_service):
-        """Test linking device to Life OS user"""
+    async def test_link_to_owner(self, auth_service):
+        """Test linking device to an owner"""
         device_id, _, _, _, _ = await auth_service.register_device(
             device_name="Test Device",
             device_type="desktop",
             capabilities={}
         )
 
-        linked = await auth_service.link_to_life_os_user(device_id, "life-os-user-456")
+        linked = await auth_service.link_to_owner(device_id, "owner-456")
         assert linked is True
 
         info = await auth_service.get_device_info(device_id)
-        assert info["life_os_user_id"] == "life-os-user-456"
+        assert info["owner_id"] == "owner-456"
 
     @pytest.mark.asyncio
-    async def test_list_user_devices(self, auth_service):
-        """Test listing devices for a Life OS user"""
+    async def test_list_owner_devices(self, auth_service):
+        """Test listing devices for an owner"""
         # Register multiple devices for same user
         await auth_service.register_device(
             device_name="Desktop",
             device_type="desktop",
             capabilities={},
-            life_os_user_id="test-user-789"
+            owner_id="test-user-789"
         )
         await auth_service.register_device(
             device_name="Laptop",
             device_type="laptop",
             capabilities={},
-            life_os_user_id="test-user-789"
+            owner_id="test-user-789"
         )
         await auth_service.register_device(
             device_name="Other User Device",
             device_type="mobile",
             capabilities={},
-            life_os_user_id="other-user"
+            owner_id="other-user"
         )
 
-        devices = await auth_service.list_user_devices("test-user-789")
+        devices = await auth_service.list_owner_devices("test-user-789")
         assert len(devices) == 2
 
     @pytest.mark.asyncio
@@ -291,20 +289,6 @@ class TestSchemas:
         assert task.resource_requirements is not None
         assert task.resource_requirements.gpu_available is True
 
-    def test_sync_request(self):
-        """Test sync request schema"""
-        sync = SyncRequest(
-            device_id="fog-desktop-123",
-            entity_type=SyncEntityType.BEAD,
-            entity_id="bead-abc",
-            operation="create",
-            data={"title": "Test Task", "priority": 1},
-            local_version=1,
-            local_timestamp=datetime.now(UTC)
-        )
-        assert sync.entity_type == SyncEntityType.BEAD
-        assert sync.operation == "create"
-
     def test_device_type_enum(self):
         """Test device type enum values"""
         assert DeviceType.DESKTOP.value == "desktop"
@@ -339,13 +323,6 @@ class TestSchemas:
         assert TaskType.TEST.value == "test"
         assert TaskType.SYNC.value == "sync"
         assert TaskType.PIPELINE.value == "pipeline"
-
-    def test_sync_entity_type_enum(self):
-        """Test sync entity type enum values"""
-        assert SyncEntityType.BEAD.value == "bead"
-        assert SyncEntityType.MEMORY.value == "memory"
-        assert SyncEntityType.CALENDAR.value == "calendar"
-        assert SyncEntityType.PIPELINE.value == "pipeline"
 
     def test_ws_message_type_enum(self):
         """Test WebSocket message type enum"""

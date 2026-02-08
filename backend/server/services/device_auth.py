@@ -5,7 +5,7 @@ Handles device registration, authentication, and token management for fog comput
 This service manages:
 - Device registration with unique identifiers
 - JWT token generation and validation for devices
-- Device-to-Life-OS user linking
+- Device-to-owner linking
 - Token refresh and revocation
 """
 from datetime import datetime, timedelta, UTC
@@ -29,7 +29,7 @@ class DeviceCredentials:
     refresh_token: Optional[str] = None
     token_expires_at: Optional[datetime] = None
     refresh_expires_at: Optional[datetime] = None
-    life_os_user_id: Optional[str] = None
+    owner_id: Optional[str] = None
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     last_authenticated: Optional[datetime] = None
     is_active: bool = True
@@ -44,7 +44,7 @@ class DeviceAuthService:
     - Device registration with secure credentials
     - JWT token generation for device authentication
     - Token refresh and revocation
-    - Device-to-user linking for Life OS integration
+    - Device-to-owner linking
     """
 
     def __init__(
@@ -140,7 +140,7 @@ class DeviceAuthService:
         device_name: str,
         device_type: str,
         capabilities: dict[str, Any],
-        life_os_user_id: Optional[str] = None,
+        owner_id: Optional[str] = None,
         region: Optional[str] = None
     ) -> tuple[str, str, str, str, datetime]:
         """
@@ -150,7 +150,7 @@ class DeviceAuthService:
             device_name: Human-readable device name
             device_type: Type of device (desktop, mobile, etc.)
             capabilities: Device hardware capabilities
-            life_os_user_id: Optional Life OS user to link device to
+            owner_id: Optional owner/user to link device to
             region: Optional geographic region
 
         Returns:
@@ -173,7 +173,7 @@ class DeviceAuthService:
             refresh_token=refresh_token,
             token_expires_at=token_expires_at,
             refresh_expires_at=refresh_expires_at,
-            life_os_user_id=life_os_user_id,
+            owner_id=owner_id,
             last_authenticated=datetime.now(UTC)
         )
 
@@ -342,13 +342,13 @@ class DeviceAuthService:
 
         return True
 
-    async def link_to_life_os_user(self, device_id: str, life_os_user_id: str) -> bool:
+    async def link_to_owner(self, device_id: str, owner_id: str) -> bool:
         """
-        Link a device to a Life OS user account
+        Link a device to an owner
 
         Args:
             device_id: Device identifier
-            life_os_user_id: Life OS user ID
+            owner_id: Owner/user ID
 
         Returns:
             True if link was created, False if device not found
@@ -358,9 +358,9 @@ class DeviceAuthService:
         if not credentials:
             return False
 
-        credentials.life_os_user_id = life_os_user_id
+        credentials.owner_id = owner_id
 
-        logger.info(f"Device {device_id} linked to Life OS user {life_os_user_id}")
+        logger.info(f"Device {device_id} linked to owner {owner_id}")
 
         return True
 
@@ -381,7 +381,7 @@ class DeviceAuthService:
 
         return {
             "device_id": credentials.device_id,
-            "life_os_user_id": credentials.life_os_user_id,
+            "owner_id": credentials.owner_id,
             "created_at": credentials.created_at.isoformat(),
             "last_authenticated": credentials.last_authenticated.isoformat() if credentials.last_authenticated else None,
             "is_active": credentials.is_active,
@@ -389,12 +389,12 @@ class DeviceAuthService:
             "token_expires_at": credentials.token_expires_at.isoformat() if credentials.token_expires_at else None
         }
 
-    async def list_user_devices(self, life_os_user_id: str) -> list[dict[str, Any]]:
+    async def list_owner_devices(self, owner_id: str) -> list[dict[str, Any]]:
         """
-        List all devices linked to a Life OS user
+        List all devices linked to an owner
 
         Args:
-            life_os_user_id: Life OS user ID
+            owner_id: Owner/user ID
 
         Returns:
             List of device info dicts
@@ -402,7 +402,7 @@ class DeviceAuthService:
         devices = []
 
         for device_id, credentials in self._devices.items():
-            if credentials.life_os_user_id == life_os_user_id:
+            if credentials.owner_id == owner_id:
                 info = await self.get_device_info(device_id)
                 if info:
                     devices.append(info)

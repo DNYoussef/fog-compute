@@ -1,13 +1,12 @@
 """
 Fog Bridge API Routes
-Life OS Dashboard Integration for Fog Compute Mesh
+Fog Compute Mesh Device Management
 
-This module implements the API bridge connecting fog compute nodes to the Life OS Dashboard.
+This module implements the API bridge for fog compute node coordination.
 It provides endpoints for:
 - Device registration and authentication
 - Task distribution and monitoring
 - Health monitoring
-- Synchronization with Life OS (Beads, Memory MCP, Calendar)
 - Network topology queries
 - Quota management
 
@@ -36,11 +35,6 @@ from ..schemas.fog_bridge import (
     FogTaskCreate,
     FogTaskResponse,
     TaskResultSubmit,
-    SyncRequest,
-    SyncResponse,
-    SyncBatchRequest,
-    SyncBatchResponse,
-    SyncStatus,
     DeviceQuota,
     QuotaUpdateRequest,
     NetworkTopologyResponse,
@@ -59,7 +53,6 @@ _service_start_time = datetime.now(UTC)
 # In-memory stores (replace with database in production)
 _registered_devices: dict[str, dict[str, Any]] = {}
 _task_queue: dict[str, dict[str, Any]] = {}
-_sync_state: dict[str, dict[str, Any]] = {}
 _device_quotas: dict[str, DeviceQuota] = {}
 
 
@@ -124,7 +117,7 @@ async def register_device(request: DeviceRegisterRequest) -> DeviceRegisterRespo
     This endpoint:
     1. Creates a unique device ID
     2. Generates secure credentials (access + refresh tokens)
-    3. Links device to Life OS user if provided
+    3. Links device to owner if provided
     4. Returns WebSocket URL for real-time communication
 
     Rate limit: 10 requests/minute (auth category)
@@ -137,7 +130,7 @@ async def register_device(request: DeviceRegisterRequest) -> DeviceRegisterRespo
                 device_name=request.device_name,
                 device_type=request.device_type.value,
                 capabilities=request.capabilities.model_dump(),
-                life_os_user_id=request.life_os_user_id,
+                owner_id=request.owner_id,
                 region=request.region
             )
 
@@ -148,7 +141,7 @@ async def register_device(request: DeviceRegisterRequest) -> DeviceRegisterRespo
             "capabilities": request.capabilities.model_dump(),
             "region": request.region,
             "timezone": request.timezone,
-            "life_os_user_id": request.life_os_user_id,
+            "owner_id": request.owner_id,
             "status": DeviceStatus.IDLE,
             "registered_at": datetime.now(UTC),
             "last_heartbeat": None,
@@ -261,7 +254,7 @@ async def list_devices(
     device_id: str = Depends(get_current_device),
     status: Optional[DeviceStatus] = None,
     device_type: Optional[DeviceType] = None,
-    life_os_user_id: Optional[str] = None,
+    owner_id: Optional[str] = None,
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0)
 ) -> list[DeviceInfo]:
@@ -278,7 +271,7 @@ async def list_devices(
             continue
         if device_type and data.get("device_type") != device_type:
             continue
-        if life_os_user_id and data.get("life_os_user_id") != life_os_user_id:
+        if owner_id and data.get("owner_id") != owner_id:
             continue
 
         devices.append(DeviceInfo(device_id=did, **data))
@@ -295,15 +288,15 @@ async def unregister_device(
     """
     Unregister a device from the fog network
 
-    A device can only unregister itself or devices linked to the same Life OS user.
+    A device can only unregister itself or devices linked to the same owner.
     """
     # Check authorization
     if device_id != target_device_id:
-        # Check if same Life OS user
-        requester_user = _registered_devices.get(device_id, {}).get("life_os_user_id")
-        target_user = _registered_devices.get(target_device_id, {}).get("life_os_user_id")
+        # Check if same owner
+        requester_owner = _registered_devices.get(device_id, {}).get("owner_id")
+        target_owner = _registered_devices.get(target_device_id, {}).get("owner_id")
 
-        if not requester_user or requester_user != target_user:
+        if not requester_owner or requester_owner != target_owner:
             raise HTTPException(status_code=403, detail="Not authorized to unregister this device")
 
     # Revoke device
@@ -397,17 +390,12 @@ async def health_check() -> HealthCheckResponse:
         if t.get("status") in ("queued", "assigned", "running")
     )
 
-    # Check Life OS connectivity (placeholder - implement actual check)
-    life_os_connected = True  # TODO: Check actual Life OS Dashboard connectivity
-
     return HealthCheckResponse(
         status="healthy",
         version=settings.API_VERSION,
         uptime_seconds=uptime_seconds,
         connected_devices=connected_devices,
         active_tasks=active_tasks,
-        life_os_connected=life_os_connected,
-        last_life_os_sync=_sync_state.get("last_sync"),
         services={
             "device_auth": {"status": "healthy"},
             "task_queue": {"status": "healthy", "pending": len(_task_queue)},
@@ -490,7 +478,6 @@ async def create_task(
         "target_device_type": request.target_device_type.value if request.target_device_type else None,
         "timeout_seconds": request.timeout_seconds,
         "retry_count": request.retry_count,
-        "life_os_bead_id": request.life_os_bead_id,
         "callback_url": request.callback_url,
         "status": "assigned" if assigned_device else "queued",
         "assigned_device_id": assigned_device,
@@ -605,114 +592,6 @@ async def cancel_task(
     return {"message": f"Task {task_id} cancelled"}
 
 
-# === Synchronization ===
-
-@router.post("/sync", response_model=SyncResponse)
-async def sync_entity(
-    request: SyncRequest,
-    device_id: str = Depends(get_current_device)
-) -> SyncResponse:
-    """
-    Sync a single entity with Life OS
-
-    Handles create/update/delete operations with conflict resolution.
-    """
-    if request.device_id != device_id:
-        raise HTTPException(status_code=403, detail="Device ID mismatch")
-
-    entity_key = f"{request.entity_type.value}:{request.entity_id}"
-
-    # Get current server state
-    server_state = _sync_state.get(entity_key, {})
-    server_version = server_state.get("version", 0)
-
-    # Conflict detection
-    if request.local_version < server_version:
-        # Client has older version - conflict
-        return SyncResponse(
-            entity_id=request.entity_id,
-            status=SyncStatus.CONFLICT,
-            server_version=server_version,
-            server_timestamp=server_state.get("timestamp", datetime.now(UTC)),
-            merged_data=server_state.get("data"),
-            conflict_resolution="Server version is newer. Please fetch and merge."
-        )
-
-    # Apply operation
-    if request.operation == "delete":
-        if entity_key in _sync_state:
-            del _sync_state[entity_key]
-    else:
-        _sync_state[entity_key] = {
-            "data": request.data,
-            "version": request.local_version + 1,
-            "timestamp": datetime.now(UTC),
-            "device_id": device_id
-        }
-
-    _sync_state["last_sync"] = datetime.now(UTC)
-
-    logger.debug(f"Synced entity: {entity_key}")
-
-    return SyncResponse(
-        entity_id=request.entity_id,
-        status=SyncStatus.SYNCED,
-        server_version=request.local_version + 1,
-        server_timestamp=datetime.now(UTC),
-        merged_data=request.data
-    )
-
-
-@router.post("/sync/batch", response_model=SyncBatchResponse)
-async def sync_batch(
-    request: SyncBatchRequest,
-    device_id: str = Depends(get_current_device)
-) -> SyncBatchResponse:
-    """
-    Sync multiple entities in a single request
-
-    More efficient than individual sync calls for bulk operations.
-    """
-    if request.device_id != device_id:
-        raise HTTPException(status_code=403, detail="Device ID mismatch")
-
-    results = []
-    synced = 0
-    failed = 0
-    conflicts = 0
-
-    for item in request.sync_items:
-        try:
-            # Override device_id for each item
-            item.device_id = device_id
-            result = await sync_entity(item, device_id)
-            results.append(result)
-
-            if result.status == SyncStatus.SYNCED:
-                synced += 1
-            elif result.status == SyncStatus.CONFLICT:
-                conflicts += 1
-            else:
-                failed += 1
-        except Exception as e:
-            logger.error(f"Sync failed for {item.entity_id}: {e}")
-            failed += 1
-            results.append(SyncResponse(
-                entity_id=item.entity_id,
-                status=SyncStatus.ERROR,
-                server_version=0,
-                server_timestamp=datetime.now(UTC)
-            ))
-
-    return SyncBatchResponse(
-        total=len(request.sync_items),
-        synced=synced,
-        failed=failed,
-        conflicts=conflicts,
-        results=results
-    )
-
-
 # === Quota Management ===
 
 @router.get("/quotas/me", response_model=DeviceQuota)
@@ -737,13 +616,13 @@ async def update_quota(
     """
     Update device quota
 
-    Only devices with same Life OS user can update each other's quotas.
+    Only devices with the same owner can update each other's quotas.
     """
     # Check authorization
-    requester_user = _registered_devices.get(device_id, {}).get("life_os_user_id")
-    target_user = _registered_devices.get(target_device_id, {}).get("life_os_user_id")
+    requester_owner = _registered_devices.get(device_id, {}).get("owner_id")
+    target_owner = _registered_devices.get(target_device_id, {}).get("owner_id")
 
-    if not requester_user or requester_user != target_user:
+    if not requester_owner or requester_owner != target_owner:
         raise HTTPException(status_code=403, detail="Not authorized to update this device's quota")
 
     quota = _device_quotas.get(target_device_id)
@@ -833,6 +712,5 @@ async def get_network_topology(
         queued_tasks=queued_tasks,
         running_tasks=running_tasks,
         completed_tasks_24h=completed_24h,
-        life_os_sync_status=SyncStatus.SYNCED if _sync_state.get("last_sync") else SyncStatus.PENDING,
         snapshot_time=datetime.now(UTC)
     )

@@ -1,12 +1,12 @@
 """
 Fog Bridge Schemas
-Pydantic models for Life OS Dashboard integration
+Pydantic models for fog compute mesh API
 
 This module defines the API contracts for:
-- Device registration with Life OS Dashboard
+- Device registration and authentication
 - Task distribution protocol
 - Health monitoring
-- Real-time sync state
+- Network topology
 """
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional, Any, Literal
@@ -36,7 +36,7 @@ class DeviceStatus(str, Enum):
 
 
 class SyncStatus(str, Enum):
-    """Synchronization status with Life OS"""
+    """Synchronization status between fog devices"""
     SYNCED = "synced"
     SYNCING = "syncing"
     PENDING = "pending"
@@ -67,7 +67,7 @@ class DeviceRegisterRequest(BaseModel):
     capabilities: DeviceCapabilities
     region: Optional[str] = None
     timezone: Optional[str] = None
-    life_os_user_id: Optional[str] = None  # Link to Life OS user
+    owner_id: Optional[str] = None  # Owner/user who controls this device
 
     @field_validator('device_name')
     @classmethod
@@ -97,7 +97,7 @@ class DeviceInfo(BaseModel):
     capabilities: DeviceCapabilities
     region: Optional[str] = None
     timezone: Optional[str] = None
-    life_os_user_id: Optional[str] = None
+    owner_id: Optional[str] = None
     registered_at: datetime
     last_heartbeat: Optional[datetime] = None
     current_task_id: Optional[str] = None
@@ -138,8 +138,6 @@ class HealthCheckResponse(BaseModel):
     uptime_seconds: float
     connected_devices: int
     active_tasks: int
-    life_os_connected: bool
-    last_life_os_sync: Optional[datetime] = None
     services: dict[str, dict[str, Any]] = Field(default_factory=dict)
 
 
@@ -176,7 +174,6 @@ class FogTaskCreate(BaseModel):
     target_device_type: Optional[DeviceType] = None  # Route to device type
     timeout_seconds: int = Field(default=3600, ge=10, le=86400)
     retry_count: int = Field(default=3, ge=0, le=10)
-    life_os_bead_id: Optional[str] = None  # Link to Beads task
     callback_url: Optional[str] = None
 
 
@@ -202,52 +199,6 @@ class TaskResultSubmit(BaseModel):
     error: Optional[str] = None
     execution_time_ms: int
     resource_usage: Optional[dict[str, float]] = None
-
-
-# === Life OS Sync ===
-
-class SyncEntityType(str, Enum):
-    """Types of entities to sync with Life OS"""
-    BEAD = "bead"          # Task from Beads
-    MEMORY = "memory"       # Memory MCP entry
-    CALENDAR = "calendar"   # Calendar event
-    PIPELINE = "pipeline"   # Pipeline definition
-
-
-class SyncRequest(BaseModel):
-    """Request to sync data with Life OS"""
-    device_id: str
-    entity_type: SyncEntityType
-    entity_id: str
-    operation: Literal["create", "update", "delete"]
-    data: dict[str, Any]
-    local_version: int = 1
-    local_timestamp: datetime
-
-
-class SyncResponse(BaseModel):
-    """Response from sync operation"""
-    entity_id: str
-    status: SyncStatus
-    server_version: int
-    server_timestamp: datetime
-    merged_data: Optional[dict[str, Any]] = None
-    conflict_resolution: Optional[str] = None
-
-
-class SyncBatchRequest(BaseModel):
-    """Batch sync multiple entities"""
-    device_id: str
-    sync_items: list[SyncRequest] = Field(..., max_length=100)
-
-
-class SyncBatchResponse(BaseModel):
-    """Response for batch sync"""
-    total: int
-    synced: int
-    failed: int
-    conflicts: int
-    results: list[SyncResponse]
 
 
 # === Quota Management ===
@@ -290,7 +241,6 @@ class NetworkTopologyResponse(BaseModel):
     queued_tasks: int
     running_tasks: int
     completed_tasks_24h: int
-    life_os_sync_status: SyncStatus
     snapshot_time: datetime
 
 
