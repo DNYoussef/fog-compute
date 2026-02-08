@@ -1,9 +1,12 @@
 """
 Main benchmark runner for fog compute infrastructure.
 Supports multiple execution modes: full, quick, validation, and demo.
+
+SIN-029: Demo mode is clearly labeled and blocked in production.
 """
 
 import asyncio
+import os
 import time
 import argparse
 import json
@@ -88,12 +91,30 @@ class BenchmarkRunner:
             }
 
     async def run_demo_mode(self) -> Dict[str, Any]:
-        """Run demo mode with simulated results"""
+        """Run demo mode with simulated results.
+
+        SIN-029: Explicitly labeled as demo/simulated. Blocked in production.
+        """
+        # SIN-029: Refuse to run demo in production
+        app_env = os.getenv("APP_ENV", "development")
+        if app_env == "production":
+            self.logger.error(
+                "Demo mode is not allowed in production. "
+                "Use --mode full or --mode quick for real benchmarks."
+            )
+            return {
+                "mode": "demo",
+                "success": False,
+                "is_demo": True,
+                "error": "Demo mode blocked in production (SIN-029).",
+                "execution_time": 0.0,
+            }
+
         self.logger.info("=" * 80)
-        self.logger.info("FOG COMPUTE DEMO MODE")
+        self.logger.warning("FOG COMPUTE DEMO MODE - SIMULATED DATA ONLY")
         self.logger.info("=" * 80)
 
-        print("\nRunning demo benchmarks...")
+        print("\n*** DEMO MODE - ALL VALUES ARE SIMULATED, NOT MEASURED ***")
         print("-" * 40)
 
         demo_results = {
@@ -123,8 +144,10 @@ class BenchmarkRunner:
         return {
             'mode': 'demo',
             'success': True,
+            'is_demo': True,
             'demo_results': demo_results,
-            'execution_time': 1.0
+            'execution_time': 1.0,
+            'warning': 'All values are simulated. Do not use for quality reporting.',
         }
 
     def _print_summary(self, results: Dict[str, Any], execution_time: float):
@@ -147,21 +170,21 @@ class BenchmarkRunner:
         print("\n" + "=" * 80)
 
     def _print_demo_summary(self, demo_results: Dict[str, Any]):
-        """Print demo execution summary"""
+        """Print demo execution summary with clear simulation labels (SIN-029)."""
         print("\n" + "=" * 80)
-        print("DEMO EXECUTION SUMMARY")
+        print("DEMO EXECUTION SUMMARY  *** SIMULATED DATA - NOT FOR PRODUCTION USE ***")
         print("=" * 80)
 
-        print("\nKey Performance Achievements:")
-        print(f"  - Fog Coordinator: 72.5% improvement (target: 70%)")
-        print(f"  - Privacy Coordinator: 42.8% improvement (target: 40%)")
-        print(f"  - Graph Processing: 55.2% improvement (target: 50%)")
-        print(f"  - System Startup: 25.3s (target: <30s)")
-        print(f"  - Device Registration: 1.65s (target: <2s)")
+        print("\nSimulated Performance Values (NOT real measurements):")
+        print(f"  - Fog Coordinator: 72.5% improvement (target: 70%) [SIMULATED]")
+        print(f"  - Privacy Coordinator: 42.8% improvement (target: 40%) [SIMULATED]")
+        print(f"  - Graph Processing: 55.2% improvement (target: 50%) [SIMULATED]")
+        print(f"  - System Startup: 25.3s (target: <30s) [SIMULATED]")
+        print(f"  - Device Registration: 1.65s (target: <2s) [SIMULATED]")
 
-        print("\nOverall: All demo benchmarks PASSED")
+        print("\nOverall: All demo benchmarks PASSED (simulated)")
         print("\n" + "=" * 80)
-        print("Demo completed successfully!")
+        print("Demo completed. These are NOT real benchmarks.")
         print("Run full benchmark suite: python run_benchmarks.py --mode full")
         print("=" * 80)
 

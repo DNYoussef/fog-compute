@@ -10,19 +10,58 @@ interface FogNode {
   status: 'online' | 'offline';
 }
 
+/**
+ * SIN-027: FogMap fetches from topology API instead of hardcoded nodes.
+ * Falls back to empty state with stale-data indicator when backend is unavailable.
+ */
 export function FogMap() {
   const [nodes, setNodes] = useState<FogNode[]>([]);
+  const [dataSource, setDataSource] = useState<'live' | 'unavailable'>('unavailable');
+  const [lastFetched, setLastFetched] = useState<Date | null>(null);
 
   useEffect(() => {
-    // Simulate fog nodes distribution
-    const mockNodes: FogNode[] = [
-      { id: '1', lat: 40.7128, lng: -74.0060, type: 'betanet', status: 'online' },
-      { id: '2', lat: 51.5074, lng: -0.1278, type: 'bitchat', status: 'online' },
-      { id: '3', lat: 35.6762, lng: 139.6503, type: 'benchmark', status: 'online' },
-      { id: '4', lat: -33.8688, lng: 151.2093, type: 'betanet', status: 'online' },
-      { id: '5', lat: 37.7749, lng: -122.4194, type: 'bitchat', status: 'offline' },
-    ];
-    setNodes(mockNodes);
+    let cancelled = false;
+
+    async function fetchTopology() {
+      try {
+        const res = await fetch('/api/fog/topology', { signal: AbortSignal.timeout(5000) });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        if (cancelled) return;
+
+        // Map topology response to FogNode[] if devices are returned
+        if (data.devices && Array.isArray(data.devices)) {
+          setNodes(
+            data.devices.map((d: any) => ({
+              id: d.id || d.device_id,
+              lat: d.lat ?? 0,
+              lng: d.lng ?? 0,
+              type: d.type ?? 'betanet',
+              status: d.status === 'offline' ? 'offline' : 'online',
+            }))
+          );
+        } else {
+          // Topology API returned aggregate stats but no per-device list - show empty
+          setNodes([]);
+        }
+        setDataSource('live');
+        setLastFetched(new Date());
+      } catch {
+        if (cancelled) return;
+        // SIN-027: No hardcoded fallback - show empty state
+        setNodes([]);
+        setDataSource('unavailable');
+      }
+    }
+
+    fetchTopology();
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchTopology, 30_000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, []);
 
   const getNodeColor = (node: FogNode) => {
@@ -35,6 +74,18 @@ export function FogMap() {
   return (
     <div className="glass rounded-xl p-6 h-full" data-testid="fog-map">
       <h2 className="text-xl font-semibold mb-4">Global Fog Node Distribution</h2>
+
+      {/* SIN-027: Data source indicator */}
+      {dataSource === 'unavailable' && (
+        <div className="mb-3 px-3 py-1.5 bg-yellow-900/40 border border-yellow-600/50 rounded text-yellow-300 text-xs">
+          Topology API unavailable - no node data to display
+        </div>
+      )}
+      {dataSource === 'live' && nodes.length === 0 && (
+        <div className="mb-3 px-3 py-1.5 bg-blue-900/40 border border-blue-600/50 rounded text-blue-300 text-xs">
+          Connected to topology API - no nodes registered yet
+        </div>
+      )}
 
       <div className="relative h-[400px] bg-gradient-to-br from-fog-dark to-black rounded-lg overflow-hidden">
         {/* Simplified world map visualization */}

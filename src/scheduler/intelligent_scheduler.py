@@ -13,7 +13,9 @@ Features:
 import asyncio
 import heapq
 import logging
+import os
 import time
+from abc import ABC, abstractmethod
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -247,6 +249,59 @@ class MLTaskPredictor:
         }
 
 
+class ExecutionAdapter(ABC):
+    """SIN-028: Abstract execution adapter for task execution.
+
+    Production code must supply a real adapter.  Tests may use the
+    deterministic ``StubExecutionAdapter``.
+    """
+
+    @abstractmethod
+    async def execute(
+        self, task: TaskMetadata, worker: WorkerNode
+    ) -> tuple[float, bool]:
+        """Execute *task* on *worker*.
+
+        Returns ``(execution_time_seconds, success_bool)``.
+        """
+
+
+class StubExecutionAdapter(ExecutionAdapter):
+    """Deterministic stub for tests.  Always succeeds in fixed time."""
+
+    def __init__(self, fixed_time: float = 0.1, success: bool = True):
+        self.fixed_time = fixed_time
+        self.success = success
+
+    async def execute(
+        self, task: TaskMetadata, worker: WorkerNode
+    ) -> tuple[float, bool]:
+        await asyncio.sleep(self.fixed_time)
+        return self.fixed_time, self.success
+
+
+class SimulatedExecutionAdapter(ExecutionAdapter):
+    """Legacy simulation adapter - only allowed in development mode.
+
+    Raises ``RuntimeError`` in production to prevent fake results
+    from reaching real pipelines.
+    """
+
+    async def execute(
+        self, task: TaskMetadata, worker: WorkerNode
+    ) -> tuple[float, bool]:
+        _app_env = os.getenv("APP_ENV", "development")
+        if _app_env == "production":
+            raise RuntimeError(
+                "SimulatedExecutionAdapter cannot be used in production. "
+                "Supply a real ExecutionAdapter implementation."
+            )
+        execution_time = random.uniform(0.5, 3.0)
+        await asyncio.sleep(execution_time)
+        success = random.random() > 0.05
+        return execution_time, success
+
+
 class IntelligentScheduler:
     """
     Intelligent task scheduler with ML-based placement
@@ -254,7 +309,11 @@ class IntelligentScheduler:
     Supports multiple scheduling strategies and learns from execution history
     """
 
-    def __init__(self, strategy: SchedulingStrategy = SchedulingStrategy.ML_ADAPTIVE):
+    def __init__(
+        self,
+        strategy: SchedulingStrategy = SchedulingStrategy.ML_ADAPTIVE,
+        execution_adapter: Optional[ExecutionAdapter] = None,
+    ):
         self.strategy = strategy
         self._task_queue: List[TaskMetadata] = []  # Priority heap
         self._tasks: Dict[str, TaskMetadata] = {}
@@ -262,6 +321,12 @@ class IntelligentScheduler:
         self._predictor = MLTaskPredictor()
         self._running = False
         self._scheduler_task: Optional[asyncio.Task] = None
+
+        # SIN-028: Pluggable execution adapter
+        if execution_adapter is not None:
+            self._executor = execution_adapter
+        else:
+            self._executor = SimulatedExecutionAdapter()
 
         logger.info(f"IntelligentScheduler initialized with strategy: {strategy.value}")
 
@@ -394,16 +459,13 @@ class IntelligentScheduler:
             await asyncio.sleep(0.1)  # Small delay
 
     async def _execute_task(self, task: TaskMetadata, worker: WorkerNode) -> None:
-        """Simulate task execution (placeholder for actual execution)"""
+        """Execute task via the pluggable ExecutionAdapter (SIN-028)."""
         task.started_at = datetime.now()
 
-        # Simulate execution time (replace with actual task execution)
-        execution_time = random.uniform(0.5, 3.0)
-        await asyncio.sleep(execution_time)
+        execution_time, success = await self._executor.execute(task, worker)
 
         # Record completion
         task.completed_at = datetime.now()
-        success = random.random() > 0.05  # 95% success rate
 
         # Update worker stats
         if success:

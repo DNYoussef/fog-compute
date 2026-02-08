@@ -4,6 +4,8 @@ import { proxyToBackend } from '@/lib/backend-proxy';
 /**
  * Dashboard Stats API Route
  * Proxies to FastAPI backend - aggregates all service metrics
+ *
+ * SIN-026: Mock fallback restricted to non-production with explicit _mock flag.
  */
 export async function GET() {
   try {
@@ -13,23 +15,39 @@ export async function GET() {
   } catch (error) {
     console.error('Error fetching dashboard stats:', error);
 
-    // Fallback mock data matching expected format
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    if (isProduction) {
+      // SIN-026: No silent mock fallback in production
+      return NextResponse.json(
+        {
+          error: 'Backend unavailable',
+          message: 'Dashboard stats could not be fetched from backend.',
+          _mock: false,
+        },
+        { status: 503 }
+      );
+    }
+
+    // Development only: fallback mock data with explicit flag
     return NextResponse.json({
+      _mock: true,
+      _warning: 'Backend unavailable - showing mock data (dev only)',
       betanet: {
-        mixnodes: 2,
-        activeConnections: 6,
-        packetsProcessed: 22274,
-        status: 'online' as const
+        mixnodes: 0,
+        activeConnections: 0,
+        packetsProcessed: 0,
+        status: 'offline' as const
       },
       bitchat: {
         activePeers: 0,
         messagesDelivered: 0,
-        encryptionStatus: true,
-        meshHealth: 'good' as const
+        encryptionStatus: false,
+        meshHealth: 'unknown' as const
       },
       benchmarks: {
-        avgLatency: 0.00,
-        throughput: 0.00,
+        avgLatency: 0.0,
+        throughput: 0.0,
         cpuUsage: 0.0,
         memoryUsage: 0.0
       }
