@@ -16,6 +16,7 @@ class ServiceStatus(str, Enum):
     """Service registration status"""
     STARTING = "starting"
     RUNNING = "running"
+    DEGRADED = "degraded"  # SIN-015: Running but with reduced capability
     STOPPING = "stopping"
     STOPPED = "stopped"
     FAILED = "failed"

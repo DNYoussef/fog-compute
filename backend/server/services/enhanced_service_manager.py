@@ -466,9 +466,12 @@ class EnhancedServiceManager:
             self.services['vpn_coordinator'].is_critical = False
 
     async def _init_p2p(self) -> None:
-        """Initialize unified P2P system"""
+        """Initialize unified P2P system.
+
+        SIN-015: Surfaces degraded state when transports unavailable.
+        """
         try:
-            from p2p.unified_p2p_system import UnifiedDecentralizedSystem
+            from p2p.unified_p2p_system import UnifiedDecentralizedSystem, TRANSPORTS_AVAILABLE
             import socket
             import uuid
 
@@ -477,6 +480,19 @@ class EnhancedServiceManager:
             except ValueError:
                 logger.warning("Invalid P2P_TIMEOUT value; defaulting to 30s")
                 timeout_seconds = 30
+
+            # SIN-015: Surface degraded state early if transports unavailable
+            if not TRANSPORTS_AVAILABLE:
+                logger.warning(
+                    "P2P transport modules not available - "
+                    "system will run in degraded mode"
+                )
+                self.services['p2p'].instance = None
+                self.services['p2p'].is_critical = False
+                self.services['p2p'].status = ServiceStatus.DEGRADED
+                self.registry.update_status('p2p', ServiceStatus.DEGRADED)
+                self.services['p2p'].last_error = "transport modules not found"
+                return
 
             node_id = f"fog-backend-{socket.gethostname()}-{uuid.uuid4().hex[:8]}"
 
@@ -495,11 +511,22 @@ class EnhancedServiceManager:
                 p2p_system.start(),
                 timeout=timeout_seconds
             )
-            if not started:
-                logger.warning("P2P system failed to start, but continuing with limited functionality")
 
             self.services['p2p'].instance = p2p_system
-            logger.info(f"P2P system initialized and started for node {node_id}")
+
+            if not started:
+                logger.warning("P2P system started but no transports initialized - degraded mode")
+                self.services['p2p'].status = ServiceStatus.DEGRADED
+                self.registry.update_status('p2p', ServiceStatus.DEGRADED)
+            else:
+                # Check if running in degraded mode (partial transports)
+                health = p2p_system.get_health()
+                if health.get("degraded"):
+                    self.services['p2p'].status = ServiceStatus.DEGRADED
+                    self.registry.update_status('p2p', ServiceStatus.DEGRADED)
+                    logger.warning("P2P system running in degraded mode")
+
+            logger.info(f"P2P system initialized for node {node_id}")
 
         except asyncio.TimeoutError:
             logger.warning(f"P2P system start timed out after {timeout_seconds}s; continuing without P2P")

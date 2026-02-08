@@ -31,61 +31,26 @@ from typing import Any
 # Setup logger first
 logger = logging.getLogger(__name__)
 
-# Import consolidated transport implementations
+# Import real transport implementations from local package
+# SIN-009: Use actual transports, not nonexistent infrastructure paths
 try:
-    from ...infrastructure.p2p.betanet.htx_transport import HtxClient
-    from ...infrastructure.p2p.bitchat.ble_transport import BitChatMessage, BitChatTransport
-    from ...infrastructure.p2p.core.transport_manager import TransportManager
+    from .transports.base_transport import (
+        TransportCapabilities,
+        TransportInterface,
+        TransportType,
+    )
+    from .transports.betanet_transport import BetaNetTransport
+    from .transports.bitchat_transport import BitChatTransport as BitChatBLETransport
 
     TRANSPORTS_AVAILABLE = True
 except ImportError:
-    # Stub classes for when transports are not available
-    class HtxClient:
-        """Stub HTX client when real implementation unavailable"""
-        def __init__(self, *args, **kwargs):
-            pass
-        def register_message_handler(self, handler):
-            pass
-        async def stop(self):
-            pass
+    # Real transports not found - TRANSPORTS_AVAILABLE stays False
+    # SIN-009: No more lying about transport availability
+    TRANSPORTS_AVAILABLE = False
+    logger.warning("P2P transports unavailable - transport modules not found")
 
-    class BitChatTransport:
-        """Stub BitChat transport when real implementation unavailable"""
-        def __init__(self, *args, **kwargs):
-            pass
-        def register_message_handler(self, handler):
-            pass
-        async def stop(self):
-            pass
-
-    class BitChatMessage:
-        """Stub BitChat message when real implementation unavailable"""
-        def __init__(self, *args, **kwargs):
-            pass
-
-    class TransportManager:
-        """Stub transport manager when real implementation unavailable"""
-        def __init__(self, *args, **kwargs):
-            pass
-        def register_transport(self, *args, **kwargs):
-            pass
-        def register_message_handler(self, handler):
-            pass
-        async def stop(self):
-            pass
-        async def send_message(self, message):
-            return False
-
-    # Allow system to operate with stubs for basic functionality
-    TRANSPORTS_AVAILABLE = True
-    logger.warning("P2P transports unavailable, using stub implementations")
-
-# Mobile integration imports with graceful degradation
-try:
-
-    MOBILE_BRIDGE_AVAILABLE = True
-except ImportError:
-    MOBILE_BRIDGE_AVAILABLE = False
+# Mobile integration - no real mobile bridge exists yet
+MOBILE_BRIDGE_AVAILABLE = False
 
 
 class DecentralizedTransportType(Enum):
@@ -542,20 +507,30 @@ class UnifiedDecentralizedSystem:
             return False
 
     async def _initialize_transports(self) -> bool:
-        """Initialize available transport implementations."""
+        """Initialize available transport implementations.
+
+        SIN-009/SIN-011: Use real transport constructors from src/p2p/transports/.
+        Transport manager removed - direct transport selection used instead.
+        """
         success_count = 0
 
+        if not TRANSPORTS_AVAILABLE:
+            logger.error("Cannot initialize transports - modules not available")
+            return False
+
         try:
-            # Initialize BitChat BLE transport
-            if self.enable_bitchat and TRANSPORTS_AVAILABLE:
+            # Initialize BitChat BLE transport (real implementation)
+            if self.enable_bitchat:
                 try:
-                    bitchat = BitChatTransport(
-                        device_id=self.node_id,
-                        device_name=self.device_name,
-                        max_peers=self.config["max_peers"],
-                        enable_compression=self.config["bitchat_enable_compression"],
-                        enable_encryption=self.config["bitchat_enable_encryption"],
-                        battery_optimization=self.config["mobile_battery_aware"],
+                    bitchat_url = (
+                        f"http://{self.config['betanet_server_host']}:"
+                        f"{self.config.get('bitchat_api_port', 8000)}"
+                    )
+                    bitchat = BitChatBLETransport(
+                        node_id=self.node_id,
+                        bitchat_api_url=bitchat_url,
+                        display_name=self.device_name,
+                        max_message_size=self.config["bitchat_max_message_size"],
                     )
 
                     # Register message handler
@@ -568,15 +543,17 @@ class UnifiedDecentralizedSystem:
                 except Exception as e:
                     logger.warning(f"Failed to initialize BitChat: {e}")
 
-            # Initialize BetaNet HTX transport
-            if self.enable_betanet and TRANSPORTS_AVAILABLE:
+            # Initialize BetaNet HTX transport (real implementation)
+            if self.enable_betanet:
                 try:
-                    betanet = HtxClient(
-                        server_host=self.config["betanet_server_host"],
-                        server_port=self.config["betanet_server_port"],
-                        device_id=self.node_id,
-                        connect_timeout=self.config["betanet_connect_timeout"],
-                        frame_timeout=self.config["betanet_frame_timeout"],
+                    betanet_url = (
+                        f"http://{self.config['betanet_server_host']}:"
+                        f"{self.config['betanet_server_port']}"
+                    )
+                    betanet = BetaNetTransport(
+                        node_id=self.node_id,
+                        betanet_api_url=betanet_url,
+                        device_name=self.device_name,
                     )
 
                     # Register message handler
@@ -589,59 +566,9 @@ class UnifiedDecentralizedSystem:
                 except Exception as e:
                     logger.warning(f"Failed to initialize BetaNet: {e}")
 
-            # Initialize mobile bridge if enabled
-            if self.enable_mobile_bridge and MOBILE_BRIDGE_AVAILABLE:
-                try:
-                    from ...infrastructure.p2p.mobile_integration.unified_mobile_bridge import UnifiedMobileBridge
-
-                    self.mobile_bridge = UnifiedMobileBridge(
-                        platform=self.mobile_context.platform, node_id=self.node_id
-                    )
-
-                    await self.mobile_bridge.initialize()
-                    self.transports[DecentralizedTransportType.MOBILE_NATIVE] = self.mobile_bridge
-                    success_count += 1
-                    logger.info(f"Mobile bridge initialized for {self.mobile_context.platform}")
-
-                except Exception as e:
-                    logger.warning(f"Failed to initialize mobile bridge: {e}")
-
-            # Initialize transport manager for intelligent routing
-            if TRANSPORTS_AVAILABLE and self.transports:
-                try:
-                    from ...infrastructure.p2p.core.transport_manager import (
-                        TransportManager,
-                        TransportPriority,
-                    )
-
-                    # Map strategy to transport priority
-                    priority_map = {
-                        "offline_first": TransportPriority.OFFLINE_FIRST,
-                        "privacy_first": TransportPriority.PRIVACY_FIRST,
-                        "adaptive": TransportPriority.ADAPTIVE,
-                    }
-
-                    priority = priority_map.get(self.config["transport_selection_strategy"], TransportPriority.ADAPTIVE)
-
-                    self.transport_manager = TransportManager(
-                        device_id=self.node_id,
-                        transport_priority=priority,
-                        max_chunk_size=self.config["max_chunk_size"],
-                        max_retry_attempts=self.config["max_retry_attempts"],
-                    )
-
-                    # Register transports with capabilities
-                    for transport_type, transport in self.transports.items():
-                        capabilities = self._get_transport_capabilities(transport_type)
-                        self.transport_manager.register_transport(transport_type, transport, capabilities)
-
-                    # Register message handler
-                    self.transport_manager.register_message_handler(self._handle_transport_manager_message)
-
-                    logger.info("Transport manager initialized with intelligent routing")
-
-                except Exception as e:
-                    logger.warning(f"Failed to initialize transport manager: {e}")
+            # Mobile bridge not yet implemented
+            if self.enable_mobile_bridge:
+                logger.warning("Mobile bridge requested but not yet implemented")
 
             logger.info(f"Initialized {success_count} transports")
             return success_count > 0
@@ -651,8 +578,12 @@ class UnifiedDecentralizedSystem:
             return False
 
     def _get_transport_capabilities(self, transport_type: DecentralizedTransportType) -> "TransportCapabilities":
-        """Get capabilities for specific transport type."""
-        from ...infrastructure.p2p.core.transport_manager import TransportCapabilities
+        """Get capabilities for specific transport type.
+
+        SIN-010: Uses local TransportCapabilities from src/p2p/transports/.
+        """
+        if not TRANSPORTS_AVAILABLE:
+            return None
 
         if transport_type == DecentralizedTransportType.BITCHAT_BLE:
             return TransportCapabilities(
@@ -784,39 +715,22 @@ class UnifiedDecentralizedSystem:
             return False
 
     async def _send_via_transport_manager(self, message: DecentralizedMessage) -> bool:
-        """Send message via intelligent transport manager."""
-        try:
-            # Convert DecentralizedMessage to UnifiedMessage format
-            from ...infrastructure.p2p.core.message_types import MessageType, UnifiedMessage
+        """Send message via transport manager (not currently implemented).
 
-            # Map message types
-            msg_type_map = {
-                "data": MessageType.DATA,
-                "control": MessageType.CONTROL,
-                "heartbeat": MessageType.HEARTBEAT,
-            }
-
-            unified_message = UnifiedMessage(
-                message_type=msg_type_map.get(message.message_type, MessageType.DATA), payload=message.payload
-            )
-
-            # Set metadata
-            unified_message.metadata.sender_id = message.sender_id
-            unified_message.metadata.recipient_id = message.receiver_id
-            unified_message.metadata.priority = message.priority
-            unified_message.metadata.max_hops = message.hop_limit
-
-            return await self.transport_manager.send_message(unified_message)
-
-        except Exception as e:
-            logger.error(f"Transport manager send failed: {e}")
-            return False
+        Transport manager was removed as it depended on nonexistent modules.
+        Falls through to direct transport selection.
+        """
+        logger.debug("Transport manager not available, falling back to direct transport")
+        return False
 
     async def _send_via_direct_transport(self, message: DecentralizedMessage) -> bool:
-        """Send message via direct transport selection."""
+        """Send message via direct transport selection.
 
+        SIN-011: Uses real transport send() with standard dict format.
+        """
         # Simple transport selection logic
         selected_transport = None
+        transport_type = None
 
         if message.transport_preference and message.transport_preference in self.transports:
             selected_transport = self.transports[message.transport_preference]
@@ -837,28 +751,26 @@ class UnifiedDecentralizedSystem:
             return False
 
         try:
-            # Send via selected transport
-            if hasattr(selected_transport, "send_message"):
-                # Use transport's message format
-                if transport_type == DecentralizedTransportType.BITCHAT_BLE:
-                    # Convert to BitChatMessage
-                    BitChatMessage(
-                        message_type=message.message_type,
-                        sender=message.sender_id,
-                        recipient=message.receiver_id,
-                        payload=message.payload,
-                        priority=message.priority.value,
-                        ttl=message.hop_limit,
-                    )
-                    # Note: BitChatTransport.send_message expects UnifiedMessage
-                    # This is a design issue that needs resolution
-                    logger.warning("BitChat transport integration needs UnifiedMessage conversion")
-                    return False
-                else:
-                    # Generic send
-                    return await selected_transport.send_message(message)
+            # Convert DecentralizedMessage to standard dict for transport
+            transport_msg = {
+                "sender_id": message.sender_id,
+                "receiver_id": message.receiver_id,
+                "payload": message.payload,
+                "message_type": message.message_type,
+                "priority": message.priority.value,
+                "metadata": {
+                    "message_id": message.message_id,
+                    "hop_limit": message.hop_limit,
+                    "hop_count": message.hop_count,
+                    "requires_privacy": message.requires_privacy,
+                },
+            }
+
+            # Use TransportInterface.send(message_dict)
+            if hasattr(selected_transport, "send"):
+                return await selected_transport.send(transport_msg)
             else:
-                logger.error(f"Transport {transport_type.value} has no send_message method")
+                logger.error(f"Transport {transport_type.value} has no send method")
                 return False
 
         except Exception as e:
@@ -868,16 +780,28 @@ class UnifiedDecentralizedSystem:
 
     # ========== MESSAGE HANDLERS ==========
 
-    async def _handle_bitchat_message(self, unified_message):
-        """Handle incoming BitChat messages."""
+    async def _handle_bitchat_message(self, message_dict):
+        """Handle incoming BitChat messages.
+
+        SIN-011: Accepts standard dict format from real BitChatTransport.
+        """
         try:
-            # Convert UnifiedMessage to DecentralizedMessage
+            # Real transports pass dict messages to handlers
+            payload = message_dict.get("payload", b"")
+            if isinstance(payload, str):
+                try:
+                    payload = bytes.fromhex(payload)
+                except ValueError:
+                    payload = payload.encode("utf-8")
+            elif not isinstance(payload, bytes):
+                payload = b""
+
             decentralized_msg = DecentralizedMessage(
-                message_id=f"recv_{secrets.token_hex(8)}",
-                sender_id=unified_message.metadata.sender_id,
-                receiver_id=self.node_id,
-                message_type=unified_message.message_type.value,
-                payload=unified_message.payload,
+                message_id=message_dict.get("message_id", f"recv_{secrets.token_hex(8)}"),
+                sender_id=message_dict.get("sender_id", ""),
+                receiver_id=message_dict.get("receiver_id", self.node_id),
+                message_type=message_dict.get("message_type", "data"),
+                payload=payload,
                 priority=MessagePriority.NORMAL,
             )
 
@@ -887,16 +811,27 @@ class UnifiedDecentralizedSystem:
         except Exception as e:
             logger.error(f"Error handling BitChat message: {e}")
 
-    async def _handle_betanet_message(self, unified_message):
-        """Handle incoming BetaNet messages."""
+    async def _handle_betanet_message(self, message_dict):
+        """Handle incoming BetaNet messages.
+
+        SIN-011: Accepts standard dict format from real BetaNetTransport.
+        """
         try:
-            # Convert UnifiedMessage to DecentralizedMessage
+            payload = message_dict.get("payload", b"")
+            if isinstance(payload, str):
+                try:
+                    payload = bytes.fromhex(payload)
+                except ValueError:
+                    payload = payload.encode("utf-8")
+            elif not isinstance(payload, bytes):
+                payload = b""
+
             decentralized_msg = DecentralizedMessage(
-                message_id=f"recv_{secrets.token_hex(8)}",
-                sender_id=getattr(unified_message.metadata, "sender_id", ""),
-                receiver_id=self.node_id,
-                message_type=unified_message.message_type.value,
-                payload=unified_message.payload,
+                message_id=message_dict.get("message_id", f"recv_{secrets.token_hex(8)}"),
+                sender_id=message_dict.get("sender_id", ""),
+                receiver_id=message_dict.get("receiver_id", self.node_id),
+                message_type=message_dict.get("message_type", "data"),
+                payload=payload,
                 priority=MessagePriority.NORMAL,
                 requires_privacy=True,
             )
@@ -906,32 +841,6 @@ class UnifiedDecentralizedSystem:
 
         except Exception as e:
             logger.error(f"Error handling BetaNet message: {e}")
-
-    async def _handle_transport_manager_message(self, unified_message, transport_type):
-        """Handle incoming messages from transport manager."""
-        try:
-            # Map transport type back to decentralized type
-            transport_map = {
-                "bitchat": DecentralizedTransportType.BITCHAT_BLE,
-                "betanet": DecentralizedTransportType.BETANET_HTX,
-            }
-
-            decentralized_transport = transport_map.get(transport_type.value, DecentralizedTransportType.DIRECT_MESH)
-
-            # Convert to DecentralizedMessage
-            decentralized_msg = DecentralizedMessage(
-                message_id=f"recv_{secrets.token_hex(8)}",
-                sender_id=getattr(unified_message.metadata, "sender_id", ""),
-                receiver_id=self.node_id,
-                message_type=unified_message.message_type.value,
-                payload=unified_message.payload,
-                priority=getattr(unified_message.metadata, "priority", MessagePriority.NORMAL),
-            )
-
-            await self._process_received_message(decentralized_msg, decentralized_transport)
-
-        except Exception as e:
-            logger.error(f"Error handling transport manager message: {e}")
 
     async def _process_received_message(
         self, message: DecentralizedMessage, transport_type: DecentralizedTransportType
@@ -1244,13 +1153,20 @@ class UnifiedDecentralizedSystem:
         logger.debug(f"Updated mobile context: {context_updates}")
 
     def get_status(self) -> dict[str, Any]:
-        """Get comprehensive system status."""
+        """Get comprehensive system status.
+
+        SIN-015: Includes degraded mode flag and transport availability truth.
+        """
+        active = [t.value for t in self.transports.keys()]
+        is_degraded = not TRANSPORTS_AVAILABLE or len(active) == 0
         return {
             "node_id": self.node_id,
             "device_name": self.device_name,
             "running": self._running,
+            "degraded": is_degraded,
+            "transports_available": TRANSPORTS_AVAILABLE,
             "uptime_seconds": time.time() - self.metrics.get("system_start_time", time.time()),
-            "active_transports": [t.value for t in self.transports.keys()],
+            "active_transports": active,
             "peer_count": len(self.peers),
             "online_peer_count": len([p for p in self.peers.values() if p.is_online()]),
             "device_capabilities": [cap.value for cap in self.device_capabilities],
@@ -1269,16 +1185,25 @@ class UnifiedDecentralizedSystem:
         }
 
     def get_health(self) -> dict[str, Any]:
-        """
-        Get health status for service monitoring.
-        Maps to get_status() for backward compatibility with health check systems.
+        """Get health status for service monitoring.
+
+        SIN-015: Reports degraded state instead of pretending healthy.
         """
         status = self.get_status()
+        if not status["running"]:
+            health = "unhealthy"
+        elif status["degraded"]:
+            health = "degraded"
+        else:
+            health = "healthy"
+
         return {
-            "status": "healthy" if status["running"] else "unhealthy",
+            "status": health,
             "running": status["running"],
+            "degraded": status["degraded"],
             "node_id": status["node_id"],
-            "transports_available": len(status["active_transports"]) > 0,
+            "transports_available": status["transports_available"],
+            "active_transport_count": len(status["active_transports"]),
             "peer_count": status["peer_count"],
             "uptime_seconds": status["uptime_seconds"],
         }
