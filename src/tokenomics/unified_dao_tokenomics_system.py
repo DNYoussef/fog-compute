@@ -386,6 +386,25 @@ class TokenDatabase:
         )
         self.connection.commit()
 
+    def get_daily_earned(self, user_id: str, action: str) -> int:
+        """Get total tokens earned today for a specific action.
+
+        SIN-022: Used to enforce daily earning limits atomically.
+        Uses string prefix match on timestamp for Python datetime compatibility.
+        """
+        today_prefix = datetime.now().strftime("%Y-%m-%d")
+        cursor = self.connection.cursor()
+        cursor.execute(
+            """
+            SELECT COALESCE(SUM(amount), 0) FROM token_transactions
+            WHERE user_id = ? AND action = ? AND amount > 0
+            AND CAST(timestamp AS TEXT) LIKE ?
+        """,
+            (user_id, action, f"{today_prefix}%"),
+        )
+        result = cursor.fetchone()
+        return result[0] if result else 0
+
     def add_transaction(self, transaction: TokenTransaction):
         """Add token transaction record"""
         cursor = self.connection.cursor()
@@ -729,11 +748,23 @@ class UnifiedDAOTokenomicsSystem:
                 self.logger.warning(f"Requirements not met for {action}: {req_name}")
                 return 0
 
-        # Check daily limits
+        # SIN-022: Enforce daily earning limits using transaction ledger
         if rule.daily_limit:
-            # Reference implementation: daily limit validation disabled
-            # TODO: Implement daily limit tracking when usage metrics are available
-            pass
+            earned_today = self.database.get_daily_earned(user_id, action.value)
+            if earned_today + reward > rule.daily_limit:
+                remaining = max(0, rule.daily_limit - earned_today)
+                if remaining <= 0:
+                    self.logger.warning(
+                        f"Daily limit reached for {user_id}/{action.value}: "
+                        f"{earned_today}/{rule.daily_limit}"
+                    )
+                    return 0
+                # Cap reward to remaining allowance
+                reward = remaining
+                self.logger.info(
+                    f"Capped reward for {user_id}/{action.value} to {reward} "
+                    f"(daily limit: {rule.daily_limit}, earned today: {earned_today})"
+                )
 
         # Award tokens
         current_balance = self.get_balance(user_id)
@@ -799,8 +830,7 @@ class UnifiedDAOTokenomicsSystem:
 
         final_reward = int(base_reward * total_multiplier * self.config.compute_reward_multiplier)
 
-        # Check daily limits  
-        # Reference implementation: daily limit validation disabled
+        # Daily limits enforced by award_tokens() via get_daily_earned()
 
         # Update session with rewards
         session.base_reward = base_reward

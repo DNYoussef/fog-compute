@@ -383,20 +383,26 @@ class TokenomicsIntegration:
         # Get recent auction results for quality scoring
         await self.auction_engine.get_market_statistics()
 
-        # Simplified quality bonus distribution
-        # In production, would analyze detailed performance metrics
-
+        # SIN-024: Quality bonus based on actual auction participants, not hardcoded 10
         quality_pool = self.config["quality_bonus_pool"]
         bonuses = {}
 
-        # Distribute based on trust scores and market participation
-        # This is simplified - production would have sophisticated scoring
+        # Get real participants from recent auctions
+        participants = []
+        if self.auction_engine:
+            stats = await self.auction_engine.get_market_statistics()
+            participants = stats.get("active_providers", [])
 
-        total_participants = 10  # Simplified
-        bonus_per_participant = quality_pool / Decimal(str(total_participants))
+        if not participants:
+            logger.warning(
+                "No active providers for quality bonus distribution; "
+                "skipping this cycle"
+            )
+            return {}
 
-        for i in range(total_participants):
-            participant_id = f"provider_{i}"
+        bonus_per_participant = quality_pool / Decimal(str(len(participants)))
+
+        for participant_id in participants:
             bonuses[participant_id] = bonus_per_participant
 
         # Process bonus payments
@@ -506,21 +512,40 @@ class TokenomicsIntegration:
     # Private methods
 
     async def _hold_tokens_in_escrow(self, escrow: TokenEscrow) -> bool:
-        """Hold tokens in escrow (simplified implementation)"""
+        """Hold tokens in escrow by deducting from account balance.
 
+        SIN-024: Actually deducts tokens instead of just checking balance.
+        """
         if not self.token_system:
-            return True  # Skip if no token system
-
-        # In production, this would lock tokens in escrow contract
-        # For now, just verify balance and mark as held
+            logger.warning("Escrow hold skipped: no token system available")
+            return False
 
         account_info = self.token_system.get_account_balance(escrow.account_id)
-        if account_info.get("error") or account_info.get("balance", 0) < float(escrow.amount):
+        if account_info.get("error"):
+            logger.error(f"Escrow hold failed: {account_info.get('error')}")
+            return False
+
+        current_balance = account_info.get("balance", 0)
+        if current_balance < float(escrow.amount):
+            logger.warning(
+                f"Insufficient balance for escrow: "
+                f"{current_balance} < {float(escrow.amount)}"
+            )
+            return False
+
+        # Actually deduct tokens from account (atomic hold)
+        transfer_result = await self.token_system.transfer_tokens(
+            from_account=escrow.account_id,
+            to_account="escrow_vault",
+            amount=int(escrow.amount * Decimal(10**18)),
+        )
+        if not transfer_result.get("success", False):
+            logger.error(f"Escrow deduction failed: {transfer_result}")
             return False
 
         escrow.status = EscrowStatus.HELD
         escrow.held_at = datetime.now(UTC)
-        escrow.hold_tx_id = f"hold_{uuid.uuid4().hex[:8]}"
+        escrow.hold_tx_id = transfer_result.get("tx_id", f"hold_{uuid.uuid4().hex[:8]}")
 
         # Update metrics
         self.market_metrics.total_deposits_held += escrow.amount
@@ -529,34 +554,58 @@ class TokenomicsIntegration:
         return True
 
     async def _convert_deposit_to_payment(self, escrow: TokenEscrow, auction_result: dict[str, Any]) -> bool:
-        """Convert winning bid deposit to payment"""
+        """Convert winning bid deposit to payment.
 
+        SIN-024: Transfers tokens from escrow vault to provider.
+        """
         if not self.token_system:
-            return True
+            logger.warning("Deposit conversion skipped: no token system available")
+            return False
 
-        # Release escrow and apply to payment
+        provider_id = auction_result.get("provider_id", "treasury")
+        transfer_result = await self.token_system.transfer_tokens(
+            from_account="escrow_vault",
+            to_account=provider_id,
+            amount=int(escrow.amount * Decimal(10**18)),
+        )
+        if not transfer_result.get("success", False):
+            logger.error(f"Deposit-to-payment transfer failed: {transfer_result}")
+            return False
+
         escrow.status = EscrowStatus.RELEASED
         escrow.released_at = datetime.now(UTC)
-        escrow.release_tx_id = f"convert_{uuid.uuid4().hex[:8]}"
+        escrow.release_tx_id = transfer_result.get("tx_id", f"convert_{uuid.uuid4().hex[:8]}")
 
         # Update metrics
         self.market_metrics.total_deposits_held -= escrow.amount
         self.market_metrics.total_auction_volume += escrow.amount
         self.market_metrics.auction_transactions += 1
 
-        logger.info(f"Converted deposit {escrow.escrow_id} to payment: {float(escrow.amount)} FOG")
+        logger.info(f"Converted deposit {escrow.escrow_id} to payment: {float(escrow.amount)} FOG -> {provider_id}")
         return True
 
     async def _refund_deposit(self, escrow: TokenEscrow) -> bool:
-        """Refund deposit to account"""
+        """Refund deposit to account.
 
+        SIN-024: Actually transfers tokens back from escrow vault.
+        """
         if not self.token_system:
-            return True
+            logger.warning("Escrow refund skipped: no token system available")
+            return False
 
-        # Release tokens back to account
+        # Transfer tokens back from escrow vault
+        transfer_result = await self.token_system.transfer_tokens(
+            from_account="escrow_vault",
+            to_account=escrow.account_id,
+            amount=int(escrow.amount * Decimal(10**18)),
+        )
+        if not transfer_result.get("success", False):
+            logger.error(f"Escrow refund transfer failed: {transfer_result}")
+            return False
+
         escrow.status = EscrowStatus.REFUNDED
         escrow.released_at = datetime.now(UTC)
-        escrow.release_tx_id = f"refund_{uuid.uuid4().hex[:8]}"
+        escrow.release_tx_id = transfer_result.get("tx_id", f"refund_{uuid.uuid4().hex[:8]}")
 
         # Update metrics
         self.market_metrics.total_deposits_held -= escrow.amount

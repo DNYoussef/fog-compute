@@ -51,8 +51,29 @@ class FogTokenomicsService(BaseFogService):
                 governance_threshold=self.token_config.get("governance_threshold", 1000000),
             )
 
-            # Create system accounts
-            system_key = b"system_key_placeholder"  # In production, use proper crypto
+            # SIN-023: System key from environment, not placeholder
+            import os
+            system_key_hex = os.environ.get("TOKENOMICS_SYSTEM_KEY")
+            if system_key_hex:
+                system_key = bytes.fromhex(system_key_hex)
+                if len(system_key) < 32:
+                    raise ValueError(
+                        "TOKENOMICS_SYSTEM_KEY must be at least 32 bytes (64 hex chars)"
+                    )
+            else:
+                app_env = os.environ.get("APP_ENV", "development")
+                if app_env == "production":
+                    raise RuntimeError(
+                        "TOKENOMICS_SYSTEM_KEY is required in production. "
+                        "Generate with: python -c \"import os; print(os.urandom(32).hex())\""
+                    )
+                # Development only: generate ephemeral key
+                system_key = os.urandom(32)
+                self.logger.warning(
+                    "Using ephemeral system key (TOKENOMICS_SYSTEM_KEY not set). "
+                    "This is only acceptable in development."
+                )
+
             await self.token_system.create_account("system", system_key, 0)
             await self.token_system.create_account(
                 "treasury", system_key, self.token_config.get("initial_supply", 1000000000) * 0.1
