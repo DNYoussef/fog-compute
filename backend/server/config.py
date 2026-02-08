@@ -11,6 +11,22 @@ import os
 class Settings(BaseSettings):
     """Application settings with environment variable support"""
 
+    # Environment and mock policy (SIN-032)
+    APP_ENV: str = os.getenv("APP_ENV", "development")  # development|staging|production
+    ALLOW_MOCKS: bool = os.getenv("ALLOW_MOCKS", "true").lower() == "true"
+
+    @field_validator('ALLOW_MOCKS')
+    @classmethod
+    def enforce_no_mocks_in_production(cls, v: bool, info) -> bool:
+        """SIN-032: Fail fast if mocks enabled in production."""
+        app_env = os.getenv("APP_ENV", "development")
+        if app_env == "production" and v:
+            raise ValueError(
+                "ALLOW_MOCKS=true is forbidden in production (APP_ENV=production). "
+                "Set ALLOW_MOCKS=false or remove it to use the default."
+            )
+        return v
+
     # API Server
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 8000

@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "idle-device.schema.json",
+  "title": "Idle Compute Device Response",
+  "description": "Canonical schema for idle compute device objects",
+  "type": "object",
+  "required": ["id", "type", "status", "capabilities"],
+  "properties": {
+    "id": { "type": "string" },
+    "type": {
+      "type": "string",
+      "enum": ["android", "ios", "desktop"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["active", "idle", "harvesting", "offline"]
+    },
+    "capabilities": {
+      "type": "object",
+      "required": ["cpu", "memory", "battery", "charging"],
+      "properties": {
+        "cpu": { "type": "integer", "minimum": 0 },
+        "memory": { "type": "integer", "minimum": 0 },
+        "battery": { "type": "number", "minimum": 0, "maximum": 100 },
+        "charging": { "type": "boolean" },
+        "temperature": { "type": ["number", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "stats": {
+      "type": "object",
+      "properties": {
+        "tasksCompleted": { "type": "integer", "minimum": 0 },
+        "computeHours": { "type": "number", "minimum": 0 },
+        "uptime": { "type": "number", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "lastSeen": { "type": ["string", "null"] }
+  },
+  "additionalProperties": false
+}

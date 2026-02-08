@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "betanet-node.schema.json",
+  "title": "Betanet Node Response",
+  "description": "Canonical schema for Betanet node objects returned by /api/betanet/nodes",
+  "type": "object",
+  "required": ["id", "node_type", "status", "packets_processed", "packets_forwarded", "packets_dropped", "avg_latency_ms", "created_at", "last_heartbeat"],
+  "properties": {
+    "id": { "type": "string" },
+    "node_type": {
+      "type": "string",
+      "enum": ["mixnode", "gateway", "client"]
+    },
+    "region": { "type": ["string", "null"] },
+    "name": { "type": ["string", "null"] },
+    "status": {
+      "type": "string",
+      "enum": ["active", "inactive", "maintenance", "deploying"]
+    },
+    "packets_processed": { "type": "integer", "minimum": 0 },
+    "packets_forwarded": { "type": "integer", "minimum": 0 },
+    "packets_dropped": { "type": "integer", "minimum": 0 },
+    "avg_latency_ms": { "type": "number", "minimum": 0 },
+    "created_at": { "type": "string", "format": "date-time" },
+    "last_heartbeat": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}
