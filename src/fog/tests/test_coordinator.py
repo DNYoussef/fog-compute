@@ -317,6 +317,66 @@ class TestTaskRouting:
         assert selected_node is not None
         assert selected_node.supports_onion_routing is True
 
+    @pytest.mark.asyncio
+    async def test_route_task_proximity_by_coordinates(self, coordinator):
+        """Test proximity routing by geolocation coordinates."""
+        west_node = FogNode(
+            node_id="west-node",
+            node_type=NodeType.COMPUTE_NODE,
+            latitude=37.7749,
+            longitude=-122.4194,  # San Francisco
+        )
+        east_node = FogNode(
+            node_id="east-node",
+            node_type=NodeType.COMPUTE_NODE,
+            latitude=40.7128,
+            longitude=-74.0060,  # New York
+        )
+
+        await coordinator.register_node(west_node)
+        await coordinator.register_node(east_node)
+
+        task = Task(
+            task_id="geo-task-1",
+            task_type="compute",
+            task_data={"latitude": 37.3382, "longitude": -121.8863},  # San Jose
+        )
+
+        selected_node = await coordinator.route_task(
+            task, RoutingStrategy.PROXIMITY_BASED
+        )
+        assert selected_node is not None
+        assert selected_node.node_id == "west-node"
+
+    @pytest.mark.asyncio
+    async def test_route_task_proximity_region_fallback(self, coordinator):
+        """Test proximity routing respects preferred region without coordinates."""
+        us_west = FogNode(
+            node_id="us-west-node",
+            node_type=NodeType.COMPUTE_NODE,
+            region="us-west-2",
+        )
+        eu_node = FogNode(
+            node_id="eu-node",
+            node_type=NodeType.COMPUTE_NODE,
+            region="eu-west-1",
+        )
+
+        await coordinator.register_node(us_west)
+        await coordinator.register_node(eu_node)
+
+        task = Task(
+            task_id="geo-task-2",
+            task_type="compute",
+            task_data={"preferred_region": "us-west-2"},
+        )
+
+        selected_node = await coordinator.route_task(
+            task, RoutingStrategy.PROXIMITY_BASED
+        )
+        assert selected_node is not None
+        assert selected_node.node_id == "us-west-node"
+
 
 class TestNetworkTopology:
     """Test network topology tracking."""

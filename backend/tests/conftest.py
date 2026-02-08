@@ -9,6 +9,7 @@ import asyncio
 import inspect
 import importlib.util
 from pathlib import Path
+from typing import Any
 
 # Set up test environment variables BEFORE any imports
 # This must happen before the Settings class is instantiated
@@ -26,6 +27,9 @@ sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(backend_root))
 
 import pytest
+import httpx
+
+TEST_CSRF_TOKEN = "test-csrf-token"
 
 PYTEST_ASYNCIO_AVAILABLE = importlib.util.find_spec("pytest_asyncio") is not None
 
@@ -80,3 +84,38 @@ def mock_auth_token():
     """Provide a mock authentication token for tests."""
     # NOTE: This is for testing only - real tokens should be cryptographically secure
     return "test_token_for_unit_tests_only"
+
+
+@pytest.fixture(scope="session", autouse=True)
+def httpx_app_compat():
+    """
+    Backward-compat shim for tests using `httpx.AsyncClient(app=...)`.
+
+    Newer httpx versions require `ASGITransport(app=...)` instead.
+    """
+
+    original_init = httpx.AsyncClient.__init__
+
+    def compat_init(self, *args: Any, **kwargs: Any):
+        app = kwargs.pop("app", None)
+        if app is not None and "transport" not in kwargs:
+            kwargs["transport"] = httpx.ASGITransport(app=app)
+
+        # Preserve legacy test behavior where `AsyncClient(app=...)` calls
+        # interacted with middleware-protected endpoints without explicit
+        # CSRF bootstrapping per test.
+        if app is not None:
+            headers = dict(kwargs.get("headers") or {})
+            cookies = dict(kwargs.get("cookies") or {})
+            headers.setdefault("X-CSRF-Token", TEST_CSRF_TOKEN)
+            cookies.setdefault("csrf_token", TEST_CSRF_TOKEN)
+            kwargs["headers"] = headers
+            kwargs["cookies"] = cookies
+        return original_init(self, *args, **kwargs)
+
+    httpx.AsyncClient.__init__ = compat_init
+    try:
+        yield
+    finally:
+        httpx.AsyncClient.__init__ = original_init
+

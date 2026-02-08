@@ -94,6 +94,7 @@ class FogCache:
 
         # Local LRU cache for hot data
         self.lru_cache: LRUCache = LRUCache(maxsize=lru_capacity)
+        self._local_expiry: dict[str, datetime] = {}
 
         # TTL cache for time-sensitive data
         self.ttl_cache: TTLCache = TTLCache(maxsize=1000, ttl=default_ttl)
@@ -136,6 +137,15 @@ class FogCache:
         """Generate prefixed cache key"""
         return f"{self.key_prefix}{key}"
 
+    def _is_local_expired(self, key: str) -> bool:
+        """Check and purge expired local cache entries."""
+        expires_at = self._local_expiry.get(key)
+        if expires_at and datetime.now() >= expires_at:
+            self.lru_cache.pop(key, None)
+            self._local_expiry.pop(key, None)
+            return True
+        return False
+
     async def get(self, key: str, use_lru: bool = True) -> Optional[Any]:
         """
         Get value from cache (checks LRU -> Redis).
@@ -149,7 +159,7 @@ class FogCache:
         """
         try:
             # Check local LRU first (fastest)
-            if use_lru and key in self.lru_cache:
+            if use_lru and key in self.lru_cache and not self._is_local_expired(key):
                 self.metrics.hits += 1
                 return self.lru_cache[key]
 
@@ -164,6 +174,7 @@ class FogCache:
                     # Update LRU cache
                     if use_lru:
                         self.lru_cache[key] = data
+                        self._local_expiry[key] = datetime.now() + timedelta(seconds=self.default_ttl)
                     self.metrics.hits += 1
                     return data
 
@@ -192,15 +203,17 @@ class FogCache:
             Success status
         """
         try:
+            ttl_value = ttl or self.default_ttl
+
             # Update local LRU
             if use_lru:
                 self.lru_cache[key] = value
+                self._local_expiry[key] = datetime.now() + timedelta(seconds=ttl_value)
 
             # Update Redis
             if self._connected and self.redis:
                 redis_key = self._make_key(key)
                 serialized = json.dumps(value)
-                ttl_value = ttl or self.default_ttl
 
                 await self.redis.setex(redis_key, ttl_value, serialized)
 
@@ -225,6 +238,7 @@ class FogCache:
         try:
             # Delete from LRU
             self.lru_cache.pop(key, None)
+            self._local_expiry.pop(key, None)
 
             # Delete from Redis
             if self._connected and self.redis:
@@ -256,7 +270,10 @@ class FogCache:
 
         try:
             # Check LRU first
-            lru_hits = {k: self.lru_cache[k] for k in keys if k in self.lru_cache}
+            lru_hits = {}
+            for key in keys:
+                if key in self.lru_cache and not self._is_local_expired(key):
+                    lru_hits[key] = self.lru_cache[key]
             result.update(lru_hits)
 
             # Get remaining from Redis
@@ -271,6 +288,7 @@ class FogCache:
                         result[key] = data
                         # Update LRU
                         self.lru_cache[key] = data
+                        self._local_expiry[key] = datetime.now() + timedelta(seconds=self.default_ttl)
 
             # Update metrics
             self.metrics.hits += len(result)
@@ -301,12 +319,16 @@ class FogCache:
         success_count = 0
 
         try:
+            ttl_value = ttl or self.default_ttl
+
             # Update LRU cache
             self.lru_cache.update(items)
+            expires_at = datetime.now() + timedelta(seconds=ttl_value)
+            for key in items.keys():
+                self._local_expiry[key] = expires_at
 
             # Update Redis with pipeline
             if self._connected and self.redis:
-                ttl_value = ttl or self.default_ttl
                 pipeline = self.redis.pipeline()
 
                 for key, value in items.items():
@@ -315,7 +337,7 @@ class FogCache:
                     pipeline.setex(redis_key, ttl_value, serialized)
 
                 await pipeline.execute()
-                success_count = len(items)
+            success_count = len(items)
 
             self.metrics.sets += success_count
 
@@ -338,12 +360,13 @@ class FogCache:
         if not keys:
             return 0
 
-        success_count = 0
+        success_count = len(keys)
 
         try:
             # Delete from LRU
             for key in keys:
                 self.lru_cache.pop(key, None)
+                self._local_expiry.pop(key, None)
 
             # Delete from Redis
             if self._connected and self.redis:
@@ -363,7 +386,7 @@ class FogCache:
         """Check if key exists in cache"""
         try:
             # Check LRU first
-            if key in self.lru_cache:
+            if key in self.lru_cache and not self._is_local_expired(key):
                 return True
 
             # Check Redis
@@ -391,8 +414,10 @@ class FogCache:
                 to_delete = [k for k in self.lru_cache.keys() if pattern in k]
                 for key in to_delete:
                     self.lru_cache.pop(key, None)
+                    self._local_expiry.pop(key, None)
             else:
                 self.lru_cache.clear()
+                self._local_expiry.clear()
 
             # Clear Redis
             if self._connected and self.redis:

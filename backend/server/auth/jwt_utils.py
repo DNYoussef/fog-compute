@@ -5,12 +5,9 @@ Token creation, verification, and password hashing
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
+import bcrypt
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from ..config import settings
-
-# Password hashing context
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # JWT configuration
 ALGORITHM = "HS256"
@@ -81,11 +78,10 @@ def get_password_hash(password: str) -> str:
         bcrypt has a maximum password length of 72 bytes.
         Passwords are truncated to 72 bytes before hashing.
     """
-    # Truncate password to 72 bytes (bcrypt's hard limit)
-    # This prevents "password cannot be longer than 72 bytes" errors
-    password_bytes = password.encode('utf-8')[:72]
-    password_truncated = password_bytes.decode('utf-8', errors='ignore')
-    return pwd_context.hash(password_truncated)
+    # Truncate to bcrypt's 72-byte input limit.
+    password_bytes = password.encode("utf-8")[:72]
+    hashed = bcrypt.hashpw(password_bytes, bcrypt.gensalt())
+    return hashed.decode("utf-8")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -103,7 +99,9 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         Passwords are truncated to 72 bytes before verification
         to match the truncation during hashing.
     """
-    # Truncate password to 72 bytes (same as during hashing)
-    password_bytes = plain_password.encode('utf-8')[:72]
-    password_truncated = password_bytes.decode('utf-8', errors='ignore')
-    return pwd_context.verify(password_truncated, hashed_password)
+    # Truncate to the same 72-byte boundary used during hashing.
+    password_bytes = plain_password.encode("utf-8")[:72]
+    try:
+        return bcrypt.checkpw(password_bytes, hashed_password.encode("utf-8"))
+    except Exception:
+        return False

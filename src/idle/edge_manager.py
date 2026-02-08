@@ -581,8 +581,83 @@ class EdgeManager:
 
     async def _process_fog_tasks(self) -> None:
         """Process distributed fog computing tasks"""
-        # Placeholder for fog computing coordination
-        self.stats["fog_compute_tasks"] += len(self.devices)
+        # Consider devices that are currently reachable for compute work.
+        eligible_devices = [
+            device
+            for device in self.devices.values()
+            if device.state in (EdgeState.ONLINE, EdgeState.RUNNING, EdgeState.DEPLOYING)
+        ]
+
+        if not eligible_devices:
+            self.fog_nodes.clear()
+            self.stats["fog_compute_tasks"] = 0
+            return
+
+        previous_active = {
+            node_id: node.active_tasks for node_id, node in self.fog_nodes.items()
+        }
+        refreshed_nodes: dict[str, FogNode] = {}
+
+        # Build deterministic fog groups to coordinate task execution.
+        desired_groups = max(1, int(self.config.get("fog_group_count", 4)))
+        group_size = max(1, (len(eligible_devices) + desired_groups - 1) // desired_groups)
+
+        for idx in range(0, len(eligible_devices), group_size):
+            members = eligible_devices[idx: idx + group_size]
+            if not members:
+                continue
+
+            group_index = idx // group_size
+            node_id = f"fog-node-{group_index}"
+            coordinator = max(
+                members,
+                key=lambda d: (d.capabilities.cpu_cores, d.capabilities.ram_available_mb),
+            )
+
+            capacity = float(sum(d.capabilities.cpu_cores for d in members))
+            max_tasks = max(
+                1,
+                sum(max(1, d.capabilities.max_concurrent_tasks) for d in members),
+            )
+
+            refreshed_nodes[node_id] = FogNode(
+                node_id=node_id,
+                device_ids=[d.device_id for d in members],
+                coordinator_device=coordinator.device_id,
+                compute_capacity=capacity,
+                active_tasks=min(previous_active.get(node_id, 0), max_tasks),
+                max_tasks=max_tasks,
+            )
+
+        running_deployments = sorted(
+            (d for d in self.deployments.values() if d.state == "running"),
+            key=lambda d: d.priority,
+            reverse=True,
+        )
+
+        for fog_node in refreshed_nodes.values():
+            fog_node.active_tasks = 0
+
+        assigned_tasks = 0
+        for _deployment in running_deployments:
+            available_nodes = [
+                node for node in refreshed_nodes.values() if node.active_tasks < node.max_tasks
+            ]
+            if not available_nodes:
+                break
+
+            target = max(
+                available_nodes,
+                key=lambda node: (
+                    node.compute_capacity,
+                    node.max_tasks - node.active_tasks,
+                ),
+            )
+            target.active_tasks += 1
+            assigned_tasks += 1
+
+        self.fog_nodes = refreshed_nodes
+        self.stats["fog_compute_tasks"] = assigned_tasks
 
     def get_registered_devices(self) -> list["EdgeDevice"]:
         """

@@ -19,6 +19,8 @@ import aiohttp
 import json
 import logging
 import time
+import inspect
+from contextlib import asynccontextmanager
 from typing import Any, Optional
 
 from .base_transport import BaseTransport, TransportType, TransportCapabilities
@@ -174,7 +176,7 @@ class BitChatTransport(BaseTransport):
 
             # Send via BitChat API
             url = f"{self.bitchat_api_url}/api/bitchat/messages/send"
-            async with self.session.post(url, json=bitchat_message) as resp:
+            async with self._request_ctx("post", url, json=bitchat_message) as resp:
                 if resp.status == 201:
                     self.messages_sent += 1
                     self.last_activity = time.time()
@@ -259,6 +261,30 @@ class BitChatTransport(BaseTransport):
     # BitChat Backend Integration
     # ============================================================================
 
+    @asynccontextmanager
+    async def _request_ctx(self, method: str, url: str, **kwargs):
+        """
+        Request wrapper that supports both real aiohttp context managers and
+        async-mocked coroutine responses used by tests.
+        """
+        requester = getattr(self.session, method)
+        request_result = requester(url, **kwargs)
+
+        if hasattr(request_result, "__aenter__"):
+            async with request_result as resp:
+                yield resp
+            return
+
+        resp = await request_result
+        try:
+            yield resp
+        finally:
+            release = getattr(resp, "release", None)
+            if callable(release):
+                maybe_awaitable = release()
+                if inspect.isawaitable(maybe_awaitable):
+                    await maybe_awaitable
+
     async def _register_peer(self) -> bool:
         """Register this node as a BitChat peer."""
         try:
@@ -269,7 +295,7 @@ class BitChatTransport(BaseTransport):
                 "display_name": self.display_name,
             }
 
-            async with self.session.post(url, json=data) as resp:
+            async with self._request_ctx("post", url, json=data) as resp:
                 if resp.status == 201:
                     logger.info(f"Registered with BitChat as {self.node_id}")
                     return True
@@ -288,7 +314,7 @@ class BitChatTransport(BaseTransport):
             url = f"{self.bitchat_api_url}/api/bitchat/peers/{self.node_id}/status"
             params = {"is_online": is_online}
 
-            async with self.session.put(url, params=params) as resp:
+            async with self._request_ctx("put", url, params=params) as resp:
                 if resp.status == 200:
                     logger.debug(f"Updated BitChat status to {'online' if is_online else 'offline'}")
                     return True
@@ -305,7 +331,7 @@ class BitChatTransport(BaseTransport):
             url = f"{self.bitchat_api_url}/api/bitchat/peers"
             params = {"online_only": True}
 
-            async with self.session.get(url, params=params) as resp:
+            async with self._request_ctx("get", url, params=params) as resp:
                 if resp.status == 200:
                     peers = await resp.json()
                     self.peer_count = len(peers)

@@ -97,6 +97,11 @@ class Settings(BaseSettings):
     # Generate with: python -c "import secrets; print(secrets.token_urlsafe(32))"
     SECRET_KEY: str = os.getenv("SECRET_KEY", "")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    TLS_ENABLED: bool = True
+    TLS_CERT_PATH: Optional[str] = None
+    TLS_KEY_PATH: Optional[str] = None
+    TLS_VERIFY_CLIENT: bool = False
+    TLS_CA_PATH: Optional[str] = None
 
     @field_validator('SECRET_KEY')
     @classmethod
@@ -155,6 +160,28 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+
+    def get_http_scheme(self) -> str:
+        """Return HTTP scheme according to TLS setting."""
+        return "https" if self.TLS_ENABLED else "http"
+
+    def get_ws_scheme(self) -> str:
+        """Return WebSocket scheme according to TLS setting."""
+        return "wss" if self.TLS_ENABLED else "ws"
+
+    def build_api_url(self, path: str = "") -> str:
+        """Build absolute API URL from configured host/port and optional path."""
+        normalized_path = ""
+        if path:
+            normalized_path = path if path.startswith("/") else f"/{path}"
+        return f"{self.get_http_scheme()}://{self.API_HOST}:{self.API_PORT}{normalized_path}"
+
+    def build_ws_url(self, path: str = "") -> str:
+        """Build absolute WebSocket URL from configured host/port and optional path."""
+        normalized_path = ""
+        if path:
+            normalized_path = path if path.startswith("/") else f"/{path}"
+        return f"{self.get_ws_scheme()}://{self.API_HOST}:{self.API_PORT}{normalized_path}"
 
 
 # Global settings instance

@@ -14,6 +14,8 @@ import time
 from server.models.database import User
 from server.auth.jwt_utils import verify_password, get_password_hash
 from server.database import get_db
+from server.main import app
+from server.middleware.rate_limit import rate_limiter
 
 from tests.constants import (
     TEST_BASE_URL,
@@ -49,9 +51,10 @@ LOCKOUT_DURATION_MINUTES = TEST_LOCKOUT_DURATION_MINUTES
 @pytest.fixture
 async def test_user():
     """Create a test user for lockout tests"""
+    unique = int(time.time_ns())
     return {
-        "username": TEST_USERNAME,
-        "email": TEST_EMAIL,
+        "username": f"lockout_user_{unique}",
+        "email": f"lockout_test_{unique}@example.com",
         "password": TEST_PASSWORD
     }
 
@@ -59,7 +62,7 @@ async def test_user():
 @pytest.fixture
 async def registered_user(test_user):
     """Register a test user for lockout testing"""
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as client:
         response = await client.post(
             f"{BASE_URL}/api/auth/register",
             json=test_user
@@ -68,11 +71,18 @@ async def registered_user(test_user):
         return {**response.json(), "password": test_user["password"]}
 
 
+@pytest.fixture(autouse=True)
+def reset_rate_limit_state():
+    """Prevent cross-test rate limit bleed-through."""
+    rate_limiter.requests.clear()
+    rate_limiter.last_cleanup = time.time()
+
+
 # Test 1: Track Failed Login Attempts
 @pytest.mark.asyncio
 async def test_track_failed_login_attempts(registered_user):
     """Test that failed login attempts are tracked"""
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as client:
         # Attempt TEST_FAILED_ATTEMPTS_BEFORE_LOCK failed logins
         for i in range(TEST_FAILED_ATTEMPTS_BEFORE_LOCK):
             response = await client.post(
@@ -93,7 +103,7 @@ async def test_track_failed_login_attempts(registered_user):
 @pytest.mark.asyncio
 async def test_account_lockout_after_max_attempts(registered_user):
     """Test that account is locked after 5 consecutive failed login attempts"""
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as client:
         # Attempt MAX_FAILED_ATTEMPTS failed logins
         for i in range(MAX_FAILED_ATTEMPTS):
             response = await client.post(
@@ -118,7 +128,7 @@ async def test_account_lockout_after_max_attempts(registered_user):
 @pytest.mark.asyncio
 async def test_locked_account_rejects_correct_password(registered_user):
     """Test that a locked account cannot login even with correct password"""
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as client:
         # Lock the account with failed attempts
         for i in range(MAX_FAILED_ATTEMPTS + 1):
             await client.post(
@@ -148,7 +158,7 @@ async def test_lockout_duration_tracking():
         "password": TEST_PASSWORD
     }
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as client:
         # Register user
         await client.post(f"{BASE_URL}/api/auth/register", json=test_user)
 
@@ -184,7 +194,7 @@ async def test_lockout_duration_tracking():
 @pytest.mark.asyncio
 async def test_successful_login_resets_counter(registered_user):
     """Test that successful login resets failed attempt counter"""
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as client:
         # Attempt TEST_FAILED_ATTEMPTS_BEFORE_LOCK failed logins
         for i in range(TEST_FAILED_ATTEMPTS_BEFORE_LOCK):
             response = await client.post(
@@ -223,7 +233,7 @@ async def test_successful_login_resets_counter(registered_user):
 @pytest.mark.asyncio
 async def test_admin_unlock_mechanism(registered_user):
     """Test that admin can manually unlock a locked account"""
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as client:
         # Lock the account
         for i in range(MAX_FAILED_ATTEMPTS + 1):
             await client.post(
@@ -256,8 +266,8 @@ async def test_admin_unlock_mechanism(registered_user):
 @pytest.mark.asyncio
 async def test_lockout_notification_email(registered_user):
     """Test that user receives email notification when account is locked"""
-    with patch('server.routes.auth.send_lockout_notification', new_callable=AsyncMock) as mock_email:
-        async with httpx.AsyncClient() as client:
+    with patch('server.routes.auth.send_lockout_notification', new_callable=AsyncMock, create=True) as mock_email:
+        async with httpx.AsyncClient(app=app, base_url=BASE_URL) as client:
             # Lock the account
             for i in range(MAX_FAILED_ATTEMPTS + 1):
                 response = await client.post(
@@ -276,7 +286,7 @@ async def test_lockout_notification_email(registered_user):
 @pytest.mark.asyncio
 async def test_no_tracking_for_nonexistent_users():
     """Test that failed attempts for non-existent users don't get tracked (prevent enumeration)"""
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as client:
         # Attempt multiple logins for non-existent user
         responses = []
         for i in range(TEST_NONEXISTENT_USER_ATTEMPTS):
@@ -294,7 +304,7 @@ async def test_no_tracking_for_nonexistent_users():
 @pytest.mark.asyncio
 async def test_lockout_information_in_response(registered_user):
     """Test that lockout response includes helpful information"""
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as client:
         # Lock the account
         for i in range(MAX_FAILED_ATTEMPTS + 1):
             await client.post(
@@ -326,7 +336,7 @@ async def test_attempt_counter_increments():
         "password": TEST_PASSWORD
     }
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as client:
         # Register user
         await client.post(f"{BASE_URL}/api/auth/register", json=test_user)
 
@@ -351,7 +361,7 @@ async def test_attempt_counter_increments():
 async def test_lockout_persists_across_sessions(registered_user):
     """Test that lockout persists even with new HTTP sessions"""
     # Lock account in first session
-    async with httpx.AsyncClient() as client1:
+    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as client1:
         for i in range(MAX_FAILED_ATTEMPTS + 1):
             await client1.post(
                 f"{BASE_URL}/api/auth/login",
@@ -359,7 +369,7 @@ async def test_lockout_persists_across_sessions(registered_user):
             )
 
     # Try to login from new session
-    async with httpx.AsyncClient() as client2:
+    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as client2:
         response = await client2.post(
             f"{BASE_URL}/api/auth/login",
             json={"username": registered_user["username"], "password": registered_user["password"]}
@@ -374,7 +384,7 @@ async def test_lockout_persists_across_sessions(registered_user):
 @pytest.mark.asyncio
 async def test_case_insensitive_lockout(registered_user):
     """Test that lockout works regardless of username case"""
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as client:
         # Lock account with lowercase username
         for i in range(MAX_FAILED_ATTEMPTS):
             await client.post(
@@ -408,7 +418,7 @@ async def test_lockout_isolation():
         "password": TEST_PASSWORD
     }
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as client:
         # Register both users
         await client.post(f"{BASE_URL}/api/auth/register", json=user1)
         await client.post(f"{BASE_URL}/api/auth/register", json=user2)
@@ -445,7 +455,7 @@ async def test_lockout_timing_accuracy():
         "password": TEST_PASSWORD
     }
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as client:
         # Register user
         await client.post(f"{BASE_URL}/api/auth/register", json=test_user)
 
@@ -487,7 +497,7 @@ async def test_rate_limiting_vs_lockout():
         "password": TEST_PASSWORD
     }
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as client:
         # Register user
         await client.post(f"{BASE_URL}/api/auth/register", json=test_user)
 
@@ -521,3 +531,4 @@ def test_account_lockout_test_count():
     print(f"  - Edge cases and isolation (4 tests)")
     print(f"{'='*60}\n")
     assert test_count == 15
+

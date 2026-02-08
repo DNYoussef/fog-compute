@@ -117,10 +117,9 @@ def main() -> int:
                     total_violations += 1
 
     if total_violations > 0:
-        print(f"\nWARNING: {total_violations} placeholder(s) found in production code.")
-        print("These should be resolved before B+ release.")
-        # Return 0 for now (warning) - change to 1 when all are fixed
-        return 0
+        print(f"\nFAILED: {total_violations} placeholder(s) found in production code.")
+        print("Resolve placeholders before B+ release.")
+        return 1
 
     print("PASSED: No placeholder/TODO violations found in production code paths.")
     return 0

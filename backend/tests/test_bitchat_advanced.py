@@ -9,11 +9,21 @@ from pathlib import Path
 import io
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import delete
 from fastapi.testclient import TestClient
 
 # Import services
 from server.services.bitchat import bitchat_service
 from server.services.file_transfer import FileTransferService
+from server.database import AsyncSessionLocal, engine
+from server.models.database import (
+    Peer,
+    Message,
+    GroupChat,
+    GroupMembership,
+    FileTransfer,
+    FileChunk,
+)
 from src.p2p.gossip_protocol import GossipProtocol, VectorClock, GossipMessage
 
 # Import test constants
@@ -23,6 +33,41 @@ from tests.constants import ONE_MB, TWO_MB, THREE_MB, FIVE_MB, TEN_MB, ONE_GB
 # ============================================================================
 # Fixtures
 # ============================================================================
+
+@pytest.fixture(autouse=True)
+async def ensure_bitchat_tables():
+    """Create tables required by advanced BitChat tests."""
+    async with engine.begin() as conn:
+        await conn.run_sync(Peer.__table__.create, checkfirst=True)
+        await conn.run_sync(Message.__table__.create, checkfirst=True)
+        await conn.run_sync(GroupChat.__table__.create, checkfirst=True)
+        await conn.run_sync(GroupMembership.__table__.create, checkfirst=True)
+        await conn.run_sync(FileTransfer.__table__.create, checkfirst=True)
+        await conn.run_sync(FileChunk.__table__.create, checkfirst=True)
+    yield
+
+
+@pytest.fixture(autouse=True)
+async def isolate_bitchat_tables():
+    """Reset BitChat-related DB state between tests."""
+    async with AsyncSessionLocal() as session:
+        await session.execute(delete(FileChunk))
+        await session.execute(delete(FileTransfer))
+        await session.execute(delete(GroupMembership))
+        await session.execute(delete(GroupChat))
+        await session.execute(delete(Message))
+        await session.execute(delete(Peer))
+        await session.commit()
+    yield
+
+
+@pytest.fixture
+async def db_session():
+    """Provide a DB session for advanced BitChat tests."""
+    async with AsyncSessionLocal() as session:
+        yield session
+        await session.rollback()
+
 
 @pytest.fixture
 def gossip_peer():

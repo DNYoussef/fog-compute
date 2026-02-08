@@ -14,6 +14,9 @@ import time
 from server.models.database import User
 from server.auth.jwt_utils import create_access_token, verify_token
 from server.database import get_db
+from server.main import app
+from server.middleware.rate_limit import rate_limiter
+from server.services.token_service import get_token_service
 
 from tests.constants import (
     TEST_BASE_URL,
@@ -36,8 +39,6 @@ from tests.constants import (
 
 # Test configuration
 BASE_URL = TEST_BASE_URL
-TEST_EMAIL = f"refresh_test_{int(time.time())}@example.com"
-TEST_USERNAME = f"refresh_user_{int(time.time())}"
 TEST_PASSWORD = TEST_USER_PASSWORD
 ACCESS_TOKEN_EXPIRY = TEST_ACCESS_TOKEN_EXPIRY_MINUTES  # 15 minutes
 REFRESH_TOKEN_EXPIRY = TEST_REFRESH_TOKEN_EXPIRY_DAYS  # 7 days
@@ -46,9 +47,10 @@ REFRESH_TOKEN_EXPIRY = TEST_REFRESH_TOKEN_EXPIRY_DAYS  # 7 days
 @pytest.fixture
 async def test_user():
     """Create a test user for refresh token tests"""
+    unique = int(time.time_ns())
     return {
-        "username": TEST_USERNAME,
-        "email": TEST_EMAIL,
+        "username": f"refresh_user_{unique}",
+        "email": f"refresh_test_{unique}@example.com",
         "password": TEST_PASSWORD
     }
 
@@ -56,7 +58,7 @@ async def test_user():
 @pytest.fixture
 async def registered_user_with_tokens(test_user):
     """Register a test user and get tokens"""
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as client:
         # Register user
         register_response = await client.post(
             f"{BASE_URL}/api/auth/register",
@@ -81,11 +83,24 @@ async def registered_user_with_tokens(test_user):
         }
 
 
+@pytest.fixture(autouse=True)
+async def reset_auth_runtime_state():
+    """Reset shared in-memory state to keep tests isolated and deterministic."""
+    rate_limiter.requests.clear()
+    rate_limiter.last_cleanup = time.time()
+
+    token_service = await get_token_service()
+    token_service._refresh_tokens.clear()
+    token_service._blacklist.clear()
+    token_service._login_attempts.clear()
+    yield
+
+
 # Test 1: Refresh Token Generated on Login
 @pytest.mark.asyncio
 async def test_refresh_token_generated_on_login(test_user):
     """Test that refresh token is generated along with access token on login"""
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as client:
         # Register user
         await client.post(f"{BASE_URL}/api/auth/register", json=test_user)
 
@@ -139,7 +154,7 @@ async def test_use_refresh_token_to_get_new_access_token(registered_user_with_to
     if not registered_user_with_tokens["refresh_token"]:
         pytest.skip("Refresh token not implemented yet")
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as client:
         response = await client.post(
             f"{BASE_URL}/api/auth/refresh",
             json={"refresh_token": registered_user_with_tokens["refresh_token"]}
@@ -162,7 +177,7 @@ async def test_refresh_token_rotation(registered_user_with_tokens):
     if not registered_user_with_tokens["refresh_token"]:
         pytest.skip("Refresh token not implemented yet")
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as client:
         old_refresh_token = registered_user_with_tokens["refresh_token"]
 
         # Use refresh token
@@ -191,7 +206,7 @@ async def test_refresh_token_rotation(registered_user_with_tokens):
 @pytest.mark.asyncio
 async def test_invalid_refresh_token_rejected():
     """Test that invalid refresh tokens are rejected"""
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as client:
         response = await client.post(
             f"{BASE_URL}/api/auth/refresh",
             json={"refresh_token": "invalid_token_xyz123"}
@@ -214,7 +229,7 @@ async def test_expired_refresh_token_rejected():
     }
     expired_token = create_access_token(refresh_data, expires_delta=timedelta(days=-1))
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as client:
         response = await client.post(
             f"{BASE_URL}/api/auth/refresh",
             json={"refresh_token": expired_token}
@@ -229,7 +244,7 @@ async def test_expired_refresh_token_rejected():
 @pytest.mark.asyncio
 async def test_access_token_cannot_refresh(registered_user_with_tokens):
     """Test that access tokens cannot be used to refresh"""
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as client:
         # Try to use access token as refresh token
         response = await client.post(
             f"{BASE_URL}/api/auth/refresh",
@@ -247,7 +262,7 @@ async def test_revoke_refresh_token(registered_user_with_tokens):
     if not registered_user_with_tokens["refresh_token"]:
         pytest.skip("Refresh token not implemented yet")
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as client:
         refresh_token = registered_user_with_tokens["refresh_token"]
 
         # Revoke the refresh token
@@ -276,7 +291,7 @@ async def test_logout_revokes_refresh_token(registered_user_with_tokens):
     if not registered_user_with_tokens["refresh_token"]:
         pytest.skip("Refresh token not implemented yet")
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as client:
         refresh_token = registered_user_with_tokens["refresh_token"]
         access_token = registered_user_with_tokens["access_token"]
 
@@ -307,7 +322,7 @@ async def test_token_family_invalidation():
         "password": TEST_PASSWORD
     }
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as client:
         # Register and login
         await client.post(f"{BASE_URL}/api/auth/register", json=test_user)
         login_response = await client.post(
@@ -383,7 +398,7 @@ async def test_multiple_refresh_tokens_per_user():
         "password": TEST_PASSWORD
     }
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as client:
         # Register
         await client.post(f"{BASE_URL}/api/auth/register", json=test_user)
 
@@ -428,7 +443,7 @@ async def test_refresh_token_includes_user_context(registered_user_with_tokens):
     if not registered_user_with_tokens["refresh_token"]:
         pytest.skip("Refresh token not implemented yet")
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as client:
         # Get new access token using refresh token
         response = await client.post(
             f"{BASE_URL}/api/auth/refresh",
@@ -459,7 +474,7 @@ async def test_refresh_token_rate_limiting(registered_user_with_tokens):
     if not registered_user_with_tokens["refresh_token"]:
         pytest.skip("Refresh token not implemented yet")
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as client:
         responses = []
         current_token = registered_user_with_tokens["refresh_token"]
 
@@ -488,7 +503,7 @@ async def test_refresh_tokens_invalidated_on_password_change(registered_user_wit
     if not registered_user_with_tokens["refresh_token"]:
         pytest.skip("Refresh token not implemented yet")
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(app=app, base_url=BASE_URL) as client:
         old_refresh_token = registered_user_with_tokens["refresh_token"]
         access_token = registered_user_with_tokens["access_token"]
 

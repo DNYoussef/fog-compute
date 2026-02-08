@@ -6,6 +6,7 @@ import secrets
 import hashlib
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
+from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from ..models.database import APIKey, User
@@ -175,6 +176,7 @@ class APIKeyManager:
         # Generate new key
         plain_key = cls.generate_key()
         key_hash = cls.hash_key(plain_key)
+        user_uuid = UUID(user_id)
 
         # Calculate expiration
         expires_at = None
@@ -183,7 +185,7 @@ class APIKeyManager:
 
         # Create database record
         api_key = APIKey(
-            user_id=user_id,
+            user_id=user_uuid,
             key_hash=key_hash,
             name=name,
             is_active=True,
@@ -210,9 +212,12 @@ class APIKeyManager:
         Returns:
             True if key was revoked, False if not found
         """
-        result = await db.execute(
-            select(APIKey).where(APIKey.id == key_id)
-        )
+        try:
+            key_uuid = UUID(key_id)
+        except (TypeError, ValueError):
+            return False
+
+        result = await db.execute(select(APIKey).where(APIKey.id == key_uuid))
         api_key = result.scalar_one_or_none()
 
         if not api_key:

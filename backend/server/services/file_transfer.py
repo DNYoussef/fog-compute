@@ -426,7 +426,8 @@ class FileTransferService:
         file_transfer = result.scalar_one_or_none()
 
         if file_transfer:
-            sources = file_transfer.download_sources
+            # Copy JSON list so SQLAlchemy detects the field update reliably.
+            sources = list(file_transfer.download_sources or [])
             if peer_id not in sources:
                 sources.append(peer_id)
                 file_transfer.download_sources = sources

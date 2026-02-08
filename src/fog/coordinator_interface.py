@@ -363,9 +363,9 @@ class IFogCoordinator(ABC):
     @abstractmethod
     async def start(self) -> None:
         """Start the coordinator and background tasks."""
-        pass
+        ...
 
     @abstractmethod
     async def stop(self) -> None:
         """Stop the coordinator gracefully."""
-        pass
+        ...

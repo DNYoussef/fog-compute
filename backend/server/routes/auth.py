@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+from uuid import UUID
 import logging
 
 from ..database import get_db
@@ -455,7 +456,16 @@ async def refresh_token(
         )
 
     # Verify user still exists and is active
-    result = await db.execute(select(User).where(User.id == token_data.user_id))
+    try:
+        token_user_id = UUID(token_data.user_id)
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token payload",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    result = await db.execute(select(User).where(User.id == token_user_id))
     user = result.scalar_one_or_none()
 
     if not user:

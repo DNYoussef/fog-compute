@@ -19,6 +19,8 @@ import aiohttp
 import json
 import logging
 import time
+import inspect
+from contextlib import asynccontextmanager
 from typing import Any, Optional
 
 from .base_transport import BaseTransport, TransportType, TransportCapabilities
@@ -172,7 +174,7 @@ class BetaNetTransport(BaseTransport):
                 "priority": message.get("priority", 3),
             }
 
-            async with self.session.post(url, json=data) as resp:
+            async with self._request_ctx("post", url, json=data) as resp:
                 if resp.status == 200:
                     self.messages_sent += 1
                     self.last_activity = time.time()
@@ -204,7 +206,7 @@ class BetaNetTransport(BaseTransport):
         try:
             url = f"{self.betanet_api_url}/api/betanet/receive/{self.node_id}"
 
-            async with self.session.get(url) as resp:
+            async with self._request_ctx("get", url) as resp:
                 if resp.status == 200:
                     data = await resp.json()
 
@@ -293,6 +295,30 @@ class BetaNetTransport(BaseTransport):
     # BetaNet Mixnet Integration
     # ============================================================================
 
+    @asynccontextmanager
+    async def _request_ctx(self, method: str, url: str, **kwargs):
+        """
+        Request wrapper that supports both real aiohttp context managers and
+        async-mocked coroutine responses used by tests.
+        """
+        requester = getattr(self.session, method)
+        request_result = requester(url, **kwargs)
+
+        if hasattr(request_result, "__aenter__"):
+            async with request_result as resp:
+                yield resp
+            return
+
+        resp = await request_result
+        try:
+            yield resp
+        finally:
+            release = getattr(resp, "release", None)
+            if callable(release):
+                maybe_awaitable = release()
+                if inspect.isawaitable(maybe_awaitable):
+                    await maybe_awaitable
+
     async def _register_mixnode(self) -> bool:
         """Register this node with BetaNet mixnet."""
         try:
@@ -306,7 +332,7 @@ class BetaNetTransport(BaseTransport):
                 },
             }
 
-            async with self.session.post(url, json=data) as resp:
+            async with self._request_ctx("post", url, json=data) as resp:
                 if resp.status in [200, 201]:
                     result = await resp.json()
                     self.mixnode_id = result.get("mixnode_id", self.node_id)
@@ -329,7 +355,7 @@ class BetaNetTransport(BaseTransport):
 
             url = f"{self.betanet_api_url}/api/betanet/unregister/{self.mixnode_id}"
 
-            async with self.session.delete(url) as resp:
+            async with self._request_ctx("delete", url) as resp:
                 if resp.status == 200:
                     logger.info(f"Unregistered from BetaNet: {self.mixnode_id}")
                     return True
@@ -345,7 +371,7 @@ class BetaNetTransport(BaseTransport):
         try:
             url = f"{self.betanet_api_url}/api/betanet/relays"
 
-            async with self.session.get(url) as resp:
+            async with self._request_ctx("get", url) as resp:
                 if resp.status == 200:
                     relays = await resp.json()
                     self.relay_nodes = relays

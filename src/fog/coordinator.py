@@ -9,6 +9,7 @@ import asyncio
 import logging
 from collections import defaultdict
 from datetime import UTC, datetime, timedelta
+from math import asin, cos, radians, sin, sqrt
 from typing import Any, Optional
 
 from .coordinator_interface import (
@@ -82,10 +83,12 @@ class FogCoordinator(IFogCoordinator):
                 logger.warning(f"Node {node.node_id} already registered")
                 return False
 
-            # Update registration time
-            node.registered_at = datetime.now(UTC)
-            node.last_heartbeat = datetime.now(UTC)
-            node.status = NodeStatus.ACTIVE
+            # Preserve declared status (ACTIVE/IDLE/OFFLINE/etc.) while
+            # refreshing registration metadata.
+            now = datetime.now(UTC)
+            node.registered_at = now
+            if node.status != NodeStatus.OFFLINE:
+                node.last_heartbeat = now
 
             self._nodes[node.node_id] = node
             logger.info(
@@ -165,11 +168,11 @@ class FogCoordinator(IFogCoordinator):
         - PRIVACY_AWARE: Prefer nodes supporting onion routing
         """
         async with self._node_lock:
-            # Get eligible nodes (active + idle)
+            # Get eligible nodes (active + idle + busy)
             eligible = [
                 n
                 for n in self._nodes.values()
-                if n.status in (NodeStatus.ACTIVE, NodeStatus.IDLE)
+                if n.status in (NodeStatus.ACTIVE, NodeStatus.IDLE, NodeStatus.BUSY)
                 and n.cpu_cores >= task.cpu_required
                 and n.memory_mb >= task.memory_required
                 and (not task.gpu_required or n.gpu_available)
@@ -244,14 +247,107 @@ class FogCoordinator(IFogCoordinator):
         return min(scored, key=lambda x: x[1])[0]
 
     def _route_proximity_based(self, nodes: list[FogNode], task: Task) -> FogNode:
-        """Select nearest node (placeholder - would use geolocation)."""
-        # For now, prefer nodes in same region if task has region preference
+        """Select a nearby node using coordinates with regional fallback."""
         task_region = task.task_data.get("preferred_region")
-        if task_region:
-            regional = [n for n in nodes if n.region == task_region]
-            if regional:
-                return regional[0]
-        return nodes[0]
+        regional_nodes: list[FogNode] = []
+
+        if isinstance(task_region, str) and task_region.strip():
+            region_name = task_region.strip().lower()
+            regional_nodes = [
+                n for n in nodes if n.region and n.region.strip().lower() == region_name
+            ]
+
+        candidate_pool = regional_nodes or nodes
+        task_lat, task_lon = self._extract_task_coordinates(task)
+
+        if task_lat is not None and task_lon is not None:
+            geo_candidates = [
+                n
+                for n in candidate_pool
+                if n.latitude is not None and n.longitude is not None
+            ]
+            if geo_candidates:
+                return min(
+                    geo_candidates,
+                    key=lambda n: self._haversine_km(
+                        task_lat,
+                        task_lon,
+                        float(n.latitude),
+                        float(n.longitude),
+                    ),
+                )
+
+        if regional_nodes:
+            return min(regional_nodes, key=lambda n: (n.active_tasks, n.cpu_usage_percent))
+
+        return min(nodes, key=lambda n: (n.active_tasks, n.cpu_usage_percent))
+
+    @staticmethod
+    def _parse_coordinate(value: Any) -> Optional[float]:
+        """Parse latitude/longitude input safely."""
+        try:
+            if value is None:
+                return None
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    def _extract_task_coordinates(self, task: Task) -> tuple[Optional[float], Optional[float]]:
+        """Extract task origin coordinates from common task_data shapes."""
+        location_candidates = []
+
+        for key in ("location", "client_location", "origin"):
+            candidate = task.task_data.get(key)
+            if isinstance(candidate, dict):
+                location_candidates.append(candidate)
+
+        lat = None
+        lon = None
+
+        for location in location_candidates:
+            lat = self._parse_coordinate(location.get("latitude", location.get("lat")))
+            lon = self._parse_coordinate(location.get("longitude", location.get("lon")))
+            if lat is not None and lon is not None:
+                break
+
+        if lat is None:
+            for key in ("latitude", "lat", "client_latitude", "client_lat"):
+                lat = self._parse_coordinate(task.task_data.get(key))
+                if lat is not None:
+                    break
+
+        if lon is None:
+            for key in ("longitude", "lon", "client_longitude", "client_lon"):
+                lon = self._parse_coordinate(task.task_data.get(key))
+                if lon is not None:
+                    break
+
+        if lat is not None and not -90.0 <= lat <= 90.0:
+            lat = None
+        if lon is not None and not -180.0 <= lon <= 180.0:
+            lon = None
+
+        return lat, lon
+
+    @staticmethod
+    def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+        """Compute distance between two coordinates in kilometers."""
+        radius_km = 6371.0
+
+        lat1_r = radians(lat1)
+        lon1_r = radians(lon1)
+        lat2_r = radians(lat2)
+        lon2_r = radians(lon2)
+
+        dlat = lat2_r - lat1_r
+        dlon = lon2_r - lon1_r
+
+        a = (
+            sin(dlat / 2) ** 2
+            + cos(lat1_r) * cos(lat2_r) * sin(dlon / 2) ** 2
+        )
+        c = 2 * asin(sqrt(a))
+        return radius_km * c
 
     def _route_privacy_aware(self, nodes: list[FogNode], task: Task) -> FogNode:
         """Select node with best privacy support."""
@@ -396,6 +492,9 @@ class FogCoordinator(IFogCoordinator):
                     task_id for task_id, assigned_node in self._task_assignments.items()
                     if assigned_node == node_id
                 ]
+                # Tasks can exist on the node without explicit task_id tracking.
+                # Treat untracked tasks as failed so failure accounting is honest.
+                untracked_tasks = max(0, tasks_to_redistribute - len(affected_tasks))
 
                 # Get eligible nodes for redistribution (excluding the failed one)
                 eligible_nodes = [
@@ -423,6 +522,7 @@ class FogCoordinator(IFogCoordinator):
                         del self._task_assignments[task_id]
                         failed_count += 1
 
+                failed_count += untracked_tasks
                 node.failed_tasks += failed_count
                 node.active_tasks = 0
 

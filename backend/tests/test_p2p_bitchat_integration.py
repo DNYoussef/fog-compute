@@ -37,6 +37,7 @@ def mock_bitchat_api():
     with patch("aiohttp.ClientSession") as mock_session:
         # Mock session instance
         session_instance = AsyncMock()
+        session_instance.closed = False
         mock_session.return_value = session_instance
 
         # Mock POST /peers/register
@@ -72,6 +73,7 @@ def mock_betanet_api():
     """Mock BetaNet API responses."""
     with patch("aiohttp.ClientSession") as mock_session:
         session_instance = AsyncMock()
+        session_instance.closed = False
         mock_session.return_value = session_instance
 
         # Mock POST /register

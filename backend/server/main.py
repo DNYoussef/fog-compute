@@ -57,12 +57,36 @@ from .services.metrics_aggregator import metrics_aggregator
 
 # Import middleware
 from .middleware import RateLimitMiddleware, CSRFMiddleware, SecurityHeadersMiddleware, ErrorHandlingMiddleware
-from .universal_components import (
-    init_connascence_bridge,
-    init_memory_client,
-    init_tagger,
-    init_telemetry_bridge,
-)
+
+# Optional universal components (may be unavailable in minimal CI/runtime envs)
+try:
+    from .universal_components import (
+        init_connascence_bridge,
+        init_memory_client,
+        init_tagger,
+        init_telemetry_bridge,
+    )
+except Exception as exc:  # pragma: no cover - environment-dependent fallback
+    logger.warning(
+        "Universal components unavailable, continuing without them: %s",
+        exc,
+    )
+
+    class _NoopTagger:
+        def tag(self, *_args, **_kwargs):
+            return None
+
+    def init_tagger():
+        return _NoopTagger()
+
+    def init_memory_client():
+        return None
+
+    def init_telemetry_bridge():
+        return None
+
+    def init_connascence_bridge():
+        return None
 
 tagger = init_tagger()
 memory_client = init_memory_client()

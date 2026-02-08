@@ -55,6 +55,28 @@ jobs:
       run: |
         python scripts/ci/check_placeholders.py
 
+  fog-coverage:
+    name: Fog Coverage
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt 2>/dev/null || true
+        pip install pytest pytest-asyncio pytest-cov
+
+    - name: Run fog test suite with coverage gate
+      run: |
+        python -m pytest src/fog/tests/test_coordinator.py -v --tb=short --cov=src/fog --cov-report=term-missing --cov-report=xml:tests/output/coverage/coverage.xml --cov-fail-under=25
+
   backend-unit:
     name: Backend Unit Tests
     runs-on: ubuntu-latest
