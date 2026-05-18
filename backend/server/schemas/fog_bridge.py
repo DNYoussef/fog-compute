@@ -15,6 +15,8 @@ from enum import Enum
 from uuid import UUID
 import re
 
+from ..models.control_plane import ControlPlaneTaskState
+
 
 class DeviceType(str, Enum):
     """Type of fog compute device"""
@@ -100,7 +102,11 @@ class DeviceInfo(BaseModel):
     owner_id: Optional[str] = None
     registered_at: datetime
     last_heartbeat: Optional[datetime] = None
-    current_task_id: Optional[str] = None
+    current_task_id: Optional[str] = None  # Deprecated singular alias
+    active_task_count: int = 0
+    active_task_ids: list[str] = Field(default_factory=list)
+    active_attempt_ids: list[str] = Field(default_factory=list)
+    active_lease_ids: list[str] = Field(default_factory=list)
     total_tasks_completed: int = 0
     uptime_percent: float = 100.0
     reputation_score: float = 1.0
@@ -118,7 +124,7 @@ class HeartbeatRequest(BaseModel):
     memory_usage_percent: float = Field(default=0.0, ge=0.0, le=100.0)
     storage_usage_percent: float = Field(default=0.0, ge=0.0, le=100.0)
     network_latency_ms: Optional[float] = None
-    current_task_id: Optional[str] = None
+    current_task_id: Optional[str] = None  # Deprecated compatibility field; ignored by the control plane.
     task_progress_percent: Optional[float] = Field(default=None, ge=0.0, le=100.0)
     error_count: int = 0
 
@@ -139,6 +145,14 @@ class HealthCheckResponse(BaseModel):
     connected_devices: int
     active_tasks: int
     services: dict[str, dict[str, Any]] = Field(default_factory=dict)
+
+
+class ReadinessCheckResponse(BaseModel):
+    """Readiness status of the authoritative control plane."""
+    ready: bool
+    failure_mode: Optional[str] = None
+    reason: Optional[str] = None
+    details: dict[str, Any] = Field(default_factory=dict)
 
 
 # === Task Distribution ===
@@ -175,30 +189,59 @@ class FogTaskCreate(BaseModel):
     timeout_seconds: int = Field(default=3600, ge=10, le=86400)
     retry_count: int = Field(default=3, ge=0, le=10)
     callback_url: Optional[str] = None
+    idempotency_key: Optional[str] = Field(default=None, min_length=1, max_length=255)
 
 
 class FogTaskResponse(BaseModel):
     """Response for task operations"""
     task_id: str
-    status: Literal["queued", "assigned", "running", "completed", "failed", "cancelled"]
-    assigned_device_id: Optional[str] = None
+    status: ControlPlaneTaskState
+    worker_id: Optional[str] = None
+    assigned_device_id: Optional[str] = None  # Deprecated alias for worker_id
+    attempt_id: Optional[str] = None
+    lease_id: Optional[str] = None
+    assigned_at: Optional[datetime] = None
+    lease_expires_at: Optional[datetime] = None
     created_at: datetime
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     progress_percent: float = 0.0
     result: Optional[dict[str, Any]] = None
     error: Optional[str] = None
+    idempotency_key: Optional[str] = None
 
 
 class TaskResultSubmit(BaseModel):
     """Submit task execution result"""
     task_id: str
     device_id: str
+    attempt_id: str
+    lease_id: str
     success: bool
     result: Optional[dict[str, Any]] = None
     error: Optional[str] = None
     execution_time_ms: int
     resource_usage: Optional[dict[str, float]] = None
+    idempotency_key: Optional[str] = Field(default=None, min_length=1, max_length=255)
+
+
+class TaskLeaseRequest(BaseModel):
+    """Explicit worker pull request for a durable task lease."""
+    preferred_task_id: Optional[str] = None
+    lease_ttl_seconds: int = Field(default=60, ge=5, le=3600)
+
+
+class TaskStartRequest(BaseModel):
+    """Mark a leased task as actively running."""
+    attempt_id: str
+    lease_id: str
+
+
+class TaskLeaseRenewRequest(BaseModel):
+    """Explicit lease renewal request."""
+    attempt_id: str
+    lease_id: str
+    lease_ttl_seconds: int = Field(default=60, ge=5, le=3600)
 
 
 # === Quota Management ===

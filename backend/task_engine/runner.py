@@ -154,7 +154,12 @@ class TaskRunner:
             Task result
         """
         async with self._semaphore:
-            return await self._execute_task(spec)
+            execution_task = asyncio.create_task(self._execute_task(spec))
+            self._running_tasks[spec.task_id] = execution_task
+            try:
+                return await execution_task
+            finally:
+                self._running_tasks.pop(spec.task_id, None)
 
     async def _execute_task(self, spec: TaskSpec) -> TaskResult:
         """Execute task with isolation and timeout."""
@@ -229,6 +234,7 @@ class TaskRunner:
     ) -> TaskResult:
         """Execute shell command."""
         timeout = spec.timeout_sec or self.default_timeout_sec
+        proc = None
 
         try:
             proc = await asyncio.create_subprocess_shell(
@@ -256,6 +262,12 @@ class TaskRunner:
         except asyncio.TimeoutError:
             if proc:
                 proc.kill()
+                await proc.wait()
+            raise
+        except asyncio.CancelledError:
+            if proc:
+                proc.kill()
+                await proc.wait()
             raise
 
         return result
@@ -267,6 +279,7 @@ class TaskRunner:
     ) -> TaskResult:
         """Execute Python script."""
         timeout = spec.timeout_sec or self.default_timeout_sec
+        proc = None
 
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -296,6 +309,12 @@ class TaskRunner:
         except asyncio.TimeoutError:
             if proc:
                 proc.kill()
+                await proc.wait()
+            raise
+        except asyncio.CancelledError:
+            if proc:
+                proc.kill()
+                await proc.wait()
             raise
 
         return result

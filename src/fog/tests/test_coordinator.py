@@ -10,6 +10,7 @@ import pytest
 from datetime import datetime, timedelta, UTC
 
 from ..coordinator import FogCoordinator
+from ..coordinator_enhanced import EnhancedFogCoordinator
 from ..coordinator_interface import (
     FogNode,
     NodeStatus,
@@ -443,6 +444,34 @@ class TestFailover:
         assert node.failed_tasks == 3
 
     @pytest.mark.asyncio
+    async def test_unregister_node_redistributes_active_tasks(self, coordinator):
+        """Unregister should not skip failure handling for active assignments."""
+        failed_node = FogNode(
+            node_id="failed-node",
+            node_type=NodeType.COMPUTE_NODE,
+            status=NodeStatus.ACTIVE,
+            active_tasks=1,
+        )
+        healthy_node = FogNode(
+            node_id="healthy-node",
+            node_type=NodeType.COMPUTE_NODE,
+            status=NodeStatus.ACTIVE,
+        )
+
+        await coordinator.register_node(failed_node)
+        await coordinator.register_node(healthy_node)
+        coordinator._task_assignments["task-1"] = "failed-node"
+
+        result = await coordinator.unregister_node("failed-node")
+
+        assert result is True
+        assert await coordinator.get_node("failed-node") is None
+        assert coordinator._task_assignments["task-1"] == "healthy-node"
+        healthy = await coordinator.get_node("healthy-node")
+        assert healthy.active_tasks == 1
+        assert healthy.status == NodeStatus.BUSY
+
+    @pytest.mark.asyncio
     async def test_heartbeat_timeout(self, coordinator):
         """Test heartbeat timeout detection."""
         # Register node
@@ -579,3 +608,30 @@ class TestLifecycle:
         assert coord._running
 
         await coord.stop()
+
+
+class TestEnhancedCoordinator:
+    """Targeted tests for enhanced coordinator behavior."""
+
+    @pytest.mark.asyncio
+    async def test_unregister_node_counts_failed_tasks_before_removal(self):
+        """Enhanced unregister should process active task failure before pop."""
+        coord = EnhancedFogCoordinator(
+            node_id="enhanced-test",
+            enable_cache=False,
+            enable_load_balancer=False,
+        )
+        node = FogNode(
+            node_id="enhanced-node",
+            node_type=NodeType.COMPUTE_NODE,
+            status=NodeStatus.ACTIVE,
+            active_tasks=2,
+        )
+
+        await coord.register_node(node)
+        result = await coord.unregister_node("enhanced-node")
+
+        assert result is True
+        assert "enhanced-node" not in coord._nodes
+        assert node.failed_tasks == 2
+        assert node.active_tasks == 0

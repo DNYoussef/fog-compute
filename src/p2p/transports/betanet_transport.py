@@ -66,6 +66,7 @@ class BetaNetTransport(BaseTransport):
         self.mixnode_id: Optional[str] = None
         self.relay_nodes: list[dict] = []
         self.active_routes: dict[str, list[str]] = {}  # receiver_id -> route
+        self._refresh_task: Optional[asyncio.Task] = None
 
         logger.info(f"BetaNet transport initialized for {node_id}")
 
@@ -89,10 +90,11 @@ class BetaNetTransport(BaseTransport):
             # Discover relay nodes
             await self._discover_relay_nodes()
 
-            # Start background tasks
-            asyncio.create_task(self._refresh_routes_loop())
-
             self._running = True
+
+            # Start background tasks
+            self._refresh_task = asyncio.create_task(self._refresh_routes_loop())
+
             logger.info("BetaNet transport started successfully")
             return True
 
@@ -104,18 +106,27 @@ class BetaNetTransport(BaseTransport):
 
     async def stop(self) -> bool:
         """Stop BetaNet transport."""
-        if not self._running:
+        if not self._running and self.session is None and self._refresh_task is None:
             return True
 
         self._running = False
 
         try:
+            if self._refresh_task and not self._refresh_task.done():
+                self._refresh_task.cancel()
+                try:
+                    await self._refresh_task
+                except asyncio.CancelledError:
+                    pass
+
             # Unregister from mixnet
             await self._unregister_mixnode()
 
             # Close HTTP session
             if self.session and not self.session.closed:
                 await self.session.close()
+            self.session = None
+            self._refresh_task = None
 
             logger.info("BetaNet transport stopped")
             return True

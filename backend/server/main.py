@@ -21,12 +21,13 @@ logger = logging.getLogger(__name__)
 # Import configuration and services
 from .config import settings
 from .services.enhanced_service_manager import enhanced_service_manager
+from .services.fog_task_control_plane import fog_task_control_plane
 from .services.scheduler import scheduler as deployment_scheduler
 from .services.usage_scheduler import usage_scheduler
 from .services.usage_tracking import usage_tracking_service
 from .services.cache_service import cache_service
 from .services.redis_service import redis_service
-from .database import init_db, close_db
+from .database import close_db, verify_database_readiness
 
 # Import all route modules
 from .routes import (
@@ -113,13 +114,25 @@ async def lifespan(app: FastAPI):
         logger.info(f"🔍 DATABASE_URL: {censored_url}")
         logger.info(f"🔍 Database driver: {'asyncpg' if 'asyncpg' in db_url else 'UNKNOWN (should be asyncpg!)'}")
 
-    # Initialize database
+    # Verify database connectivity and migration state
     try:
-        await init_db()
-        logger.info("✅ Database initialized successfully")
+        migration_state = await verify_database_readiness()
+        if migration_state.get("ready", False):
+            logger.info("Database connectivity and Alembic migration state verified")
+        else:
+            logger.error("Database migration state is not ready: %s", migration_state)
     except Exception as e:
-        logger.error(f"❌ Database initialization failed: {e}")
-        logger.warning("⚠️  Database may be unavailable")
+        logger.error(f"❌ Database verification failed: {e}")
+        logger.warning("⚠️  Database may be unavailable or migrations may be missing")
+
+    try:
+        control_plane_readiness = await fog_task_control_plane.get_readiness_snapshot(force_refresh=True)
+        if control_plane_readiness.get("ready", False):
+            logger.info("Fog task control-plane readiness verified")
+        else:
+            logger.error("Fog task control-plane is not ready: %s", control_plane_readiness)
+    except Exception as e:
+        logger.error(f"Fog task control-plane readiness check failed: {e}")
 
     # Initialize Redis and cache service
     try:
@@ -275,12 +288,21 @@ async def health_check():
     """System health check with graceful degradation for optional services"""
     status_snapshot = enhanced_service_manager.get_status()
     readiness = enhanced_service_manager.get_readiness_summary()
-    is_ready = readiness.get("ready", False)
+    control_plane_readiness = await fog_task_control_plane.get_readiness_snapshot(force_refresh=True)
+    control_plane_health = await fog_task_control_plane.get_health_snapshot()
+    is_ready = readiness.get("ready", False) and control_plane_readiness.get("ready", False)
     composite_health = enhanced_service_manager.health_manager.get_composite_health()
+    status = "healthy" if is_ready else "degraded"
+    if not control_plane_readiness.get("ready", False):
+        status = "unhealthy"
 
     return {
-        "status": "healthy" if is_ready else "degraded",
+        "status": status,
         "readiness": readiness,
+        "fog_task_control_plane": {
+            "readiness": control_plane_readiness,
+            "health": control_plane_health,
+        },
         "composite_health": composite_health.value,
         "services": status_snapshot.get("services", {}),
         "health_checks": status_snapshot.get("health", {}),
@@ -353,7 +375,7 @@ async def root():
             "dashboard": "/api/dashboard/stats",
             "betanet": "/api/betanet/status",
             "tokenomics": "/api/tokenomics/stats",
-            "scheduler": "/api/scheduler/stats",
+            "batch_scheduler": "/api/scheduler/stats",
             "idle_compute": "/api/idle-compute/stats",
             "privacy": "/api/privacy/stats",
             "p2p": "/api/p2p/stats",
@@ -367,10 +389,12 @@ async def root():
             "usage_status": "/api/usage/status",
             "usage_check_limit": "/api/usage/check-limit",
             "usage_limits": "/api/usage/all-limits",
-            "fog_bridge_health": "/api/fog-bridge/health",
-            "fog_bridge_register": "/api/fog-bridge/devices/register",
-            "fog_bridge_topology": "/api/fog-bridge/topology",
-            "fog_bridge_tasks": "/api/fog-bridge/tasks",
+            "fog_task_control_plane_health": "/api/fog-bridge/health",
+            "fog_task_control_plane_ready": "/api/fog-bridge/ready",
+            "fog_task_control_plane_metrics": "/api/fog-bridge/metrics",
+            "fog_task_control_plane_register": "/api/fog-bridge/devices/register",
+            "fog_task_control_plane_topology": "/api/fog-bridge/topology",
+            "fog_task_control_plane_tasks": "/api/fog-bridge/tasks",
             "websocket": "ws://localhost:8000/ws/metrics",
             "bitchat_ws": "ws://localhost:8000/api/bitchat/ws/{peer_id}"
         },

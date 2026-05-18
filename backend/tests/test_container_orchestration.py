@@ -16,7 +16,7 @@ try:
 except ModuleNotFoundError:
     pytest_asyncio = SimpleNamespace(fixture=pytest.fixture)
 
-from server.models.deployment import DeploymentReplica, ReplicaStatus
+from server.models.deployment import DeploymentReplica, DeploymentStatus, ReplicaStatus
 from server.services import docker_client as docker_module
 from server.services import scheduler as scheduler_module
 from server.services.docker_client import ContainerConfig, DockerClient, DockerClientError
@@ -260,8 +260,8 @@ async def test_scheduler_transitions_replicas_with_docker_client(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_scheduler_stub_container_on_unexpected_error(monkeypatch):
-    """Scheduler should fall back to stub containers when orchestration raises unexpected errors."""
+async def test_scheduler_marks_failure_on_unexpected_error(monkeypatch):
+    """Unexpected container errors must fail the replica instead of fabricating success."""
     class UnexpectedErrorClient:
         async def create_container(self, config):
             raise RuntimeError("network partition")
@@ -286,8 +286,39 @@ async def test_scheduler_stub_container_on_unexpected_error(monkeypatch):
         AsyncMock(), [replica], container_image="demo:latest", cpu_cores=0.5, memory_mb=64
     )
 
-    assert replica.status == ReplicaStatus.RUNNING
-    assert replica.container_id.startswith("mock-container-")
+    assert replica.status == ReplicaStatus.FAILED
+    assert replica.container_id is None
+
+
+@pytest.mark.asyncio
+async def test_scheduler_marks_failure_when_container_start_returns_false(monkeypatch):
+    """A failed container start must not be treated as RUNNING."""
+    class StartFalseClient:
+        async def create_container(self, config):
+            return f"real-{config.name}"
+
+        async def start_container(self, container_id: str):
+            return False
+
+    monkeypatch.setattr(
+        scheduler_module,
+        "get_docker_client",
+        AsyncMock(return_value=StartFalseClient()),
+    )
+
+    replica = DeploymentReplica(
+        id=uuid.uuid4(),
+        deployment_id=uuid.uuid4(),
+        node_id=uuid.uuid4(),
+        status=ReplicaStatus.PENDING,
+    )
+
+    await scheduler_module.scheduler._transition_replicas_to_running(
+        AsyncMock(), [replica], container_image="demo:latest", cpu_cores=0.5, memory_mb=64
+    )
+
+    assert replica.status == ReplicaStatus.FAILED
+    assert replica.container_id is None
 
 
 @pytest.mark.asyncio
@@ -319,6 +350,109 @@ async def test_scheduler_marks_failure_on_docker_client_error(monkeypatch):
 
     assert replica.status == ReplicaStatus.FAILED
     assert replica.container_id is None
+
+
+@pytest.mark.asyncio
+async def test_schedule_deployment_returns_explicit_failure_on_replica_start_error(monkeypatch):
+    """Deployment scheduling must return a failed result when replica startup fails."""
+    scheduler = scheduler_module.DeploymentScheduler()
+    deployment_id = uuid.uuid4()
+    replica = DeploymentReplica(
+        id=uuid.uuid4(),
+        deployment_id=deployment_id,
+        node_id=uuid.uuid4(),
+        status=ReplicaStatus.PENDING,
+    )
+    db = AsyncMock()
+
+    monkeypatch.setattr(
+        scheduler,
+        "_find_available_nodes",
+        AsyncMock(return_value=[SimpleNamespace(id=uuid.uuid4(), node_id="node-1")]),
+    )
+    monkeypatch.setattr(
+        scheduler,
+        "_score_nodes",
+        AsyncMock(return_value=[{"id": uuid.uuid4(), "node_id": "node-1", "score": 0.99}]),
+    )
+    monkeypatch.setattr(scheduler, "_create_replica", AsyncMock(return_value=replica))
+    monkeypatch.setattr(scheduler, "_create_resource_record", AsyncMock())
+    update_status = AsyncMock()
+    monkeypatch.setattr(scheduler, "_update_deployment_status", update_status)
+    monkeypatch.setattr(
+        scheduler,
+        "_transition_replicas_to_running",
+        AsyncMock(return_value=[{"replica_id": str(replica.id), "error": "network partition"}]),
+    )
+
+    result = await scheduler.schedule_deployment(
+        db=db,
+        deployment_id=deployment_id,
+        target_replicas=1,
+        cpu_cores=1.0,
+        memory_mb=512,
+    )
+
+    assert result["success"] is False
+    assert "network partition" in result["error"]
+    assert db.commit.await_count == 1
+    assert any(
+        call.args[2] == DeploymentStatus.FAILED and "network partition" in call.kwargs["reason"]
+        for call in update_status.await_args_list
+    )
+
+
+@pytest.mark.asyncio
+async def test_scheduler_worker_uses_fresh_session_instead_of_queued_request_session(monkeypatch):
+    """Background queue processing must open its own DB session boundary."""
+    scheduler = scheduler_module.DeploymentScheduler()
+    queued_db = AsyncMock(name="queued_db")
+    worker_db = AsyncMock(name="worker_db")
+    seen = {}
+
+    class FakeSessionContext:
+        def __init__(self, session):
+            self._session = session
+
+        async def __aenter__(self):
+            return self._session
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    async def fake_schedule_deployment(*, db, deployment_id, **kwargs):
+        seen["db"] = db
+        scheduler.is_running = False
+        return {"success": True}
+
+    monkeypatch.setattr(
+        scheduler_module,
+        "AsyncSessionLocal",
+        lambda: FakeSessionContext(worker_db),
+    )
+    monkeypatch.setattr(
+        scheduler,
+        "schedule_deployment",
+        AsyncMock(side_effect=fake_schedule_deployment),
+    )
+
+    await scheduler.queue_deployment(
+        {
+            "deployment_id": uuid.uuid4(),
+            "target_replicas": 1,
+            "cpu_cores": 1.0,
+            "memory_mb": 256,
+            "gpu_units": 0,
+            "storage_gb": 1,
+            "db": queued_db,
+        }
+    )
+
+    scheduler.is_running = True
+    await scheduler._scheduler_worker()
+
+    assert seen["db"] is worker_db
+    assert seen["db"] is not queued_db
 
 
 @pytest.mark.asyncio

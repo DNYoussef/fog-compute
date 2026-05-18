@@ -95,6 +95,8 @@ class BitChatTransport(BaseTransport):
                 await self.stop()
                 return False
 
+            self._running = True
+
             # Start WebSocket connection for real-time messages
             if self.enable_websocket:
                 self.ws_task = asyncio.create_task(self._websocket_loop())
@@ -102,7 +104,6 @@ class BitChatTransport(BaseTransport):
             # Discover peers
             await self._discover_peers()
 
-            self._running = True
             logger.info("BitChat transport started successfully")
             return True
 
@@ -114,7 +115,7 @@ class BitChatTransport(BaseTransport):
 
     async def stop(self) -> bool:
         """Stop BitChat transport."""
-        if not self._running:
+        if not self._running and self.session is None and self.ws_task is None and self.ws is None:
             return True
 
         self._running = False
@@ -137,6 +138,9 @@ class BitChatTransport(BaseTransport):
             # Close HTTP session
             if self.session and not self.session.closed:
                 await self.session.close()
+            self.session = None
+            self.ws = None
+            self.ws_task = None
 
             logger.info("BitChat transport stopped")
             return True

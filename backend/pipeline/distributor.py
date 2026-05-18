@@ -1,8 +1,9 @@
 """
-Task Distributor
-FOG-006: Intelligent task distribution across fog nodes
+Legacy task distributor and load balancer.
 
-Implements load balancing strategies for distributing pipeline tasks.
+This module is no longer the authoritative ownership plane. It remains as a
+local device-selection helper and for direct unit tests, but durable leasing
+now lives in the backend control plane.
 """
 import asyncio
 import logging
@@ -12,9 +13,10 @@ from enum import Enum
 from typing import Optional, Any, Protocol
 from abc import ABC, abstractmethod
 
-from .models import PipelineTask, PipelineStage, StageStatus
+from .models import PipelineTask, PipelineStage, TaskExecutionStatus
 
 logger = logging.getLogger(__name__)
+LEGACY_NON_AUTHORITATIVE = True
 
 
 class DistributionStrategy(str, Enum):
@@ -413,9 +415,9 @@ class TaskDistributor:
 
     async def _assign_task(self, task: PipelineTask, device_id: str) -> None:
         """Assign a task to a device."""
-        task.assigned_device_id = device_id
+        task.bind_worker(device_id)
         task.assigned_at = datetime.now(UTC)
-        task.status = StageStatus.RUNNING
+        task.status = TaskExecutionStatus.RUNNING
 
         self._assigned_tasks[task.task_id] = (task, device_id)
         self._stats["successful_assignments"] += 1
@@ -461,11 +463,11 @@ class TaskDistributor:
         task.execution_time_ms = execution_time_ms
 
         if success:
-            task.status = StageStatus.COMPLETED
+            task.status = TaskExecutionStatus.SUCCEEDED
             task.result_data = result_data
             self._stats["total_completions"] += 1
         else:
-            task.status = StageStatus.FAILED
+            task.status = TaskExecutionStatus.FAILED
             task.error_message = error_message
             self._stats["total_failures"] += 1
 
@@ -500,8 +502,8 @@ class TaskDistributor:
         # Check retry
         if should_retry and task.retry_count < task.max_retries:
             task.retry_count += 1
-            task.status = StageStatus.PENDING
-            task.assigned_device_id = None
+            task.status = TaskExecutionStatus.PENDING
+            task.bind_worker(None)
 
             logger.info(
                 f"Retrying task {task_id} (attempt {task.retry_count}/{task.max_retries})"
@@ -514,7 +516,7 @@ class TaskDistributor:
             return None  # Will be redistributed
 
         # Mark as failed
-        task.status = StageStatus.FAILED
+        task.status = TaskExecutionStatus.FAILED
         task.error_message = error_message
         task.completed_at = datetime.now(UTC)
 

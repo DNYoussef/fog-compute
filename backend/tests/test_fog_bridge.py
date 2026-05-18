@@ -96,6 +96,27 @@ class TestDeviceAuthService:
         assert new_expires_at > datetime.now(UTC)
 
     @pytest.mark.asyncio
+    async def test_reauthentication_invalidates_prior_refresh_token(self, auth_service):
+        """A rotated refresh token must make the previous refresh token unusable."""
+        device_id, device_secret, _, refresh_token, _ = await auth_service.register_device(
+            device_name="Rotating Device",
+            device_type="desktop",
+            capabilities={}
+        )
+
+        rotated = await auth_service.authenticate_device(device_id, device_secret)
+        assert rotated is not None
+
+        _, new_refresh_token, _ = rotated
+        assert new_refresh_token != refresh_token
+
+        old_refresh_result = await auth_service.refresh_access_token(refresh_token)
+        assert old_refresh_result is None
+
+        new_refresh_result = await auth_service.refresh_access_token(new_refresh_token)
+        assert new_refresh_result is not None
+
+    @pytest.mark.asyncio
     async def test_revoke_device(self, auth_service):
         """Test device revocation invalidates tokens"""
         device_id, _, access_token, _, _ = await auth_service.register_device(

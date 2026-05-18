@@ -315,16 +315,16 @@ class LoadBalancer:
         return min(nodes, key=lambda n: avg_response_time(n.node_id))
 
     def _consistent_hash(self, nodes: list[Any], key: str) -> Any:
-        """Consistent hashing for sticky sessions"""
+        """Select a node with rendezvous hashing for stable sticky sessions."""
         if not key:
             return nodes[0]
 
-        # Hash the key
-        hash_value = int(hashlib.md5(key.encode()).hexdigest(), 16)
+        def score(node: Any) -> tuple[int, str]:
+            node_id = str(node.node_id)
+            digest = hashlib.sha256(f"{key}:{node_id}".encode("utf-8")).hexdigest()
+            return int(digest, 16), node_id
 
-        # Map to node
-        node_index = hash_value % len(nodes)
-        return nodes[node_index]
+        return max(nodes, key=score)
 
     def record_request_start(self, node_id: str):
         """Record request started to node"""

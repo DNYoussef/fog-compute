@@ -359,7 +359,6 @@ async def deploy_service(
         )
 
         # Step 2: Queue deployment for async scheduling
-        # Create a new database session for background task
         deployment_task = {
             'deployment_id': deployment_id,
             'target_replicas': request.replicas,
@@ -367,7 +366,6 @@ async def deploy_service(
             'memory_mb': request.resources.memory,
             'gpu_units': request.resources.gpu,
             'storage_gb': request.resources.storage,
-            'db': db  # Pass database session
         }
 
         # Queue for background processing
