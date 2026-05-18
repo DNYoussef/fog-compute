@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { proxyToBackend } from '@/lib/backend-proxy';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * Scheduler Stats API Route
  * Proxies to FastAPI backend - job queue metrics, SLA compliance

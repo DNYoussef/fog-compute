@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { proxyToBackend } from '@/lib/backend-proxy';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * Idle Compute Devices API Route
  * Proxies to FastAPI backend - list devices and register new ones

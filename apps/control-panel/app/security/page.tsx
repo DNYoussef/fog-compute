@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface NetworkPolicy {
   id: string;
@@ -35,6 +35,10 @@ export default function SecurityPage() {
   const [roles, setRoles] = useState<Role[]>([]);
   const [showPolicyModal, setShowPolicyModal] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
+
+  useEffect(() => {
+    document.title = 'Security | Fog Compute';
+  }, []);
 
   const handleCreatePolicy = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -76,9 +80,6 @@ export default function SecurityPage() {
       permissions
     };
 
-  useEffect(() => {
-    document.title = 'Security | Fog Compute';
-  }, []);
     setRoles([...roles, newRole]);
     setShowRoleModal(false);
   };
@@ -165,7 +166,7 @@ export default function SecurityPage() {
 
               {policies.length === 0 && (
                 <div className="text-center py-12 text-gray-500">
-                  No network policies configured. Click "Add Policy" to create one.
+                  No network policies configured. Click &quot;Add Policy&quot; to create one.
                 </div>
               )}
             </div>
@@ -297,7 +298,7 @@ export default function SecurityPage() {
 
               {roles.length === 0 && (
                 <div className="text-center py-12 text-gray-500">
-                  No roles configured. Click "Add Role" to create one.
+                  No roles configured. Click &quot;Add Role&quot; to create one.
                 </div>
               )}
             </div>

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { proxyToBackend } from '@/lib/backend-proxy';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * Scheduler Jobs API Route
  * Proxies to FastAPI backend - get jobs list and submit new jobs

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * Betanet Node Detail API Routes (SIN-007)
  * Proxies to FastAPI backend /api/betanet/nodes/:nodeId

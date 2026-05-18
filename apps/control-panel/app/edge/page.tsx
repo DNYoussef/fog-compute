@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface Deployment {
   id: string;
@@ -26,6 +26,10 @@ export default function EdgeDeploymentPage() {
     }
   ]);
   const [showCreateModal, setShowCreateModal] = useState(false);
+
+  useEffect(() => {
+    document.title = 'Edge Computing | Fog Compute';
+  }, []);
 
   const handleCreateDeployment = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -157,10 +161,6 @@ export default function EdgeDeploymentPage() {
                 data-testid="update-button"
                 onClick={() => {
                   const newImage = prompt('Enter new image:', deployment.image);
-
-  useEffect(() => {
-    document.title = 'Edge Computing | Fog Compute';
-  }, []);
                   if (newImage) handleUpdateDeployment(deployment.id, newImage);
                 }}
                 className="flex-1 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors text-sm"

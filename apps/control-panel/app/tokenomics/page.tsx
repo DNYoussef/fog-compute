@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Card } from '@/components/ui/Card';
+import { Card } from '@/components/ui/card';
 import { TokenChart } from '@/components/TokenChart';
 
 interface TokenomicsStats {
@@ -101,23 +101,23 @@ export default function TokenomicsPage() {
 
         <Card title="Market Cap" className="border-l-4 border-orange-400">
           <div className="text-3xl font-bold text-orange-400">
-            ${(stats?.tokens.marketCap / 1_000_000).toFixed(2) || 0}M
+            ${((stats?.tokens.marketCap ?? 0) / 1_000_000).toFixed(2)}M
           </div>
           <div className="text-gray-400 text-sm mt-2">Total Value Locked</div>
         </Card>
 
         <Card title="Circulating Supply" className="border-l-4 border-fog-cyan">
           <div className="text-3xl font-bold text-fog-cyan">
-            {(stats?.tokens.circulatingSupply / 1_000_000).toFixed(2) || 0}M
+            {((stats?.tokens.circulatingSupply ?? 0) / 1_000_000).toFixed(2)}M
           </div>
           <div className="text-gray-400 text-sm mt-2">
-            of {(stats?.tokens.totalSupply / 1_000_000).toFixed(2) || 0}M total
+            of {((stats?.tokens.totalSupply ?? 0) / 1_000_000).toFixed(2)}M total
           </div>
         </Card>
 
         <Card title="24h Volume" className="border-l-4 border-green-400">
           <div className="text-3xl font-bold text-green-400">
-            ${(stats?.marketplace.totalVolume / 1_000).toFixed(1) || 0}K
+            ${((stats?.marketplace.totalVolume ?? 0) / 1_000).toFixed(1)}K
           </div>
           <div className="text-gray-400 text-sm mt-2">
             {stats?.marketplace.trades24h || 0} trades
@@ -160,7 +160,7 @@ export default function TokenomicsPage() {
               <div className="flex justify-between mb-2">
                 <span className="text-gray-400">Treasury Balance</span>
                 <span className="text-2xl font-bold text-yellow-400">
-                  ${(stats?.dao.treasuryBalance / 1_000).toFixed(1) || 0}K
+                  ${((stats?.dao.treasuryBalance ?? 0) / 1_000).toFixed(1)}K
                 </span>
               </div>
               <div className="text-sm text-gray-400">

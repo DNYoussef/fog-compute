@@ -23,6 +23,7 @@ export function WebSocketStatus({
   const [lastMessage, setLastMessage] = useState<string>('');
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const retryCountRef = useRef(0);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
   const reconnectDelayRef = useRef(initialReconnectDelay);
@@ -31,7 +32,7 @@ export function WebSocketStatus({
   useEffect(() => {
     const connect = () => {
       // Don't reconnect if we've exceeded max retries
-      if (retryCount >= maxRetries) {
+      if (retryCountRef.current > maxRetries) {
         setStatus('error');
         setLastMessage(`Max reconnection attempts (${maxRetries}) exceeded`);
         return;
@@ -45,6 +46,7 @@ export function WebSocketStatus({
           setStatus('connected');
           setLastMessage('Connected to server');
           setLastUpdate(new Date());
+          retryCountRef.current = 0;
           setRetryCount(0);
           reconnectDelayRef.current = initialReconnectDelay; // Reset backoff
           console.log('✅ WebSocket connected');
@@ -67,12 +69,20 @@ export function WebSocketStatus({
           // Exponential backoff with jitter
           const jitter = Math.random() * 1000;
           const delay = Math.min(reconnectDelayRef.current + jitter, maxReconnectDelay);
+          const nextRetryCount = retryCountRef.current + 1;
 
-          setLastMessage(`Reconnecting in ${(delay / 1000).toFixed(1)}s... (attempt ${retryCount + 1}/${maxRetries})`);
+          if (retryCountRef.current >= maxRetries) {
+            setStatus('error');
+            setLastMessage(`Max reconnection attempts (${maxRetries}) exceeded`);
+            return;
+          }
+
+          setLastMessage(`Reconnecting in ${(delay / 1000).toFixed(1)}s... (attempt ${nextRetryCount}/${maxRetries})`);
 
           reconnectTimeoutRef.current = setTimeout(() => {
             reconnectDelayRef.current = Math.min(reconnectDelayRef.current * 2, maxReconnectDelay);
-            setRetryCount(prev => prev + 1);
+            retryCountRef.current = nextRetryCount;
+            setRetryCount(retryCountRef.current);
             connect();
           }, delay);
         };
@@ -93,9 +103,18 @@ export function WebSocketStatus({
 
         // Retry with backoff
         const delay = Math.min(reconnectDelayRef.current, maxReconnectDelay);
+        const nextRetryCount = retryCountRef.current + 1;
+
+        if (retryCountRef.current >= maxRetries) {
+          setStatus('error');
+          setLastMessage(`Max reconnection attempts (${maxRetries}) exceeded`);
+          return;
+        }
+
         reconnectTimeoutRef.current = setTimeout(() => {
           reconnectDelayRef.current = Math.min(reconnectDelayRef.current * 2, maxReconnectDelay);
-          setRetryCount(prev => prev + 1);
+          retryCountRef.current = nextRetryCount;
+          setRetryCount(retryCountRef.current);
           connect();
         }, delay);
       }
@@ -119,7 +138,7 @@ export function WebSocketStatus({
     };
   }, [url, maxRetries, initialReconnectDelay, maxReconnectDelay]);
 
-  const handleManualReconnect = () => {
+  const handleManualReconnect = (resetRetry: boolean = true) => {
     // Clear any pending reconnection
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
@@ -133,7 +152,14 @@ export function WebSocketStatus({
     }
 
     // Reset state and reconnect
-    setRetryCount(0);
+    if (resetRetry) {
+      retryCountRef.current = 0;
+      setRetryCount(0);
+    } else if (retryCountRef.current > maxRetries) {
+      setStatus('error');
+      setLastMessage(`Max reconnection attempts (${maxRetries}) exceeded`);
+      return;
+    }
     reconnectDelayRef.current = initialReconnectDelay;
     setStatus('connecting');
     setLastMessage('Manually reconnecting...');
@@ -148,6 +174,7 @@ export function WebSocketStatus({
         setStatus('connected');
         setLastMessage('Connected to server');
         setLastUpdate(new Date());
+        retryCountRef.current = 0;
         setRetryCount(0);
         reconnectDelayRef.current = initialReconnectDelay;
         console.log('Manual reconnect successful');
@@ -168,13 +195,21 @@ export function WebSocketStatus({
 
         const jitter = Math.random() * 1000;
         const delay = Math.min(reconnectDelayRef.current + jitter, maxReconnectDelay);
+        const nextRetryCount = retryCountRef.current + 1;
 
-        setLastMessage(`Reconnecting in ${(delay / 1000).toFixed(1)}s... (attempt ${retryCount + 1}/${maxRetries})`);
+        if (retryCountRef.current >= maxRetries) {
+          setStatus('error');
+          setLastMessage(`Max reconnection attempts (${maxRetries}) exceeded`);
+          return;
+        }
+
+        setLastMessage(`Reconnecting in ${(delay / 1000).toFixed(1)}s... (attempt ${nextRetryCount}/${maxRetries})`);
 
         reconnectTimeoutRef.current = setTimeout(() => {
           reconnectDelayRef.current = Math.min(reconnectDelayRef.current * 2, maxReconnectDelay);
-          setRetryCount(prev => prev + 1);
-          handleManualReconnect();
+          retryCountRef.current = nextRetryCount;
+          setRetryCount(retryCountRef.current);
+          handleManualReconnect(false);
         }, delay);
       };
 
@@ -283,7 +318,7 @@ export function WebSocketStatus({
       {/* Manual Reconnect Button */}
       {state === 'offline' && retryCount < maxRetries && (
         <button
-          onClick={handleManualReconnect}
+          onClick={() => handleManualReconnect()}
           className="ml-auto px-2 py-1 text-xs bg-fog-cyan/20 hover:bg-fog-cyan/30 text-fog-cyan rounded transition-colors"
           data-testid="websocket-reconnect-button"
         >
@@ -295,7 +330,7 @@ export function WebSocketStatus({
       {retryCount >= maxRetries && (
         <div className="ml-auto flex gap-2">
           <button
-            onClick={handleManualReconnect}
+            onClick={() => handleManualReconnect()}
             className="px-2 py-1 text-xs bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400 rounded transition-colors"
             data-testid="websocket-retry-button"
           >

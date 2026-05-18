@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * Betanet Deploy API Route
  * Proxies deployment requests to the FastAPI backend server

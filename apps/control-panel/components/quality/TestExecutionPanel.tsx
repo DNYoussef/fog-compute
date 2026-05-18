@@ -134,7 +134,7 @@ export function TestExecutionPanel({ isRunning, output, onRunTests, onRunBenchma
         <div className="bg-black/50 rounded-lg p-3 font-mono text-xs max-h-96 overflow-y-auto">
           {output.length === 0 ? (
             <div className="text-gray-500">
-              No output yet. Click "Run Tests" or "Run Benchmarks" to start.
+              No output yet. Click &quot;Run Tests&quot; or &quot;Run Benchmarks&quot; to start.
             </div>
           ) : (
             <div className="space-y-1">

@@ -1,7 +1,6 @@
 'use client';
 
-import { Toaster, toast, Toast } from 'react-hot-toast';
-import { ReactNode } from 'react';
+import { Toaster, toast, Toast, type Renderable } from 'react-hot-toast';
 
 /**
  * NotificationToaster Component
@@ -112,7 +111,7 @@ export function NotificationToaster() {
 export interface NotificationOptions {
   duration?: number;
   position?: 'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-center' | 'bottom-right';
-  icon?: ReactNode;
+  icon?: Renderable;
   id?: string;
 }
 
