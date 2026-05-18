@@ -102,6 +102,23 @@ WAVE 7: Performance & Polish (P3) - 34 hours
           +---> PERF-02: Caching Layer (12h)
           +---> UI-01: Quality Panel Integration Tests (6h)
           +---> UI-02: Quality Panel E2E Tests (8h)
+    |
+    v
+WAVE 8: Acurast Competitive Validation & Outreach (P3) - 12-16 hours
+    |
+    +---> [Sequential - Evidence first]
+          +---> ACU-01: Compare Acurast against Fog Compute with cited sources
+          +---> ACU-02: Capture regression baseline before any prototype
+          +---> ACU-03: Scope one feasibility spike, no code until baseline is clean
+          +---> ACU-04: Update outreach brief with Fog GitHub link
+          +---> ACU-05: Create GitHub follow-up issue or milestone
+    |
+    v
+WAVE 9: Dirty Worktree Release Hygiene (P2) - 8-12 hours
+    |
+    +---> REL-01: Classify dirty code, docs, generated artifacts
+    +---> REL-02: Run full and targeted regression gates
+    +---> REL-03: Define PR/publish boundaries before prototype work
 ```
 
 ---
@@ -344,6 +361,61 @@ Task("Tester", "Re-enable reputation system test at test_relay_lottery.rs:137, v
 
 ---
 
+## WAVE 8: ACURAST VALIDATION & OUTREACH (P3)
+**Total Effort**: 12-16 hours
+**Dependencies**: Wave 6 validation complete; Wave 7 complete or explicitly frozen
+**Execution**: Sequential, evidence first
+
+### Playbook: `competitive-analysis` + `release-regression`
+### Skills: technical research, regression testing, partner/outreach drafting
+
+| Order | ID | Task | Effort | Owner | Prerequisites |
+|-------|----|------|--------|-------|---------------|
+| 1 | ACU-01 | Add Acurast to competitive analysis with current cited sources | 4h | Engineering lead | None |
+| 2 | ACU-02 | Capture baseline regressions: quality gates, contract tests, backend tests, control-panel build, Playwright smoke | 2-4h | QA | Dirty worktree acknowledged |
+| 3 | ACU-03 | Scope one feasibility spike: Acurast Cargo workload or Android attestation model | 4h | Engineering lead | ACU-01, ACU-02 |
+| 4 | ACU-04 | Update outreach brief after comparison, linking `https://github.com/DNYoussef/fog-compute` | 2h | Project lead | ACU-01 |
+| 5 | ACU-05 | Create GitHub issue/milestone only for accepted follow-up: https://github.com/DNYoussef/fog-compute/issues/24 | 1h | Project lead | ACU-03 |
+
+### Execution Strategy
+
+```javascript
+// Sequential execution: no prototype until baseline and comparison are recorded.
+Task("Engineering Lead", "Compare Acurast and Fog Compute across smartphone onboarding, TEE attestation, Cargo/Linux containers, routing privacy, token economics, developer UX, and network maturity.", "default")
+// Wait for comparison and regression baseline.
+Task("QA", "Run quality gates, contract tests, backend tests, control-panel build, and Playwright smoke. Record failures without hiding dirty-worktree context.", "default")
+// Scope only, do not implement prototype yet.
+Task("Project Lead", "Update outreach brief and create a GitHub follow-up issue only if the spike has a clean objective and rollback criteria.", "default")
+```
+
+---
+
+## WAVE 9: DIRTY WORKTREE RELEASE HYGIENE (P2)
+**Total Effort**: 8-12 hours
+**Dependencies**: Wave 8 complete; required before Acurast issue #24 starts
+**Execution**: Sequential, release-scope first
+
+### Playbook: `release-regression` + `change-management`
+### Skills: regression testing, code review, release engineering
+
+| Order | ID | Task | Effort | Owner | Prerequisites |
+|-------|----|------|--------|-------|---------------|
+| 1 | REL-01 | Classify dirty worktree by publishable scope and generated artifact risk: https://github.com/DNYoussef/fog-compute/issues/25 | 2h | Engineering lead | Wave 8 docs complete |
+| 2 | REL-02 | Fix only safe hygiene failures; do not revert unrelated dirty changes | 1h | Engineering lead | REL-01 |
+| 3 | REL-03 | Run full diff hygiene, production gates, targeted backend tests, frontend lint/build, and smoke E2E | 3-4h | QA | REL-02 |
+| 4 | REL-04 | Decide PR boundaries for docs, backend control plane, and frontend control panel | 2-4h | Project lead | REL-03 |
+
+### Execution Strategy
+
+```javascript
+// Do not start Acurast prototype work until this release hygiene wave is clean.
+Task("Engineering Lead", "Classify dirty worktree and generated artifacts without reverting user work.", "default")
+Task("QA", "Run targeted regression gates on each dirty publishable scope and record known warnings.", "default")
+Task("Project Lead", "Split publishable work into reviewable PR scopes before deployment or prototype work.", "default")
+```
+
+---
+
 ## TIMELINE SUMMARY
 
 | Wave | Name | Effort | Duration (Parallel) | Cumulative |
@@ -355,10 +427,12 @@ Task("Tester", "Re-enable reputation system test at test_relay_lottery.rs:137, v
 | 5 | Tokenomics & Reputation | 68h | ~44h (2 parallel + 40h sequential) | Week 5-6 |
 | 6 | Testing Infrastructure | 42h | ~12h (2 parallel groups) | Week 6-7 |
 | 7 | Performance & Polish | 34h | ~12h (all parallel) | Week 7-8 |
+| 8 | Acurast Validation & Outreach | 12-16h | 12-16h (sequential) | Week 8-9 |
+| 9 | Dirty Worktree Release Hygiene | 8-12h | 8-12h (sequential) | Week 9 |
 
-**Total Effort**: 338 hours (326h debt + 12h infrastructure)
+**Total Effort**: 358-366 hours (338h prior plan + 12-16h Acurast validation + 8-12h release hygiene)
 **Parallel Execution**: ~196 hours (42% reduction)
-**Estimated Calendar Time**: 8 weeks (1 developer) / 4 weeks (2 developers)
+**Estimated Calendar Time**: 9 weeks (1 developer) / 4-5 weeks (2 developers)
 
 ---
 
@@ -391,6 +465,8 @@ Task("Tester", "Re-enable reputation system test at test_relay_lottery.rs:137, v
 | 5 | three-loop-system | backend-api-development |
 | 6 | testing-quality | e2e-testing |
 | 7 | performance-optimization-deep-dive | testing-quality |
+| 8 | competitive-analysis | release-regression |
+| 9 | release-regression | change-management |
 
 ---
 
@@ -437,6 +513,19 @@ Task("Tester", "Re-enable reputation system test at test_relay_lottery.rs:137, v
 - [ ] Cache hit rate >80%
 - [ ] Quality panel fully tested
 
+### Wave 8 (Acurast)
+- [ ] Acurast is included in competitive analysis with current sources
+- [ ] Regression baseline is captured before any prototype work
+- [ ] Outreach brief links `https://github.com/DNYoussef/fog-compute`
+- [ ] Feasibility spike has explicit rollback and regression criteria
+
+### Wave 9 (Release Hygiene)
+- [ ] Dirty worktree is classified by publishable scope
+- [ ] Full diff hygiene passes
+- [ ] Targeted backend/control-plane tests pass
+- [ ] Frontend lint, build, and smoke gates pass
+- [ ] Generated artifact policy is decided before publish
+
 ---
 
 ## RISK MITIGATION
@@ -450,6 +539,8 @@ Task("Tester", "Re-enable reputation system test at test_relay_lottery.rs:137, v
 | Reputation system scope creep | 5 | Strict 40h timebox, defer non-essential features |
 | Test flakiness in E2E | 6 | Implement retry logic, deterministic test data |
 | Performance regressions | 7 | Benchmark before/after each change |
+| Outreach claims overstate project maturity | 8 | Source every claim, state Fog is pre-deploy unless baseline proves otherwise |
+| Dirty branch mixes release scopes | 9 | Split docs, backend, frontend, and generated artifacts before publish |
 
 ---
 
@@ -473,7 +564,7 @@ docker run -d --name fog-redis -p 6379:6379 redis:alpine
 # Create deployment schema
 python -c "from backend.server.database import create_all; create_all()"
 
-# Wave 3-7 - Execute with Task agents
+# Wave 3-8 - Execute with Task agents
 # Use the execution strategies above with appropriate agents
 ```
 
@@ -490,6 +581,8 @@ python -c "from backend.server.database import create_all; create_all()"
 4. **Wave 6 depends on Wave 1 & 3 features**: Tests verify security and deployment features.
 
 5. **Wave 7 is lowest risk**: Performance optimizations and polish can be deferred if needed.
+
+6. **Wave 8 is evidence-gated**: Outreach or prototype work should not start until the comparison and regression baseline are recorded.
 
 ---
 
