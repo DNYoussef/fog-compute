@@ -32,6 +32,7 @@ CLEANUP_BACKUP_*/
 tests/output/
 **/playwright-report/
 **/playwright-artifacts/
+test_data/files/
 
 # Claude Code
 .claude/
