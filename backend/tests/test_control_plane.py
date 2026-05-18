@@ -18,6 +18,7 @@ from backend.server.services.fog_task_control_plane import (
     ControlPlaneSchemaError,
     FogTaskControlPlaneService,
 )
+from backend.server.services.acurast_cargo import FOG_RESULT_TRUST_KEY
 
 
 CONTROL_PLANE_TABLES = [
@@ -185,6 +186,87 @@ async def test_duplicate_completion_is_idempotent_and_stale_completion_is_reject
             error=None,
             execution_time_ms=5,
         )
+
+
+@pytest.mark.asyncio
+async def test_acurast_cargo_completion_without_receipt_is_recorded_untrusted(
+    control_plane: FogTaskControlPlaneService,
+):
+    await control_plane.register_worker("worker-acurast", "Worker Acurast", "desktop", {"cpu_cores": 4, "memory_mb": 4096})
+    await control_plane.create_task(
+        task_id="task-acurast-missing-receipt",
+        task_type="compute",
+        priority="NORMAL",
+        payload={"op": "sum"},
+    )
+    grant = await control_plane.lease_task("worker-acurast", preferred_task_id="task-acurast-missing-receipt")
+    assert grant is not None
+
+    completed, duplicate = await control_plane.complete_task(
+        "task-acurast-missing-receipt",
+        worker_id="worker-acurast",
+        attempt_id=grant.attempt.attempt_id,
+        lease_id=grant.lease.lease_id,
+        success=True,
+        result={
+            "schema_version": "fog.acurast-cargo.result.v1",
+            "task_id": "task-acurast-missing-receipt",
+            "execution": {
+                "provider": "acurast_cargo",
+                "deployment_id": "Acurast:test:1",
+            },
+            "result": {"value": 29, "value_type": "number"},
+        },
+        error=None,
+        execution_time_ms=5,
+    )
+
+    assert duplicate is False
+    trust = completed.result_json[FOG_RESULT_TRUST_KEY]
+    assert trust["provider"] == "acurast_cargo"
+    assert trust["trusted"] is False
+    assert trust["receipt_state"] == "missing"
+
+
+@pytest.mark.asyncio
+async def test_acurast_cargo_completion_with_malformed_receipt_is_recorded_untrusted(
+    control_plane: FogTaskControlPlaneService,
+):
+    await control_plane.register_worker("worker-acurast", "Worker Acurast", "desktop", {"cpu_cores": 4, "memory_mb": 4096})
+    await control_plane.create_task(
+        task_id="task-acurast-bad-receipt",
+        task_type="compute",
+        priority="NORMAL",
+        payload={"op": "sum"},
+    )
+    grant = await control_plane.lease_task("worker-acurast", preferred_task_id="task-acurast-bad-receipt")
+    assert grant is not None
+
+    completed, duplicate = await control_plane.complete_task(
+        "task-acurast-bad-receipt",
+        worker_id="worker-acurast",
+        attempt_id=grant.attempt.attempt_id,
+        lease_id=grant.lease.lease_id,
+        success=True,
+        result={
+            "schema_version": "fog.acurast-cargo.result.v1",
+            "task_id": "task-acurast-bad-receipt",
+            "execution": {
+                "provider": "acurast_cargo",
+                "deployment_id": "Acurast:test:2",
+                "receipt": {"kind": "bridge"},
+            },
+            "result": {"value": 29, "value_type": "number"},
+        },
+        error=None,
+        execution_time_ms=5,
+    )
+
+    assert duplicate is False
+    trust = completed.result_json[FOG_RESULT_TRUST_KEY]
+    assert trust["trusted"] is False
+    assert trust["receipt_state"] == "malformed"
+    assert "payload_hash" in trust["reason"]
 
 
 @pytest.mark.asyncio

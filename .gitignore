@@ -32,6 +32,8 @@ CLEANUP_BACKUP_*/
 tests/output/
 **/playwright-report/
 **/playwright-artifacts/
+test_data/files/
+prototypes/acurast-cargo/app/fog_task_result*.json
 
 # Claude Code
 .claude/

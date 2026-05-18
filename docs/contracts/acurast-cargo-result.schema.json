@@ -1,0 +1,97 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "acurast-cargo-result.schema.json",
+  "title": "Acurast Cargo Fog Task Result",
+  "description": "Result envelope emitted by the local Acurast Cargo feasibility workload",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "task_id",
+    "success",
+    "operation",
+    "result",
+    "input_sha256",
+    "runtime",
+    "execution"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "fog.acurast-cargo.result.v1"
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "success": { "type": "boolean" },
+    "operation": {
+      "type": "string",
+      "enum": ["add", "multiply", "sum", "sha256"]
+    },
+    "result": {
+      "type": "object",
+      "required": ["value", "value_type"],
+      "properties": {
+        "value": {
+          "anyOf": [
+            { "type": "number" },
+            { "type": "string" }
+          ]
+        },
+        "value_type": {
+          "type": "string",
+          "enum": ["number", "string"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "runtime": {
+      "type": "object",
+      "required": ["runner", "python_version", "platform", "elapsed_ms"],
+      "properties": {
+        "runner": { "type": "string", "const": "fog_task_runner.py" },
+        "python_version": { "type": "string", "minLength": 1 },
+        "platform": { "type": "string", "minLength": 1 },
+        "elapsed_ms": { "type": "number", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "execution": {
+      "type": "object",
+      "required": ["provider", "bridge_socket_present"],
+      "properties": {
+        "provider": {
+          "type": "string",
+          "enum": ["local", "acurast_cargo"]
+        },
+        "bridge_socket_present": { "type": "boolean" },
+        "deployment_id": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "processor": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "receipt": {
+          "type": "object",
+          "required": ["kind", "payload_hash", "signature"],
+          "properties": {
+            "kind": { "type": "string", "minLength": 1 },
+            "payload_hash": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "signature": { "type": "string", "minLength": 1 },
+            "verifier": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "error": {
+      "type": ["string", "null"]
+    }
+  },
+  "additionalProperties": false
+}

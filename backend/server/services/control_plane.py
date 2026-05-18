@@ -27,6 +27,7 @@ from ..models.control_plane import (
     ControlPlaneWorkerStatus,
     PipelineRecord,
 )
+from .acurast_cargo import annotate_acurast_result_trust
 from .fog_task_control_plane_metrics import FogTaskControlPlaneMetrics
 
 logger = logging.getLogger(__name__)
@@ -926,6 +927,7 @@ class FogTaskControlPlaneService:
             (task, idempotent_duplicate)
         """
         now = _coerce_utc(now or datetime.now(UTC))
+        result = annotate_acurast_result_trust(result)
         terminal_state = (
             ControlPlaneTaskState.SUCCEEDED.value
             if success
