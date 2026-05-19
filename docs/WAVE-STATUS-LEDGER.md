@@ -4,7 +4,7 @@
 **Branch**: `stabilization/bplus-recovery`
 **Remote status**: Wave 12 review branches are pushed from the local split
 **Baseline status**: B+ recovery baseline `440d1c7` is on `origin/main` but not on `origin/stabilization/bplus-recovery`
-**Publish status**: Wave 12 PRs opened against `main`, except Acurast Cargo stacked on the backend control-plane branch; PR #31 opened for the contract-test CI dependency fix; PR #32 opened for Wave 13 CLI preflight setup; PR #33 opened for the E2E web-server import-path fix
+**Publish status**: Wave 12 PRs opened against `main`, except Acurast Cargo stacked on the backend control-plane branch; PR #31 opened for the contract-test CI dependency fix; PR #32 opened for Wave 13 CLI preflight setup; PR #33 opened for the E2E web-server import-path fix stacked on PR #31
 
 This ledger records the B+ recovery baseline, the work completed after that
 baseline, and the remaining waves needed before live Acurast deployment or
@@ -27,7 +27,7 @@ broader release.
 | Wave 12 publish/review split | PRs #26-#30 | Open for review | Docs/research (#26), backend control plane (#27), frontend control panel (#28), artifact/ledger hygiene (#29), stacked Acurast Cargo prototype/preflight (#30) |
 | Wave 12 CI dependency triage | PR #31 / `87d20ea` + `569ee85` + `2b8a903` + `c60fd6b` | Open for review | Contract-test workflow now installs the repo dependency files instead of a hand-picked subset; dead root pins for stdlib backports were removed after CI exposed them; contract CI now provides `DATABASE_URL` for the existing Postgres service; backend requirements now include the PyJWT dependency used by `device_auth` |
 | Wave 13 Acurast CLI setup | PR #32 / `b53197e` | Open for review | Installed `@acurast/cli` 0.8.1, fixed Windows preflight CLI execution, documented sanitized setup facts; wallet remains outside-repo blocker |
-| Wave 12 E2E import-path triage | PR #33 / `938b52e` | Open for review | Playwright backend `webServer` keeps `cwd=backend` for `server.*` imports and now exposes the repo root through `PYTHONPATH` for existing `backend.*` absolute imports |
+| Wave 12 E2E import-path triage | PR #33 / `5ff1b23` | Open for review | Playwright backend `webServer` keeps `cwd=backend` for `server.*` imports and now exposes the repo root through `PYTHONPATH` for existing `backend.*` absolute imports; stacked on PR #31 so unrelated contract CI fixes are underneath |
 
 ---
 
@@ -56,7 +56,7 @@ Known expected observations:
 - The migration verifier still needs a CREATEDB-capable Postgres admin URL.
 - Remaining `npm audit` findings require breaking forced upgrades and should be separate upgrade PRs.
 - Wave 12 contract CI failures on PRs #26/#27 are triaged to `.github/workflows/python-tests.yml` installing an incomplete dependency subset, then to the CI-only backend config requiring `DATABASE_URL`, then to a missing PyJWT backend dependency once CI reached real contract execution. PR #31 fixes all three: it installs the repo dependency files, removes dead `asyncio-compat` / `statistics` root requirement pins, wires `DATABASE_URL` to the existing Postgres service, and adds `PyJWT==2.8.0` to `backend/requirements.txt`. Local CI-mode verification on the `origin/main` baseline for PR #31: `123 passed, 25 warnings`; refreshed GitHub checks are running on `c60fd6b`.
-- Wave 12 broad E2E matrix failures are triaged to Playwright `webServer` startup failing with `ModuleNotFoundError: No module named 'backend'` when CI launches Uvicorn without the repo root on Python's import path. PR #33 applies the narrow import-path fix; refreshed GitHub checks are running.
+- Wave 12 broad E2E matrix failures are triaged to Playwright `webServer` startup failing with `ModuleNotFoundError: No module named 'backend'` when CI launches Uvicorn without the repo root on Python's import path. PR #33 applies the narrow import-path fix and is stacked on PR #31; refreshed GitHub checks are running.
 
 Issue records updated:
 
@@ -92,7 +92,7 @@ Steps:
    - generated artifact and ledger hygiene: PR #29 (`wave12/artifact-ledger-hygiene`)
    - Acurast prototype/preflight: PR #30 (`wave12/acurast-cargo-prototype-preflight`, stacked on PR #27)
    - contract-test CI dependency fix: PR #31 (`wave12/ci-contract-deps`)
-   - E2E web-server import-path fix: PR #33 (`wave12/e2e-pythonpath-ci`)
+   - E2E web-server import-path fix: PR #33 (`wave12/e2e-pythonpath-ci`, stacked on PR #31)
 3. Re-run:
    - `git diff --check origin/main..HEAD`
    - contracts
