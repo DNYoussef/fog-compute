@@ -4,7 +4,7 @@
 **Branch**: `stabilization/bplus-recovery`
 **Remote status**: Wave 12 review branches are pushed from the local split
 **Baseline status**: B+ recovery baseline `440d1c7` is on `origin/main` but not on `origin/stabilization/bplus-recovery`
-**Publish status**: Wave 12 PRs opened against `main`, except Acurast Cargo stacked on the backend control-plane branch
+**Publish status**: Wave 12 PRs opened against `main`, except Acurast Cargo stacked on the backend control-plane branch; PR #31 opened for the contract-test CI dependency fix
 
 This ledger records the B+ recovery baseline, the work completed after that
 baseline, and the remaining waves needed before live Acurast deployment or
@@ -25,6 +25,7 @@ broader release.
 | Wave 10 Acurast Cargo prototype | `88e6704` | Complete locally | Local Cargo-shaped `Shell` workload, JSON task/result contracts, backend untrusted-result annotation, tests |
 | Wave 11 Acurast canary preflight | `f00ec29` | Complete locally | Deterministic preflight gate, LF shell entrypoint guard, CLI-blocking check, preflight docs/tests |
 | Wave 12 publish/review split | PRs #26-#30 | Open for review | Docs/research (#26), backend control plane (#27), frontend control panel (#28), artifact/ledger hygiene (#29), stacked Acurast Cargo prototype/preflight (#30) |
+| Wave 12 CI dependency triage | PR #31 / `87d20ea` | Open for review | Contract-test workflow now installs the repo dependency files instead of a hand-picked subset missing `httpx`, `fastapi`, `aiohttp`, and `cryptography` |
 
 ---
 
@@ -51,6 +52,8 @@ Known expected observations:
 - Next build/dev warns that `baseline-browser-mapping` and Browserslist data are stale.
 - The migration verifier still needs a CREATEDB-capable Postgres admin URL.
 - Remaining `npm audit` findings require breaking forced upgrades and should be separate upgrade PRs.
+- Wave 12 contract CI failures on PRs #26/#27 are triaged to `.github/workflows/python-tests.yml` installing an incomplete dependency subset; PR #31 fixes that. Local verification on the `origin/main` baseline for PR #31: `123 passed, 25 warnings`.
+- Wave 12 broad E2E matrix failures are visible on the docs-only PR and need separate sampling once GitHub exposes complete logs; the repo already contains prior CI docs identifying Playwright matrix/webServer instability as a known class of failure.
 
 Issue records updated:
 
@@ -86,6 +89,7 @@ Steps:
    - frontend control panel: PR #28 (`wave12/frontend-control-panel`)
    - generated artifact and ledger hygiene: PR #29 (`wave12/artifact-ledger-hygiene`)
    - Acurast prototype/preflight: PR #30 (`wave12/acurast-cargo-prototype-preflight`, stacked on PR #27)
+   - contract-test CI dependency fix: PR #31 (`wave12/ci-contract-deps`)
 3. Re-run:
    - `git diff --check origin/main..HEAD`
    - contracts
@@ -97,7 +101,7 @@ Steps:
 Exit criteria:
 
 - PRs are small enough to review.
-- CI agrees with local regression results or failures are triaged.
+- CI agrees with local regression results or failures are triaged. **Contract dependency failure is triaged in PR #31; E2E matrix failure still needs log sampling after the run completes.**
 - Generated artifacts stay out of the branch.
 
 ### Wave 13: Acurast CLI And Canary Wallet Setup
