@@ -1,10 +1,15 @@
 import { defineConfig, devices } from '@playwright/test';
+import * as path from 'path';
 
 const isCI = process.env.CI === 'true' || process.env.CI === '1';
 const serviceInitTimeout = process.env.SERVICE_INIT_TIMEOUT || (isCI ? '30' : '');
 const skipExternalServices = process.env.SKIP_EXTERNAL_SERVICES ?? (isCI ? 'true' : '');
 const p2pTimeout = process.env.P2P_TIMEOUT || (isCI ? '5' : '');
 const betanetUrl = process.env.BETANET_URL || '';
+const repoRoot = __dirname;
+const backendPythonPath = [repoRoot, process.env.PYTHONPATH]
+  .filter((entry): entry is string => Boolean(entry))
+  .join(path.delimiter);
 
 /**
  * Playwright configuration for E2E testing
@@ -140,7 +145,9 @@ export default defineConfig({
         DATABASE_URL: process.env.DATABASE_URL ||
           'postgresql+asyncpg://postgres:postgres@localhost:5432/fog_compute_test',
         PATH: process.env.PATH || '',
-        PYTHONPATH: process.env.PYTHONPATH || '',
+        // Backend startup uses cwd=backend for server.* imports, while some
+        // services still use backend.* absolute imports. Keep repo root visible.
+        PYTHONPATH: backendPythonPath,
         CI: isCI ? 'true' : (process.env.CI || ''),
         SKIP_EXTERNAL_SERVICES: skipExternalServices,
         SERVICE_INIT_TIMEOUT: serviceInitTimeout,
