@@ -123,7 +123,7 @@ export function BenchmarkControls({
                     <div className="h-2 w-2 animate-pulse rounded-full bg-green-400" />
                     <span className="text-sm text-gray-300">Running</span>
                   </div>
-                  <div className="text-xs text-gray-500">Running {testType} benchmark</div>
+                  <div className="text-xs text-gray-500">{testType} benchmark active</div>
                 </div>
               ) : (
                 <div className="text-center text-sm text-gray-400">Stopped</div>
