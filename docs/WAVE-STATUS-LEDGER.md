@@ -4,7 +4,7 @@
 **Branch**: `stabilization/bplus-recovery`
 **Remote status**: Wave 12 review branches are pushed from the local split
 **Baseline status**: B+ recovery baseline `440d1c7` is on `origin/main` but not on `origin/stabilization/bplus-recovery`
-**Publish status**: Wave 12 PRs opened against `main`, except Acurast Cargo stacked on the backend control-plane branch; PR #31 opened for the contract-test CI dependency fix
+**Publish status**: Wave 12 PRs opened against `main`, except Acurast Cargo stacked on the backend control-plane branch; PR #31 opened for the contract-test CI dependency fix; PR #32 opened for Wave 13 CLI preflight setup
 
 This ledger records the B+ recovery baseline, the work completed after that
 baseline, and the remaining waves needed before live Acurast deployment or
@@ -26,6 +26,7 @@ broader release.
 | Wave 11 Acurast canary preflight | `f00ec29` | Complete locally | Deterministic preflight gate, LF shell entrypoint guard, CLI-blocking check, preflight docs/tests |
 | Wave 12 publish/review split | PRs #26-#30 | Open for review | Docs/research (#26), backend control plane (#27), frontend control panel (#28), artifact/ledger hygiene (#29), stacked Acurast Cargo prototype/preflight (#30) |
 | Wave 12 CI dependency triage | PR #31 / `87d20ea` | Open for review | Contract-test workflow now installs the repo dependency files instead of a hand-picked subset missing `httpx`, `fastapi`, `aiohttp`, and `cryptography` |
+| Wave 13 Acurast CLI setup | PR #32 / `b53197e` | Open for review | Installed `@acurast/cli` 0.8.1, fixed Windows preflight CLI execution, documented sanitized setup facts; wallet remains outside-repo blocker |
 
 ---
 
@@ -38,12 +39,13 @@ Latest complete post-audit gates, re-run on 2026-05-19 after the generated-artif
 | `git diff --check origin/main..HEAD` | Pass |
 | `python scripts\ci\check_prod_mocks.py` | Pass |
 | `python scripts\ci\check_placeholders.py` | Pass |
-| `python -m pytest tests\contracts --maxfail=5` | 129 passed, 25 warnings |
+| `python -m pytest tests\contracts --maxfail=5` | 130 passed, 25 warnings |
 | `python -m pytest backend\tests --maxfail=5` | 1017 passed, 30 skipped, 191 warnings |
 | `npm --prefix apps/control-panel run build` | Pass, stale browser-data warnings only |
 | `npm run test:e2e:smoke` | 2 passed |
 | `python scripts\acurast\preflight_cargo.py` | Pass with Acurast CLI missing warning |
-| `python scripts\acurast\preflight_cargo.py --require-cli` | Fails as intended because `acurast` is not installed |
+| `python scripts\acurast\preflight_cargo.py --require-cli` | Pass after installing Acurast CLI 0.8.1 |
+| `python -m pytest tests\contracts\test_acurast_cargo_preflight.py -q` | 3 passed |
 
 Known expected observations:
 
@@ -66,7 +68,6 @@ Issue records updated:
 
 | Blocker | Impact | Required Resolution |
 |---------|--------|---------------------|
-| Acurast CLI not installed | Live canary deploy cannot run | Install and verify `acurast` on `PATH`; rerun `python scripts\acurast\preflight_cargo.py --require-cli` |
 | No throwaway canary deployer wallet configured | Live deployment must not use repo secrets or personal production keys | Configure wallet outside the repo and confirm no wallet/key artifacts are tracked |
 | Acurast receipt semantics not pinned to a verifier | Fog must not treat Acurast-labeled results as trusted | Keep `_fog_result_trust.trusted == false` until receipt verification is implemented |
 | Unknown Python availability in selected aarch64 PRoot image | The prototype may need a bundled static runner | Confirm `python3` in the image or replace with an aarch64 binary |
@@ -110,16 +111,17 @@ Goal: make live deploy possible without contaminating the repo.
 
 Steps:
 
-1. Install Acurast CLI from official instructions.
-2. Verify `acurast --version`.
-3. Configure a throwaway canary deployer wallet outside the repo.
-4. Run `python scripts\acurast\preflight_cargo.py --require-cli`.
-5. Record only sanitized setup facts in docs.
+1. Install Acurast CLI from official instructions. **Done in PR #32: `npm install -g @acurast/cli`.**
+2. Verify `acurast --version`. **Done: `0.8.1`.**
+3. Configure a throwaway canary deployer wallet outside the repo. **Blocked until operator provides wallet/faucet state outside the repo.**
+4. Run `python scripts\acurast\preflight_cargo.py --require-cli`. **Done after fixing Windows `.CMD` execution in preflight.**
+5. Record only sanitized setup facts in docs. **Done in PR #32: `docs/WAVE13-ACURAST-CLI-CANARY-SETUP.md`.**
 
 Exit criteria:
 
-- `--require-cli` preflight passes.
-- `git status --short --untracked-files=all` shows no wallet/key/deploy artifacts.
+- `--require-cli` preflight passes. **Done.**
+- `git status --short --untracked-files=all` shows no wallet/key/deploy artifacts. **Done for CLI setup.**
+- Throwaway canary wallet is configured outside the repo. **Still blocked.**
 
 ### Wave 14: Live Acurast Canary Deployment
 
