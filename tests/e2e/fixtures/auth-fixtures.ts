@@ -3,6 +3,7 @@
  * Shared fixtures for E2E authentication tests
  */
 import { test as base, expect, Page } from '@playwright/test';
+import { gotoWithRetries } from '../helpers/navigation';
 
 const isCI = process.env.CI === 'true' || process.env.CI === '1';
 const e2eRateLimitBypassToken = process.env.E2E_RATE_LIMIT_BYPASS_TOKEN
@@ -48,7 +49,25 @@ export class AuthHelper {
       // about:blank and other opaque origins cannot access localStorage.
     }
 
-    await this.page.goto(this.baseURL, { waitUntil: 'domcontentloaded' });
+    await gotoWithRetries(this.page, this.baseURL, { waitUntil: 'domcontentloaded' });
+  }
+
+  private async clearStorageIfOnAppOrigin() {
+    const targetOrigin = new URL(this.baseURL).origin;
+
+    try {
+      if (new URL(this.page.url()).origin !== targetOrigin) {
+        return;
+      }
+    } catch {
+      return;
+    }
+
+    await this.page.evaluate(() => {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('token_type');
+      sessionStorage.clear();
+    });
   }
 
   /**
@@ -93,12 +112,7 @@ export class AuthHelper {
    */
   async clearAuth() {
     await this.page.context().clearCookies();
-    await this.ensureAppOrigin();
-    await this.page.evaluate(() => {
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('token_type');
-      sessionStorage.clear();
-    });
+    await this.clearStorageIfOnAppOrigin();
   }
 
   /**

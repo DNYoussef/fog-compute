@@ -30,10 +30,12 @@ export function RegisterForm() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
   const strength = useMemo(() => passwordStrength(password), [password]);
 
   useEffect(() => {
     document.title = 'Register | Fog Compute';
+    setIsHydrated(true);
   }, []);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -177,7 +179,7 @@ export function RegisterForm() {
         <button
           data-testid="register-button"
           type="submit"
-          disabled={isSubmitting}
+          disabled={!isHydrated || isSubmitting}
           className="min-h-11 w-full rounded-md bg-fog-cyan px-4 py-2 font-semibold text-black transition hover:bg-fog-cyan/90 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSubmitting ? 'Creating account...' : 'Register'}

@@ -40,7 +40,8 @@ test.describe('TEST-06: Registration UI Flow', () => {
 
   test('R03: should prevent duplicate email registration', async ({ page, authHelper, testUser }) => {
     // Register user first time
-    await authHelper.registerUser(testUser);
+    const firstRegistration = await authHelper.registerUser(testUser);
+    expect(firstRegistration.ok()).toBe(true);
 
     // Try to register again with same email
     await registerPage.goto();
@@ -57,7 +58,8 @@ test.describe('TEST-06: Registration UI Flow', () => {
 
   test('R04: should prevent duplicate username registration', async ({ page, authHelper, testUser }) => {
     // Register user first time
-    await authHelper.registerUser(testUser);
+    const firstRegistration = await authHelper.registerUser(testUser);
+    expect(firstRegistration.ok()).toBe(true);
 
     // Try to register again with same username but different email
     await registerPage.goto();

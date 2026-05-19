@@ -3,6 +3,7 @@
  * Encapsulates registration page interactions
  */
 import { Page, Locator, expect } from '@playwright/test';
+import { gotoWithRetries } from '../helpers/navigation';
 
 export class RegisterPage {
   readonly page: Page;
@@ -39,14 +40,7 @@ export class RegisterPage {
    * Navigate to registration page
    */
   async goto() {
-    try {
-      await this.page.goto('/register', { waitUntil: 'domcontentloaded' });
-    } catch (error) {
-      if (!String(error).includes('interrupted by another navigation')) {
-        throw error;
-      }
-    }
-
+    await gotoWithRetries(this.page, '/register', { waitUntil: 'domcontentloaded' });
     await this.registerForm.waitFor({ state: 'visible', timeout: 10000 });
     await this.page.waitForLoadState('networkidle').catch(() => {});
   }
@@ -89,6 +83,7 @@ export class RegisterPage {
    * Click register button
    */
   async clickRegister() {
+    await expect(this.registerButton).toBeEnabled({ timeout: 10000 });
     await this.registerButton.click();
   }
 
@@ -138,7 +133,7 @@ export class RegisterPage {
    * Get error message text
    */
   async getErrorMessage(): Promise<string> {
-    await this.errorMessage.waitFor({ state: 'visible', timeout: 5000 });
+    await this.errorMessage.waitFor({ state: 'visible', timeout: 10000 });
     return await this.errorMessage.textContent() || '';
   }
 
@@ -146,7 +141,7 @@ export class RegisterPage {
    * Check if error message is visible
    */
   async hasError(): Promise<boolean> {
-    await this.errorMessage.waitFor({ state: 'visible', timeout: 5000 });
+    await this.errorMessage.waitFor({ state: 'visible', timeout: 10000 });
     return true;
   }
 

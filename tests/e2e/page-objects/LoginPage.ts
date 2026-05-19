@@ -3,6 +3,7 @@
  * Encapsulates login page interactions
  */
 import { Page, Locator, expect } from '@playwright/test';
+import { gotoWithRetries } from '../helpers/navigation';
 
 export class LoginPage {
   readonly page: Page;
@@ -33,14 +34,7 @@ export class LoginPage {
    * Navigate to login page
    */
   async goto() {
-    try {
-      await this.page.goto('/login', { waitUntil: 'domcontentloaded' });
-    } catch (error) {
-      if (!String(error).includes('interrupted by another navigation')) {
-        throw error;
-      }
-    }
-
+    await gotoWithRetries(this.page, '/login', { waitUntil: 'domcontentloaded' });
     await this.loginForm.waitFor({ state: 'visible', timeout: 10000 });
     await this.page.waitForLoadState('networkidle').catch(() => {});
   }
