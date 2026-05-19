@@ -23,6 +23,20 @@ export function generateTestUser() {
 export class AuthHelper {
   constructor(private page: Page, private baseURL: string) {}
 
+  private async ensureAppOrigin() {
+    const targetOrigin = new URL(this.baseURL).origin;
+
+    try {
+      if (new URL(this.page.url()).origin === targetOrigin) {
+        return;
+      }
+    } catch {
+      // about:blank and other opaque origins cannot access localStorage.
+    }
+
+    await this.page.goto(this.baseURL, { waitUntil: 'domcontentloaded' });
+  }
+
   /**
    * Register a new user via API
    */
@@ -51,6 +65,7 @@ export class AuthHelper {
    * Set authentication token in browser storage
    */
   async setAuthToken(token: string) {
+    await this.ensureAppOrigin();
     await this.page.evaluate((authToken) => {
       localStorage.setItem('access_token', authToken);
       localStorage.setItem('token_type', 'bearer');
@@ -61,6 +76,8 @@ export class AuthHelper {
    * Clear authentication from browser storage
    */
   async clearAuth() {
+    await this.page.context().clearCookies();
+    await this.ensureAppOrigin();
     await this.page.evaluate(() => {
       localStorage.removeItem('access_token');
       localStorage.removeItem('token_type');
@@ -72,6 +89,7 @@ export class AuthHelper {
    * Get current auth token from browser storage
    */
   async getAuthToken(): Promise<string | null> {
+    await this.ensureAppOrigin();
     return await this.page.evaluate(() => {
       return localStorage.getItem('access_token');
     });
