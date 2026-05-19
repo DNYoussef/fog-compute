@@ -39,8 +39,16 @@ export class RegisterPage {
    * Navigate to registration page
    */
   async goto() {
-    await this.page.goto('/register');
-    await this.page.waitForLoadState('networkidle');
+    try {
+      await this.page.goto('/register', { waitUntil: 'domcontentloaded' });
+    } catch (error) {
+      if (!String(error).includes('interrupted by another navigation')) {
+        throw error;
+      }
+    }
+
+    await this.registerForm.waitFor({ state: 'visible', timeout: 10000 });
+    await this.page.waitForLoadState('networkidle').catch(() => {});
   }
 
   /**
@@ -114,10 +122,16 @@ export class RegisterPage {
    * Wait for successful registration (redirect or success message)
    */
   async waitForRegistrationSuccess() {
+    const successUrl = /\/login|\/verify-email|\/control-panel/;
+
     await Promise.race([
-      this.page.waitForURL(/\/login|\/verify-email|\/control-panel/, { timeout: 10000 }),
+      this.page.waitForURL(successUrl, { timeout: 10000 }),
       this.successMessage.waitFor({ state: 'visible', timeout: 10000 }),
     ]);
+
+    if (!successUrl.test(this.page.url())) {
+      await this.page.waitForURL(successUrl, { timeout: 5000 }).catch(() => {});
+    }
   }
 
   /**

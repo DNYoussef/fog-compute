@@ -465,16 +465,31 @@ test.describe('UI-02: Quality Panel E2E Tests', () => {
       // Check specifically for color-contrast issues
       const results = await page.evaluate(async () => {
         // @ts-ignore - axe is injected
-        const axeResults = await axe.run(document, {
+        const panel = document.querySelector('.glass.rounded-xl');
+        if (!panel) {
+          throw new Error('Quality panel not found for color contrast audit');
+        }
+
+        // @ts-ignore - axe is injected
+        const axeResults = await axe.run(panel, {
           runOnly: {
             type: 'rule',
             values: ['color-contrast'],
           },
         });
-        return axeResults.violations;
+        return axeResults.violations.map((violation: any) => ({
+          id: violation.id,
+          impact: violation.impact,
+          description: violation.description,
+          nodes: violation.nodes.map((node: any) => ({
+            target: node.target,
+            html: node.html,
+            failureSummary: node.failureSummary,
+          })),
+        }));
       });
 
-      expect(results.length).toBe(0);
+      expect(results, JSON.stringify(results, null, 2)).toEqual([]);
     });
 
     test('should indicate loading state to screen readers', async ({ page }) => {

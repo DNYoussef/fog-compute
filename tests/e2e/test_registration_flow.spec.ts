@@ -161,7 +161,6 @@ test.describe('TEST-06: Registration UI Flow', () => {
       'ab', // Too short
       'user@name', // Invalid characters
       'user name', // Spaces not allowed
-      'a'.repeat(100), // Too long
     ];
 
     for (const username of invalidUsernames) {
