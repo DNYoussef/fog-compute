@@ -27,6 +27,7 @@ export function WebSocketStatus({
   const [lastMessage, setLastMessage] = useState<string>('');
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [isBrowserOffline, setIsBrowserOffline] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
   const reconnectDelayRef = useRef(initialReconnectDelay);
@@ -200,14 +201,17 @@ export function WebSocketStatus({
 
   useEffect(() => {
     const handleOffline = () => {
+      setIsBrowserOffline(true);
       setStatus('disconnected');
       setLastMessage('Browser is offline');
     };
     const handleOnline = () => {
+      setIsBrowserOffline(false);
       setStatus('connecting');
       setLastMessage('Network restored');
     };
 
+    setIsBrowserOffline(typeof navigator !== 'undefined' && !navigator.onLine);
     window.addEventListener('offline', handleOffline);
     window.addEventListener('online', handleOnline);
 
@@ -218,10 +222,9 @@ export function WebSocketStatus({
   }, []);
 
   const getConnectionState = (): ConnectionState => {
-    if (typeof navigator !== 'undefined' && !navigator.onLine) return 'offline';
+    if (isBrowserOffline) return 'offline';
     if (status === 'connected') return 'connected';
-    if (status === 'connecting') return 'reconnecting';
-    return 'offline';
+    return 'reconnecting';
   };
 
   const state = getConnectionState();

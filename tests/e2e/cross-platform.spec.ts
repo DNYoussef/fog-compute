@@ -378,7 +378,7 @@ test.describe('Browser Console Errors', () => {
       !err.includes('favicon') && !err.includes('DevTools')
     );
 
-    expect(criticalErrors.length).toBe(0);
+    expect(criticalErrors, criticalErrors.join('\n')).toEqual([]);
   });
 
   test('Should not have network errors', async ({ page }) => {
@@ -396,6 +396,6 @@ test.describe('Browser Console Errors', () => {
       !url.includes('analytics') && !url.includes('ads')
     );
 
-    expect(criticalFailures.length).toBe(0);
+    expect(criticalFailures, criticalFailures.join('\n')).toEqual([]);
   });
 });
