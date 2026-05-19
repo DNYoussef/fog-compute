@@ -119,7 +119,7 @@ export function Navigation() {
             <WebSocketStatus />
           </div>
 
-          <div className="md:hidden" data-testid="mobile-menu">
+          <div className="xl:hidden" data-testid="mobile-menu">
             <button
               data-testid="mobile-menu-button"
               className="min-h-[44px] min-w-[44px] rounded-lg p-2 text-gray-400 transition-colors hover:bg-white/5 hover:text-white"
@@ -144,7 +144,7 @@ export function Navigation() {
       {isMobileMenuOpen && (
         <button
           data-testid="mobile-menu-backdrop"
-          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          className="fixed inset-0 z-40 bg-black/50 xl:hidden"
           onClick={() => setIsMobileMenuOpen(false)}
           aria-label="Close menu backdrop"
         />
@@ -157,7 +157,7 @@ export function Navigation() {
         role="navigation"
         aria-label="Mobile navigation menu"
         aria-hidden={!isMobileMenuOpen}
-        className={`fixed bottom-0 right-0 top-0 z-50 w-80 max-w-[85vw] transform overflow-y-auto border-l border-white/10 glass-dark transition-transform duration-300 ease-in-out md:hidden ${
+        className={`fixed bottom-0 right-0 top-0 z-50 w-80 max-w-[85vw] transform overflow-y-auto border-l border-white/10 glass-dark transition-transform duration-300 ease-in-out xl:hidden ${
           isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
