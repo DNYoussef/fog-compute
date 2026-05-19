@@ -37,6 +37,17 @@ python prototypes\acurast-cargo\app\fog_task_runner.py `
 The generated `fog_task_result.local.json` is local output and should not be
 committed.
 
+## Preflight
+
+```powershell
+python scripts\acurast\preflight_cargo.py
+python scripts\acurast\preflight_cargo.py --require-cli
+```
+
+The first command validates the package without requiring live Acurast tooling.
+The second command is the live-deploy gate and must fail until the Acurast CLI
+is installed on `PATH`.
+
 ## Cargo Package Contents
 
 - `acurast.json`: canary `Shell` runtime deployment template.
