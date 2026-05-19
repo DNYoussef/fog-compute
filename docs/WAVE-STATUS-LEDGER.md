@@ -27,7 +27,7 @@ broader release.
 | Wave 12 publish/review split | PRs #26-#30 | Open for review | Docs/research (#26), backend control plane (#27), frontend control panel (#28), artifact/ledger hygiene (#29), stacked Acurast Cargo prototype/preflight (#30) |
 | Wave 12 CI dependency triage | PR #31 / `87d20ea` + `569ee85` + `2b8a903` + `c60fd6b` | Open for review | Contract-test workflow now installs the repo dependency files instead of a hand-picked subset; dead root pins for stdlib backports were removed after CI exposed them; contract CI now provides `DATABASE_URL` for the existing Postgres service; backend requirements now include the PyJWT dependency used by `device_auth` |
 | Wave 13 Acurast CLI setup | PR #32 / `b53197e` | Open for review | Installed `@acurast/cli` 0.8.1, fixed Windows preflight CLI execution, documented sanitized setup facts; wallet remains outside-repo blocker |
-| Wave 12 E2E import-path triage | PR #33 / `5ff1b23` | Open for review | Playwright backend `webServer` keeps `cwd=backend` for `server.*` imports and now exposes the repo root through `PYTHONPATH` for existing `backend.*` absolute imports; stacked on PR #31 so unrelated contract CI fixes are underneath |
+| Wave 12 E2E import-path triage | PR #33 / `5ff1b23` + `b33b647` | Open for review | Playwright backend `webServer` now starts from repo root as `backend.server.main:app`, with pre-Playwright backend import diagnostics in the sharded, mobile, and cross-browser jobs; stacked on PR #31 so unrelated contract CI fixes are underneath |
 
 ---
 
@@ -47,6 +47,7 @@ Latest complete post-audit gates, re-run on 2026-05-19 after the generated-artif
 | `python scripts\acurast\preflight_cargo.py` | Pass with Acurast CLI missing warning |
 | `python scripts\acurast\preflight_cargo.py --require-cli` | Pass after installing Acurast CLI 0.8.1 |
 | `python -m pytest tests\contracts\test_acurast_cargo_preflight.py -q` | 3 passed |
+| `python -m uvicorn backend.server.main:app --port 8000` | Repo-root smoke reached `/health` with HTTP 200 |
 
 Known expected observations:
 
@@ -55,8 +56,8 @@ Known expected observations:
 - Next build/dev warns that `baseline-browser-mapping` and Browserslist data are stale.
 - The migration verifier still needs a CREATEDB-capable Postgres admin URL.
 - Remaining `npm audit` findings require breaking forced upgrades and should be separate upgrade PRs.
-- Wave 12 contract CI failures on PRs #26/#27 are triaged to `.github/workflows/python-tests.yml` installing an incomplete dependency subset, then to the CI-only backend config requiring `DATABASE_URL`, then to a missing PyJWT backend dependency once CI reached real contract execution. PR #31 fixes all three: it installs the repo dependency files, removes dead `asyncio-compat` / `statistics` root requirement pins, wires `DATABASE_URL` to the existing Postgres service, and adds `PyJWT==2.8.0` to `backend/requirements.txt`. Local CI-mode verification on the `origin/main` baseline for PR #31: `123 passed, 25 warnings`; refreshed GitHub checks are running on `c60fd6b`.
-- Wave 12 broad E2E matrix failures are triaged to Playwright `webServer` startup failing with `ModuleNotFoundError: No module named 'backend'` when CI launches Uvicorn without the repo root on Python's import path. PR #33 applies the narrow import-path fix and is stacked on PR #31; refreshed GitHub checks are running.
+- Wave 12 contract CI failures on PRs #26/#27 are triaged to `.github/workflows/python-tests.yml` installing an incomplete dependency subset, then to the CI-only backend config requiring `DATABASE_URL`, then to a missing PyJWT backend dependency once CI reached real contract execution. PR #31 fixes all three: it installs the repo dependency files, removes dead `asyncio-compat` / `statistics` root requirement pins, wires `DATABASE_URL` to the existing Postgres service, and adds `PyJWT==2.8.0` to `backend/requirements.txt`. Local CI-mode verification on the `origin/main` baseline for PR #31: `123 passed, 25 warnings`; GitHub backend, contract, coverage, quality, and Node jobs are green on `c60fd6b`.
+- Wave 12 broad E2E matrix failures are triaged to Playwright `webServer` startup failing with `ModuleNotFoundError: No module named 'backend'` when CI launches Uvicorn from `cwd=backend`. PR #33 now starts Uvicorn from repo root as `backend.server.main:app` and adds explicit backend import diagnostics before Playwright; refreshed GitHub checks are running on `b33b647`.
 
 Issue records updated:
 
