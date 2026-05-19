@@ -2,11 +2,13 @@
 
 **Date**: 2026-05-19
 **Branch**: `stabilization/bplus-recovery`
-**Remote status**: local branch is ahead of `origin/stabilization/bplus-recovery` by 7 commits
+**Remote status**: local branch is ahead of `origin/stabilization/bplus-recovery` by 9 commits and ahead of `origin/main` by 8 commits
+**Baseline status**: B+ recovery baseline `440d1c7` is on `origin/main` but not on `origin/stabilization/bplus-recovery`
 **Publish status**: not pushed
 
-This ledger records the work completed after the B+ recovery baseline and the
-remaining waves needed before live Acurast deployment or broader release.
+This ledger records the B+ recovery baseline, the work completed after that
+baseline, and the remaining waves needed before live Acurast deployment or
+broader release.
 
 ---
 
@@ -14,10 +16,12 @@ remaining waves needed before live Acurast deployment or broader release.
 
 | Wave | Commit | Status | Scope |
 |------|--------|--------|-------|
+| B+ recovery baseline | `440d1c7` | Baseline on `origin/main` | B+ remediation phases and infra placeholder implementations inherited before Wave 8; included here because `origin/stabilization/bplus-recovery` is one commit behind `origin/main` |
 | Wave 8/9 docs and research | `f5bd6af` | Complete locally | Acurast comparison, outreach brief, regression baseline, feasibility scope, release-hygiene docs |
 | Wave 9 backend control plane | `eac8d99` | Complete locally | Durable fog task control-plane services, migrations, scheduler/fog bridge integration, recovery/security tests |
 | Wave 9 frontend control panel | `87df6e56` | Complete locally | Control-panel route shims, UI/package updates, build/smoke scripts, non-breaking audit lockfile fixes |
-| Wave 9 generated-artifact hygiene | `0fd1b27` | Complete locally | `.gitignore` only for runtime file-transfer output; tracked `test.db` and profiling drift removed from review scope |
+| Wave 9 generated-artifact hygiene | `0fd1b27` | Partial locally | `.gitignore` added for runtime file-transfer output; audit found legacy generated artifacts still tracked |
+| Wave 9 generated-artifact cleanup follow-up | audit-fix commit | Complete locally | `git rm --cached` for `.coverage`, `.swarm/memory.db`, `backend/data/dao_tokenomics.db`, profiling HTML reports, and `test.db`; `.gitignore` extended so they stay out of review scope |
 | Wave 10 Acurast Cargo prototype | `88e6704` | Complete locally | Local Cargo-shaped `Shell` workload, JSON task/result contracts, backend untrusted-result annotation, tests |
 | Wave 11 Acurast canary preflight | `f00ec29` | Complete locally | Deterministic preflight gate, LF shell entrypoint guard, CLI-blocking check, preflight docs/tests |
 
@@ -25,7 +29,7 @@ remaining waves needed before live Acurast deployment or broader release.
 
 ## Verification Already Run
 
-Latest complete post-prototype gates:
+Latest complete post-audit gates, re-run on 2026-05-19 after the generated-artifact cleanup:
 
 | Gate | Latest Result |
 |------|---------------|
@@ -142,6 +146,7 @@ Steps:
    - missing receipt
    - malformed receipt
    - present but unverified receipt
+   - expired receipt if Acurast issues time-bounded receipts
    - verified receipt only if public semantics are pinned
 
 Exit criteria:
