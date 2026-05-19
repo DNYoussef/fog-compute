@@ -74,7 +74,17 @@ export function BenchmarkControls({
         <div>
           <label className="mb-2 block text-sm font-medium text-gray-400">Controls</label>
           <div className="space-y-4">
-            {isRunning ? (
+            <button
+              type="button"
+              onClick={() => onStart(testType)}
+              disabled={isRunning}
+              data-testid="start-benchmark-button"
+              className="w-full rounded-lg bg-fog-cyan px-6 py-3 font-semibold text-black transition-colors hover:bg-fog-cyan/80 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Start Test
+            </button>
+
+            {isRunning && (
               <button
                 type="button"
                 onClick={onStop}
@@ -82,15 +92,6 @@ export function BenchmarkControls({
                 className="flex w-full items-center justify-center rounded-lg bg-red-500 px-6 py-3 font-semibold text-white transition-colors hover:bg-red-600"
               >
                 Stop Test
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => onStart(testType)}
-                data-testid="start-benchmark-button"
-                className="w-full rounded-lg bg-fog-cyan px-6 py-3 font-semibold text-black transition-colors hover:bg-fog-cyan/80"
-              >
-                Start Test
               </button>
             )}
 

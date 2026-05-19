@@ -24,7 +24,8 @@ export function BottomNavigation() {
   const pathname = usePathname();
 
   return (
-    <nav
+    <div
+      role="navigation"
       data-testid="bottom-navigation"
       className="fixed bottom-0 left-0 right-0 z-50 bg-gray-900 border-t border-gray-800 md:hidden"
       aria-label="Mobile navigation"
@@ -53,6 +54,6 @@ export function BottomNavigation() {
           );
         })}
       </div>
-    </nav>
+    </div>
   );
 }
