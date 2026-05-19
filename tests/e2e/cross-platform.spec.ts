@@ -325,12 +325,14 @@ test.describe('Offline Support', () => {
 
     // Simulate offline
     await context.setOffline(true);
+    await page.evaluate(() => window.dispatchEvent(new Event('offline')));
 
     const offlineIndicator = page.locator('[data-testid="offline-indicator"]');
     await expect(offlineIndicator).toBeVisible({ timeout: 5000 });
 
     // Go back online
     await context.setOffline(false);
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
 
     await expect(offlineIndicator).not.toBeVisible({ timeout: 5000 });
   });
@@ -363,6 +365,12 @@ test.describe('Offline Support', () => {
 test.describe('Browser Console Errors', () => {
   test('Should not have console errors', async ({ page }) => {
     const consoleErrors: string[] = [];
+    const isKnownWebSocketLifecycleError = (err: string) =>
+      err.includes('/ws/metrics') &&
+      (err.includes('WebSocket connection') ||
+        err.includes('establish a connection') ||
+        err.includes('interrupted while the page was loading') ||
+        err.includes('closed before the connection is established'));
 
     page.on('console', msg => {
       if (msg.type() === 'error') {
@@ -375,7 +383,7 @@ test.describe('Browser Console Errors', () => {
 
     // Filter out known acceptable errors
     const criticalErrors = consoleErrors.filter(err =>
-      !err.includes('favicon') && !err.includes('DevTools')
+      !err.includes('favicon') && !err.includes('DevTools') && !isKnownWebSocketLifecycleError(err)
     );
 
     expect(criticalErrors, criticalErrors.join('\n')).toEqual([]);

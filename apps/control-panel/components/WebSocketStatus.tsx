@@ -15,8 +15,29 @@ interface WebSocketStatusProps {
 type ConnectionStatus = 'connected' | 'disconnected' | 'connecting' | 'error';
 type ConnectionState = 'connected' | 'reconnecting' | 'offline';
 
+function resolveDefaultWebSocketUrl(): string {
+  if (process.env.NEXT_PUBLIC_WS_URL) {
+    return process.env.NEXT_PUBLIC_WS_URL;
+  }
+
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    try {
+      const apiUrl = new URL(process.env.NEXT_PUBLIC_API_URL);
+      apiUrl.protocol = apiUrl.protocol === 'https:' ? 'wss:' : 'ws:';
+      apiUrl.pathname = '/ws/metrics';
+      apiUrl.search = '';
+      apiUrl.hash = '';
+      return apiUrl.toString();
+    } catch {
+      // Fall through to the local development default.
+    }
+  }
+
+  return 'ws://127.0.0.1:8000/ws/metrics';
+}
+
 export function WebSocketStatus({
-  url = 'ws://localhost:8000/ws/metrics',
+  url = resolveDefaultWebSocketUrl(),
   maxRetries = 10,
   initialReconnectDelay = 5000,
   maxReconnectDelay = 30000,
@@ -32,11 +53,12 @@ export function WebSocketStatus({
   const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
   const reconnectDelayRef = useRef(initialReconnectDelay);
   const isManualDisconnectRef = useRef(false);
+  const retryCountRef = useRef(0);
 
   useEffect(() => {
     const connect = () => {
       // Don't reconnect if we've exceeded max retries
-      if (retryCount >= maxRetries) {
+      if (retryCountRef.current >= maxRetries) {
         setStatus('error');
         setLastMessage(`Max reconnection attempts (${maxRetries}) exceeded`);
         return;
@@ -50,6 +72,7 @@ export function WebSocketStatus({
           setStatus('connected');
           setLastMessage('Connected to server');
           setLastUpdate(new Date());
+          retryCountRef.current = 0;
           setRetryCount(0);
           reconnectDelayRef.current = initialReconnectDelay; // Reset backoff
           console.log('✅ WebSocket connected');
@@ -72,12 +95,14 @@ export function WebSocketStatus({
           // Exponential backoff with jitter
           const jitter = Math.random() * 1000;
           const delay = Math.min(reconnectDelayRef.current + jitter, maxReconnectDelay);
+          const nextRetryCount = retryCountRef.current + 1;
 
-          setLastMessage(`Reconnecting in ${(delay / 1000).toFixed(1)}s... (attempt ${retryCount + 1}/${maxRetries})`);
+          setLastMessage(`Reconnecting in ${(delay / 1000).toFixed(1)}s... (attempt ${nextRetryCount}/${maxRetries})`);
 
           reconnectTimeoutRef.current = setTimeout(() => {
             reconnectDelayRef.current = Math.min(reconnectDelayRef.current * 2, maxReconnectDelay);
-            setRetryCount(prev => prev + 1);
+            retryCountRef.current = nextRetryCount;
+            setRetryCount(nextRetryCount);
             connect();
           }, delay);
         };
@@ -98,9 +123,11 @@ export function WebSocketStatus({
 
         // Retry with backoff
         const delay = Math.min(reconnectDelayRef.current, maxReconnectDelay);
+        const nextRetryCount = retryCountRef.current + 1;
         reconnectTimeoutRef.current = setTimeout(() => {
           reconnectDelayRef.current = Math.min(reconnectDelayRef.current * 2, maxReconnectDelay);
-          setRetryCount(prev => prev + 1);
+          retryCountRef.current = nextRetryCount;
+          setRetryCount(nextRetryCount);
           connect();
         }, delay);
       }
@@ -138,6 +165,7 @@ export function WebSocketStatus({
     }
 
     // Reset state and reconnect
+    retryCountRef.current = 0;
     setRetryCount(0);
     reconnectDelayRef.current = initialReconnectDelay;
     setStatus('connecting');
@@ -153,6 +181,7 @@ export function WebSocketStatus({
         setStatus('connected');
         setLastMessage('Connected to server');
         setLastUpdate(new Date());
+        retryCountRef.current = 0;
         setRetryCount(0);
         reconnectDelayRef.current = initialReconnectDelay;
         console.log('Manual reconnect successful');
