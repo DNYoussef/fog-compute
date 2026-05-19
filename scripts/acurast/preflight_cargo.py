@@ -243,7 +243,11 @@ def _check_cli(preflight: Preflight, require_cli: bool) -> None:
     cli = shutil.which("acurast")
     if cli:
         preflight.ok(f"Acurast CLI found: {cli}")
-        version = subprocess.run(["acurast", "--version"], capture_output=True, text=True)
+        try:
+            version = subprocess.run([cli, "--version"], capture_output=True, text=True, timeout=30)
+        except OSError as exc:
+            preflight.warn(f"Acurast CLI is installed but --version failed: {exc}")
+            return
         if version.returncode == 0:
             preflight.ok(f"Acurast CLI version: {(version.stdout or version.stderr).strip()}")
         else:
