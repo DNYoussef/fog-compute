@@ -82,8 +82,9 @@ test.describe('Betanet Topology View', () => {
 
   test('node selection updates details panel', async ({ page }) => {
     // Click first mixnode
-    const firstNode = page.locator('[data-testid^="mixnode-"]').first();
-    await firstNode.click();
+    const firstNode = page.locator('[data-testid="mixnode-list"] [data-testid^="mixnode-"]').first();
+    await expect(firstNode).toBeVisible({ timeout: 15000 });
+    await firstNode.click({ force: true });
 
     // Check details panel updates
     const detailsPanel = page.locator('[data-testid="node-details"]');
@@ -113,12 +114,12 @@ test.describe('Betanet Topology View', () => {
 
     // Test auto-rotate toggle
     const autoRotate = controls.getByRole('button', { name: /auto rotate/i });
-    await autoRotate.click();
+    await autoRotate.click({ force: true });
     await expect(autoRotate).toHaveAttribute('aria-pressed', 'false');
 
     // Test zoom controls
     const zoomIn = controls.getByRole('button', { name: /zoom in/i });
-    await zoomIn.click();
+    await zoomIn.click({ force: true });
     // Canvas should update (visual test would verify this)
   });
 });

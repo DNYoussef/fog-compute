@@ -134,7 +134,7 @@ export default function BetanetPage() {
       <div className="glass rounded-xl p-6">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold">Network Topology</h2>
-          <div className="flex gap-2" data-testid="topology-controls">
+          <div className="relative z-10 flex gap-2" data-testid="topology-controls">
             <button className="px-3 py-1 text-sm bg-white/10 hover:bg-white/20 rounded">
               Reset View
             </button>
