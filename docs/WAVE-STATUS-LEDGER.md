@@ -25,7 +25,7 @@ broader release.
 | Wave 10 Acurast Cargo prototype | `88e6704` | Complete locally | Local Cargo-shaped `Shell` workload, JSON task/result contracts, backend untrusted-result annotation, tests |
 | Wave 11 Acurast canary preflight | `f00ec29` | Complete locally | Deterministic preflight gate, LF shell entrypoint guard, CLI-blocking check, preflight docs/tests |
 | Wave 12 publish/review split | PRs #26-#30 | Open for review | Docs/research (#26), backend control plane (#27), frontend control panel (#28), artifact/ledger hygiene (#29), stacked Acurast Cargo prototype/preflight (#30) |
-| Wave 12 CI dependency triage | PR #31 / `87d20ea` + `569ee85` | Open for review | Contract-test workflow now installs the repo dependency files instead of a hand-picked subset; dead root pins for stdlib backports were removed after CI exposed them |
+| Wave 12 CI dependency triage | PR #31 / `87d20ea` + `569ee85` + `2b8a903` | Open for review | Contract-test workflow now installs the repo dependency files instead of a hand-picked subset; dead root pins for stdlib backports were removed after CI exposed them; contract CI now provides `DATABASE_URL` for the existing Postgres service |
 | Wave 13 Acurast CLI setup | PR #32 / `b53197e` | Open for review | Installed `@acurast/cli` 0.8.1, fixed Windows preflight CLI execution, documented sanitized setup facts; wallet remains outside-repo blocker |
 
 ---
@@ -54,8 +54,8 @@ Known expected observations:
 - Next build/dev warns that `baseline-browser-mapping` and Browserslist data are stale.
 - The migration verifier still needs a CREATEDB-capable Postgres admin URL.
 - Remaining `npm audit` findings require breaking forced upgrades and should be separate upgrade PRs.
-- Wave 12 contract CI failures on PRs #26/#27 are triaged to `.github/workflows/python-tests.yml` installing an incomplete dependency subset; PR #31 fixes that and removes dead `asyncio-compat` / `statistics` root requirement pins. Local verification on the `origin/main` baseline for PR #31: `123 passed, 25 warnings`; refreshed GitHub checks are queued.
-- Wave 12 broad E2E matrix failures are visible on the docs-only PR and need separate sampling once GitHub exposes complete logs; the repo already contains prior CI docs identifying Playwright matrix/webServer instability as a known class of failure.
+- Wave 12 contract CI failures on PRs #26/#27 are triaged to `.github/workflows/python-tests.yml` installing an incomplete dependency subset, then to the CI-only backend config requiring `DATABASE_URL`. PR #31 fixes both: it installs the repo dependency files, removes dead `asyncio-compat` / `statistics` root requirement pins, and wires `DATABASE_URL` to the existing Postgres service. Local CI-mode verification on the `origin/main` baseline for PR #31: `123 passed, 25 warnings`; refreshed GitHub checks are running on `2b8a903`.
+- Wave 12 broad E2E matrix failures are triaged to Playwright `webServer` startup failing with `ModuleNotFoundError: No module named 'backend'` when CI launches Uvicorn without the repo root on Python's import path. This needs a separate narrow E2E CI fix.
 
 Issue records updated:
 
@@ -102,7 +102,7 @@ Steps:
 Exit criteria:
 
 - PRs are small enough to review.
-- CI agrees with local regression results or failures are triaged. **Contract dependency failure is triaged in PR #31; E2E matrix failure still needs log sampling after the run completes.**
+- CI agrees with local regression results or failures are triaged. **Contract dependency/config failures are triaged in PR #31; E2E matrix failure is triaged to the Playwright web-server Python import path and needs a separate narrow fix.**
 - Generated artifacts stay out of the branch.
 
 ### Wave 13: Acurast CLI And Canary Wallet Setup
