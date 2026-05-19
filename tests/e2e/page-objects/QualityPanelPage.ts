@@ -42,11 +42,11 @@ export class QualityPanelPage {
     // Console and status elements
     this.consoleOutput = page.locator('.bg-black\\/50.rounded-lg').first();
     this.clearButton = page.locator('button').filter({ hasText: 'Clear' });
-    this.loadingIndicator = page.locator('.animate-spin, .animate-pulse');
+    this.loadingIndicator = this.panel.locator('[data-testid="quality-running-indicator"]');
     this.testCommandsDetails = page.locator('details');
 
     // Error elements
-    this.errorMessages = page.locator('.text-red-400, [role="alert"]');
+    this.errorMessages = this.panel.locator('[role="alert"], [data-testid="quality-error-message"]');
   }
 
   /**
