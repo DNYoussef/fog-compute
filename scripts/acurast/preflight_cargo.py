@@ -3,13 +3,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 try:
     from jsonschema import validate
@@ -22,6 +23,10 @@ DEFAULT_PROTOTYPE_DIR = REPO_ROOT / "prototypes" / "acurast-cargo"
 TASK_SCHEMA = REPO_ROOT / "docs" / "contracts" / "acurast-cargo-task.schema.json"
 RESULT_SCHEMA = REPO_ROOT / "docs" / "contracts" / "acurast-cargo-result.schema.json"
 HEX_64_RE = re.compile(r"^[a-f0-9]{64}$")
+PROCESSOR_ADDRESS_RE = re.compile(r"^[A-Za-z0-9:_-]{16,255}$")
+CANARY_SECRETS_DIR_ENV = "ACURAST_CANARY_SECRETS_DIR"
+CANARY_PROCESSOR_ENV = "ACURAST_CANARY_PROCESSOR_ADDRESS"
+CANARY_ALLOW_OPEN_MATCH_ENV = "ACURAST_CANARY_ALLOW_OPEN_MATCH"
 
 
 class Preflight:
@@ -244,7 +249,14 @@ def _check_cli(preflight: Preflight, require_cli: bool) -> None:
     if cli:
         preflight.ok(f"Acurast CLI found: {cli}")
         try:
-            version = subprocess.run([cli, "--version"], capture_output=True, text=True, timeout=30)
+            with tempfile.TemporaryDirectory(prefix="fog-acurast-cli-") as tmpdir:
+                version = subprocess.run(
+                    [cli, "--version"],
+                    cwd=tmpdir,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
         except OSError as exc:
             preflight.warn(f"Acurast CLI is installed but --version failed: {exc}")
             return
@@ -261,7 +273,52 @@ def _check_cli(preflight: Preflight, require_cli: bool) -> None:
         preflight.warn(message)
 
 
-def run_preflight(prototype_dir: Path, require_cli: bool) -> int:
+def _is_inside_repo(path: Path) -> bool:
+    try:
+        path.resolve().relative_to(REPO_ROOT)
+        return True
+    except ValueError:
+        return False
+
+
+def _env_truthy(value: str | None) -> bool:
+    return value is not None and value.lower() in {"1", "true", "yes", "y"}
+
+
+def _check_canary_operator_boundary(preflight: Preflight, environ: Mapping[str, str] = os.environ) -> None:
+    secrets_dir_value = environ.get(CANARY_SECRETS_DIR_ENV)
+    if not secrets_dir_value:
+        preflight.fail(f"{CANARY_SECRETS_DIR_ENV} must point to an external canary secret directory")
+    else:
+        secrets_dir = Path(secrets_dir_value).expanduser().resolve()
+        if not secrets_dir.exists() or not secrets_dir.is_dir():
+            preflight.fail(f"{CANARY_SECRETS_DIR_ENV} does not exist or is not a directory: {secrets_dir}")
+        elif _is_inside_repo(secrets_dir):
+            preflight.fail(f"{CANARY_SECRETS_DIR_ENV} must be outside the repository: {secrets_dir}")
+        else:
+            preflight.ok(f"{CANARY_SECRETS_DIR_ENV} is external to the repository")
+
+    processor = environ.get(CANARY_PROCESSOR_ENV)
+    allow_open_match = _env_truthy(environ.get(CANARY_ALLOW_OPEN_MATCH_ENV))
+    if not processor:
+        if allow_open_match:
+            preflight.warn(f"{CANARY_PROCESSOR_ENV} is unset; open canary matching was explicitly allowed")
+        else:
+            preflight.fail(
+                f"{CANARY_PROCESSOR_ENV} must identify the canary processor, or set "
+                f"{CANARY_ALLOW_OPEN_MATCH_ENV}=1 for an intentional open match"
+            )
+        return
+
+    if PROCESSOR_ADDRESS_RE.match(processor):
+        preflight.ok(f"{CANARY_PROCESSOR_ENV} is present and path-safe")
+    else:
+        preflight.fail(
+            f"{CANARY_PROCESSOR_ENV} must be 16-255 chars with only letters, digits, ':', '_', or '-'"
+        )
+
+
+def run_preflight(prototype_dir: Path, require_cli: bool, require_canary_operator: bool = False) -> int:
     preflight = Preflight()
     prototype_dir = prototype_dir.resolve()
     if not prototype_dir.exists():
@@ -273,7 +330,9 @@ def run_preflight(prototype_dir: Path, require_cli: bool) -> int:
     _config, app_dir, _entrypoint = _validate_config(prototype_dir, preflight)
     if app_dir is not None:
         _run_local_workload(app_dir, preflight)
-    _check_cli(preflight, require_cli=require_cli)
+    _check_cli(preflight, require_cli=require_cli or require_canary_operator)
+    if require_canary_operator:
+        _check_canary_operator_boundary(preflight)
     preflight.emit()
     return preflight.exit_code()
 
@@ -286,8 +345,20 @@ def main() -> int:
         action="store_true",
         help="Fail if the Acurast CLI is not installed. Use this before live canary deployment.",
     )
+    parser.add_argument(
+        "--require-canary-operator",
+        action="store_true",
+        help=(
+            "Fail unless the Acurast CLI is installed and canary operator inputs "
+            "are supplied outside the repository."
+        ),
+    )
     args = parser.parse_args()
-    return run_preflight(args.prototype_dir, require_cli=args.require_cli)
+    return run_preflight(
+        args.prototype_dir,
+        require_cli=args.require_cli,
+        require_canary_operator=args.require_canary_operator,
+    )
 
 
 if __name__ == "__main__":

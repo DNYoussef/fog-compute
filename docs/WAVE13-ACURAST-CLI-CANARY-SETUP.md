@@ -44,6 +44,10 @@ artifact was created or committed in this wave.
 that `init` creates `acurast.json` and `.env`; this repo already has a reviewed
 prototype config, and wallet material must remain outside the repo.
 
+Wave 14 audit follow-up: `acurast --version` can create local CLI logs under
+`.acurast/` when executed from the repository. The follow-up readiness gate runs
+that probe from a temporary directory and ignores `.acurast/` defensively.
+
 ## Remaining Wave 13 Blocker
 
 Live canary deployment is still blocked until the operator provides, outside

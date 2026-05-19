@@ -59,4 +59,41 @@ def test_acurast_cargo_preflight_uses_resolved_cli_path(monkeypatch):
 
     assert calls[0][0] == [resolved_cli, "--version"]
     assert calls[0][1]["timeout"] == 30
+    cwd = Path(calls[0][1]["cwd"]).resolve()
+    assert cwd != REPO_ROOT
+    assert REPO_ROOT not in cwd.parents
     assert "OK   Acurast CLI version: 0.8.1" in preflight.notes
+
+
+def test_acurast_cargo_preflight_requires_external_canary_secret_dir(monkeypatch):
+    spec = importlib.util.spec_from_file_location("preflight_cargo", PREFLIGHT)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    monkeypatch.setenv("ACURAST_CANARY_SECRETS_DIR", str(REPO_ROOT))
+    monkeypatch.setenv("ACURAST_CANARY_PROCESSOR_ADDRESS", "processor-address-12345")
+
+    preflight = module.Preflight()
+    module._check_canary_operator_boundary(preflight)
+
+    assert any("must be outside the repository" in error for error in preflight.errors)
+
+
+def test_acurast_cargo_preflight_accepts_external_canary_operator_inputs(monkeypatch, tmp_path):
+    spec = importlib.util.spec_from_file_location("preflight_cargo", PREFLIGHT)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    monkeypatch.setenv("ACURAST_CANARY_SECRETS_DIR", str(tmp_path))
+    monkeypatch.setenv("ACURAST_CANARY_PROCESSOR_ADDRESS", "processor-address-12345")
+
+    preflight = module.Preflight()
+    module._check_canary_operator_boundary(preflight)
+
+    assert preflight.errors == []
+    assert "OK   ACURAST_CANARY_SECRETS_DIR is external to the repository" in preflight.notes
+    assert "OK   ACURAST_CANARY_PROCESSOR_ADDRESS is present and path-safe" in preflight.notes

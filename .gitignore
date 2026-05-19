@@ -35,6 +35,10 @@ tests/output/
 test_data/files/
 prototypes/acurast-cargo/app/fog_task_result*.json
 
+# Acurast CLI local logs/deploy state. Canary wallet material must stay outside
+# the repository.
+.acurast/
+
 # Claude Code
 .claude/
 .claude-flow/
