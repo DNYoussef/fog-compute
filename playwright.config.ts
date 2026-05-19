@@ -5,6 +5,8 @@ const serviceInitTimeout = process.env.SERVICE_INIT_TIMEOUT || (isCI ? '30' : ''
 const skipExternalServices = process.env.SKIP_EXTERNAL_SERVICES ?? (isCI ? 'true' : '');
 const p2pTimeout = process.env.P2P_TIMEOUT || (isCI ? '5' : '');
 const betanetUrl = process.env.BETANET_URL || '';
+const e2eRateLimitBypassToken = process.env.E2E_RATE_LIMIT_BYPASS_TOKEN
+  || (isCI ? 'fog-compute-e2e-rate-limit-bypass' : '');
 const repoRoot = __dirname;
 
 /**
@@ -145,6 +147,7 @@ export default defineConfig({
         SERVICE_INIT_TIMEOUT: serviceInitTimeout,
         P2P_TIMEOUT: p2pTimeout,
         BETANET_URL: betanetUrl,
+        E2E_RATE_LIMIT_BYPASS_TOKEN: e2eRateLimitBypassToken,
         // Additional backend configuration
         ENVIRONMENT: process.env.CI ? 'test' : 'development',
         LOG_LEVEL: process.env.CI ? 'WARNING' : 'INFO',

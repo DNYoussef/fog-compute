@@ -4,6 +4,10 @@
  */
 import { test as base, expect, Page } from '@playwright/test';
 
+const isCI = process.env.CI === 'true' || process.env.CI === '1';
+const e2eRateLimitBypassToken = process.env.E2E_RATE_LIMIT_BYPASS_TOKEN
+  || (isCI ? 'fog-compute-e2e-rate-limit-bypass' : '');
+
 /**
  * Test user data generator
  */
@@ -22,6 +26,16 @@ export function generateTestUser() {
  */
 export class AuthHelper {
   constructor(private page: Page, private baseURL: string) {}
+
+  private getSetupHeaders(): Record<string, string> | undefined {
+    if (!e2eRateLimitBypassToken) {
+      return undefined;
+    }
+
+    return {
+      'X-E2E-Rate-Limit-Bypass': e2eRateLimitBypassToken,
+    };
+  }
 
   private async ensureAppOrigin() {
     const targetOrigin = new URL(this.baseURL).origin;
@@ -43,6 +57,7 @@ export class AuthHelper {
   async registerUser(userData: { username: string; email: string; password: string }) {
     const response = await this.page.request.post(`${this.baseURL.replace(':3000', ':8000')}/api/auth/register`, {
       data: userData,
+      headers: this.getSetupHeaders(),
     });
     return response;
   }
@@ -53,6 +68,7 @@ export class AuthHelper {
   async loginUser(username: string, password: string) {
     const response = await this.page.request.post(`${this.baseURL.replace(':3000', ':8000')}/api/auth/login`, {
       data: { username, password },
+      headers: this.getSetupHeaders(),
     });
     if (response.ok()) {
       const data = await response.json();
