@@ -41,7 +41,7 @@ export class QualityPanelPage {
 
     // Console and status elements
     this.consoleOutput = page.locator('.bg-black\\/50.rounded-lg').first();
-    this.clearButton = page.locator('button').filter({ hasText: 'Clear' });
+    this.clearButton = this.panel.getByTestId('quality-clear-console-button');
     this.loadingIndicator = this.panel.locator('[data-testid="quality-running-indicator"]');
     this.testCommandsDetails = page.locator('details');
 
@@ -139,6 +139,8 @@ export class QualityPanelPage {
    * Clear console output
    */
   async clearConsole() {
+    await this.waitForTestsToComplete(30000).catch(() => undefined);
+    await expect(this.clearButton).toBeEnabled({ timeout: 5000 });
     await this.clearButton.click();
     await this.page.waitForTimeout(1000); // Wait for reload
   }

@@ -13,7 +13,7 @@ export function TestExecutionPanel({ isRunning, output, onRunTests, onRunBenchma
   const [selectedSuite, setSelectedSuite] = useState<'rust' | 'python' | 'all'>('all');
 
   return (
-    <div className="glass rounded-xl p-6">
+    <div className="glass rounded-xl p-6 min-w-0 overflow-hidden">
       <h2 className="text-xl font-semibold mb-4 flex items-center">
         <span className="text-2xl mr-2">🎮</span>
         Test Execution
@@ -112,10 +112,10 @@ export function TestExecutionPanel({ isRunning, output, onRunTests, onRunBenchma
       </div>
 
       {/* Output Console */}
-      <div className="glass-dark rounded-lg p-4">
-        <div className="flex items-center justify-between mb-2">
+      <div className="glass-dark rounded-lg p-4 min-w-0">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
           <h3 className="font-semibold text-sm">Console Output</h3>
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             {isRunning && (
               <div className="flex items-center space-x-2" data-testid="quality-running-indicator">
                 <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
@@ -123,18 +123,20 @@ export function TestExecutionPanel({ isRunning, output, onRunTests, onRunBenchma
               </div>
             )}
             <button
+              data-testid="quality-clear-console-button"
+              disabled={isRunning}
               onClick={() => {
                 // Clear output by re-rendering
                 window.location.reload();
               }}
-              className="text-xs text-gray-400 hover:text-white transition-colors px-2 py-1 rounded hover:bg-white/10"
+              className="min-h-[32px] px-3 py-1 text-xs text-gray-400 hover:text-white transition-colors rounded hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Clear
             </button>
           </div>
         </div>
 
-        <div className="bg-black/50 rounded-lg p-3 font-mono text-xs max-h-96 overflow-y-auto">
+        <div className="bg-black/50 rounded-lg p-3 font-mono text-xs max-h-96 max-w-full overflow-auto whitespace-pre-wrap break-words">
           {output.length === 0 ? (
             <div className="text-gray-500">
               No output yet. Click &quot;Run Tests&quot; or &quot;Run Benchmarks&quot; to start.

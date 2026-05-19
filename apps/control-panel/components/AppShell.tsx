@@ -8,6 +8,9 @@ import { Navigation } from '@/components/Navigation';
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const isAuthRoute = pathname === '/login' || pathname === '/register';
+  const mainClassName = isAuthRoute
+    ? 'flex-1 min-w-0 overflow-x-hidden px-4 py-6'
+    : 'flex-1 min-w-0 overflow-x-hidden container mx-auto px-4 py-6';
 
   return (
     <>
@@ -26,10 +29,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             />
           )}
           <main
-            className={isAuthRoute ? 'flex-1 px-4 py-6' : 'flex-1 container mx-auto px-4 py-6'}
+            className={mainClassName}
             data-testid="main-content"
           >
-            <div className="grid gap-6" data-testid="main-grid">
+            <div className="grid min-w-0 gap-6" data-testid="main-grid">
               {children}
             </div>
           </main>

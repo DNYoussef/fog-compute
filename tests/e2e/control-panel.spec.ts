@@ -3,7 +3,8 @@
  * Using Playwright for cross-browser testing
  */
 
-import { test, expect, Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
+import { expectPrimaryNavRoute, visibleWebSocketStatus } from './helpers/responsive-navigation';
 
 test.describe('Control Panel Dashboard', () => {
   test.beforeEach(async ({ page }) => {
@@ -17,9 +18,9 @@ test.describe('Control Panel Dashboard', () => {
     // Verify navigation
     const nav = page.locator('nav');
     await expect(nav).toBeVisible();
-    await expect(nav.getByRole('link', { name: /dashboard/i })).toBeVisible();
-    await expect(nav.getByRole('link', { name: /betanet/i })).toBeVisible();
-    await expect(nav.getByRole('link', { name: /benchmarks/i })).toBeVisible();
+    await expectPrimaryNavRoute(page, '/');
+    await expectPrimaryNavRoute(page, '/betanet');
+    await expectPrimaryNavRoute(page, '/benchmarks');
   });
 
   test('shows system metrics', async ({ page }) => {
@@ -265,7 +266,7 @@ test.describe('Real-time Updates', () => {
     await page.goto('http://localhost:3000');
 
     // Check WebSocket status indicator
-    const wsStatus = page.locator('[data-testid="ws-status"]');
+    const wsStatus = await visibleWebSocketStatus(page);
     await expect(wsStatus).toBeVisible();
     await expect(wsStatus).toHaveAttribute('data-status', 'connected');
   });
@@ -290,7 +291,7 @@ test.describe('Real-time Updates', () => {
 
     // Simulate disconnect (would need backend support)
     // For now, just verify reconnect UI
-    const wsStatus = page.locator('[data-testid="ws-status"]');
+    const wsStatus = await visibleWebSocketStatus(page);
     await expect(wsStatus).toBeVisible();
   });
 });

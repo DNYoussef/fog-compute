@@ -10,6 +10,7 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { visibleWebSocketStatus } from './helpers/responsive-navigation';
 
 test.describe('Basic Browser Rendering', () => {
   test('renders correctly across all browsers', async ({ page, browserName }) => {
@@ -54,7 +55,7 @@ test.describe('Browser-Specific Features', () => {
   test('WebSocket connection works', async ({ page }) => {
     await page.goto('/');
 
-    const wsStatus = page.locator('[data-testid="ws-status"]');
+    const wsStatus = await visibleWebSocketStatus(page);
     await expect(wsStatus).toBeVisible();
   });
 
