@@ -150,18 +150,16 @@ export function Navigation() {
         />
       )}
 
-      <div
-        ref={drawerRef}
-        id="mobile-menu-drawer"
-        data-testid="mobile-menu-drawer"
-        role="navigation"
-        aria-label="Mobile navigation menu"
-        aria-hidden={!isMobileMenuOpen}
-        className={`fixed bottom-0 right-0 top-0 z-50 w-80 max-w-[85vw] transform overflow-y-auto border-l border-white/10 glass-dark transition-transform duration-300 ease-in-out xl:hidden ${
-          isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
-        }`}
-      >
-        <div data-testid="swipe-nav" className="flex h-full flex-col">
+      {isMobileMenuOpen && (
+        <div
+          ref={drawerRef}
+          id="mobile-menu-drawer"
+          data-testid="mobile-menu-drawer"
+          role="navigation"
+          aria-label="Mobile navigation menu"
+          className="fixed bottom-0 right-0 top-0 z-50 w-80 max-w-[85vw] transform overflow-y-auto border-l border-white/10 glass-dark transition-transform duration-300 ease-in-out xl:hidden"
+        >
+          <div data-testid="swipe-nav" className="flex h-full flex-col">
           <div className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-white/10 px-4 glass-dark">
             <span className="font-bold text-lg bg-gradient-to-r from-fog-cyan to-fog-purple bg-clip-text text-transparent">
               Menu
@@ -206,8 +204,9 @@ export function Navigation() {
               <WebSocketStatus testId="mobile-ws-status" offlineTestId="mobile-offline-indicator" />
             </div>
           </div>
+          </div>
         </div>
-      </div>
+      )}
     </nav>
   );
 }
