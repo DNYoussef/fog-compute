@@ -29,9 +29,9 @@ export class QualityPanelPage {
     this.panelTitle = page.locator('h2').filter({ hasText: 'Test Execution' });
 
     // Control elements
-    this.testSuiteDropdown = page.locator('select').first();
-    this.runTestsButton = page.locator('button').filter({ hasText: /Run Tests/i }).first();
-    this.runBenchmarksButton = page.locator('button').filter({ hasText: /Run Benchmarks/i }).first();
+    this.testSuiteDropdown = this.panel.locator('#quality-test-suite-select');
+    this.runTestsButton = this.panel.getByTestId('quality-run-tests-button');
+    this.runBenchmarksButton = this.panel.getByTestId('quality-run-benchmarks-button');
 
     // Quick action buttons
     this.rustQuickButton = this.panel.locator('button').filter({ hasText: 'Rust' }).first();

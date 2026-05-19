@@ -23,8 +23,9 @@ export function TestExecutionPanel({ isRunning, output, onRunTests, onRunBenchma
       <div className="flex flex-wrap gap-4 mb-4">
         {/* Test Suite Selection */}
         <div className="flex-1 min-w-[200px]">
-          <label className="block text-sm text-gray-400 mb-2">Test Suite</label>
+          <label htmlFor="quality-test-suite-select" className="block text-sm text-gray-400 mb-2">Test Suite</label>
           <select
+            id="quality-test-suite-select"
             value={selectedSuite}
             onChange={(e) => setSelectedSuite(e.target.value as 'rust' | 'python' | 'all')}
             disabled={isRunning}
@@ -39,6 +40,7 @@ export function TestExecutionPanel({ isRunning, output, onRunTests, onRunBenchma
         {/* Action Buttons */}
         <div className="flex-1 min-w-[200px] flex items-end space-x-2">
           <button
+            data-testid="quality-run-tests-button"
             onClick={() => onRunTests(selectedSuite)}
             disabled={isRunning}
             className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-700 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-200 disabled:cursor-not-allowed"
@@ -57,6 +59,7 @@ export function TestExecutionPanel({ isRunning, output, onRunTests, onRunBenchma
           </button>
 
           <button
+            data-testid="quality-run-benchmarks-button"
             onClick={onRunBenchmarks}
             disabled={isRunning}
             className="flex-1 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 disabled:from-gray-600 disabled:to-gray-700 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-200 disabled:cursor-not-allowed"

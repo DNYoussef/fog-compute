@@ -253,11 +253,11 @@ test.describe('UI-02: Quality Panel E2E Tests', () => {
   test.describe('QP-05: Error Handling and Recovery', () => {
     test('should handle test execution failures gracefully', async ({ page }) => {
       // Mock failed test execution
-      await page.route('**/api/tests/run', async route => {
+      await page.route('**/api/quality/run-tests', async route => {
         await route.fulfill({
           status: 500,
-          contentType: 'application/json',
-          body: JSON.stringify({ error: 'Test execution failed' }),
+          contentType: 'text/plain',
+          body: 'Error: Test execution failed\n',
         });
       });
 
@@ -275,13 +275,13 @@ test.describe('UI-02: Quality Panel E2E Tests', () => {
     test('should recover from errors and allow retry', async ({ page }) => {
       // First request fails
       let requestCount = 0;
-      await page.route('**/api/tests/run', async route => {
+      await page.route('**/api/quality/run-tests', async route => {
         requestCount++;
         if (requestCount === 1) {
           await route.fulfill({
             status: 500,
-            contentType: 'application/json',
-            body: JSON.stringify({ error: 'Temporary failure' }),
+            contentType: 'text/plain',
+            body: 'Error: Temporary failure\n',
           });
         } else {
           await route.continue();
@@ -316,19 +316,24 @@ test.describe('UI-02: Quality Panel E2E Tests', () => {
 
     test('should handle timeout scenarios', async ({ page }) => {
       // Mock slow response
-      await page.route('**/api/tests/run', async route => {
-        await page.waitForTimeout(5000);
-        await route.continue();
+      await page.route('**/api/quality/run-tests', async route => {
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        await route.fulfill({
+          status: 200,
+          contentType: 'text/plain',
+          body: 'Slow test complete\n',
+        });
       });
 
       await qualityPanel.clickRunTests();
 
       // Should show loading state
-      await page.waitForTimeout(1000);
-      const isRunning = await qualityPanel.isRunning();
+      await expect(qualityPanel.loadingIndicator).toBeVisible({ timeout: 1000 });
 
       // Just verify UI doesn't crash
       await expect(qualityPanel.panel).toBeVisible();
+      await qualityPanel.waitForTestsToComplete(10000);
+      await expect(qualityPanel.consoleOutput).toContainText('Slow test complete');
     });
   });
 
@@ -358,13 +363,14 @@ test.describe('UI-02: Quality Panel E2E Tests', () => {
     test('should handle large console output efficiently', async ({ page }) => {
       // Mock large output
       await page.evaluate(() => {
-        const console = document.querySelector('.bg-black\\/50.rounded-lg .space-y-1');
-        if (console) {
-          let largeOutput = '';
+        const consoleElement = document.querySelector('.bg-black\\/50.rounded-lg');
+        if (consoleElement) {
+          let largeOutput = '<div class="space-y-1">';
           for (let i = 0; i < 1000; i++) {
             largeOutput += `<div>Test line ${i}</div>`;
           }
-          console.innerHTML = largeOutput;
+          largeOutput += '</div>';
+          consoleElement.innerHTML = largeOutput;
         }
       });
 
@@ -459,8 +465,11 @@ test.describe('UI-02: Quality Panel E2E Tests', () => {
       // Check specifically for color-contrast issues
       const results = await page.evaluate(async () => {
         // @ts-ignore - axe is injected
-        const axeResults = await axe.run({
-          rules: ['color-contrast'],
+        const axeResults = await axe.run(document, {
+          runOnly: {
+            type: 'rule',
+            values: ['color-contrast'],
+          },
         });
         return axeResults.violations;
       });
