@@ -2,9 +2,9 @@
 
 **Date**: 2026-05-19
 **Branch**: `stabilization/bplus-recovery`
-**Remote status**: local branch is ahead of `origin/stabilization/bplus-recovery` by 9 commits and ahead of `origin/main` by 8 commits
+**Remote status**: Wave 12 review branches are pushed from the local split
 **Baseline status**: B+ recovery baseline `440d1c7` is on `origin/main` but not on `origin/stabilization/bplus-recovery`
-**Publish status**: not pushed
+**Publish status**: Wave 12 PRs opened against `main`, except Acurast Cargo stacked on the backend control-plane branch
 
 This ledger records the B+ recovery baseline, the work completed after that
 baseline, and the remaining waves needed before live Acurast deployment or
@@ -24,6 +24,7 @@ broader release.
 | Wave 9 generated-artifact cleanup follow-up | audit-fix commit | Complete locally | `git rm --cached` for `.coverage`, `.swarm/memory.db`, `backend/data/dao_tokenomics.db`, profiling HTML reports, and `test.db`; `.gitignore` extended so they stay out of review scope |
 | Wave 10 Acurast Cargo prototype | `88e6704` | Complete locally | Local Cargo-shaped `Shell` workload, JSON task/result contracts, backend untrusted-result annotation, tests |
 | Wave 11 Acurast canary preflight | `f00ec29` | Complete locally | Deterministic preflight gate, LF shell entrypoint guard, CLI-blocking check, preflight docs/tests |
+| Wave 12 publish/review split | PRs #26-#30 | Open for review | Docs/research (#26), backend control plane (#27), frontend control panel (#28), artifact/ledger hygiene (#29), stacked Acurast Cargo prototype/preflight (#30) |
 
 ---
 
@@ -78,20 +79,20 @@ Goal: get the local stack into reviewable remote PR scopes before more live-depl
 
 Steps:
 
-1. Push `stabilization/bplus-recovery` or split into separate branches.
-2. Open review scopes in this order:
-   - docs/research: `f5bd6af`
-   - backend control plane: `eac8d99`
-   - frontend control panel: `87df6e56`
-   - generated artifact hygiene: `0fd1b27`
-   - Acurast prototype/preflight: `88e6704` and `f00ec29`
+1. Push `stabilization/bplus-recovery` or split into separate branches. **Done: split into Wave 12 PR branches.**
+2. Open review scopes in this order. **Done:**
+   - docs/research: PR #26 (`wave12/docs-research`)
+   - backend control plane: PR #27 (`wave12/backend-control-plane`)
+   - frontend control panel: PR #28 (`wave12/frontend-control-panel`)
+   - generated artifact and ledger hygiene: PR #29 (`wave12/artifact-ledger-hygiene`)
+   - Acurast prototype/preflight: PR #30 (`wave12/acurast-cargo-prototype-preflight`, stacked on PR #27)
 3. Re-run:
    - `git diff --check origin/main..HEAD`
    - contracts
    - backend full suite
    - control-panel build
    - smoke E2E
-4. Do not include generated DBs, profiling HTML, wallet files, deploy logs, or result artifacts.
+4. Do not include generated DBs, profiling HTML, wallet files, deploy logs, or result artifacts. **Done in PR #29; `git ls-files` returns empty for the six flagged generated artifacts.**
 
 Exit criteria:
 
