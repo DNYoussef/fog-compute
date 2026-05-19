@@ -84,7 +84,7 @@ export function NodeListTable({ onEdit, onNodeClick, refreshTrigger }: NodeListT
   }
 
   return (
-    <div className="overflow-x-auto" data-testid="mixnode-list">
+    <div className="overflow-x-auto" data-testid="node-list-table">
       <table className="w-full text-left">
         <thead>
           <tr className="border-b border-gray-800">

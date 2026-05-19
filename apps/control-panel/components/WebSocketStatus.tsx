@@ -8,6 +8,8 @@ interface WebSocketStatusProps {
   maxRetries?: number;
   initialReconnectDelay?: number;
   maxReconnectDelay?: number;
+  testId?: string;
+  offlineTestId?: string;
 }
 
 type ConnectionStatus = 'connected' | 'disconnected' | 'connecting' | 'error';
@@ -17,7 +19,9 @@ export function WebSocketStatus({
   url = 'ws://localhost:8000/ws/metrics',
   maxRetries = 10,
   initialReconnectDelay = 5000,
-  maxReconnectDelay = 30000
+  maxReconnectDelay = 30000,
+  testId = 'ws-status',
+  offlineTestId = 'offline-indicator'
 }: WebSocketStatusProps) {
   const [status, setStatus] = useState<ConnectionStatus>('disconnected');
   const [lastMessage, setLastMessage] = useState<string>('');
@@ -80,7 +84,7 @@ export function WebSocketStatus({
         wsRef.current.onerror = (error) => {
           setStatus('error');
           setLastMessage('Connection error occurred');
-          console.error('WebSocket error:', error);
+          console.warn('WebSocket error:', error);
         };
 
         wsRef.current.onmessage = (event) => {
@@ -181,7 +185,7 @@ export function WebSocketStatus({
       ws.onerror = (error) => {
         setStatus('error');
         setLastMessage('Connection error occurred');
-        console.error('WebSocket error:', error);
+        console.warn('WebSocket error:', error);
       };
 
       ws.onmessage = (event) => {
@@ -194,7 +198,27 @@ export function WebSocketStatus({
     }
   };
 
+  useEffect(() => {
+    const handleOffline = () => {
+      setStatus('disconnected');
+      setLastMessage('Browser is offline');
+    };
+    const handleOnline = () => {
+      setStatus('connecting');
+      setLastMessage('Network restored');
+    };
+
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('online', handleOnline);
+    };
+  }, []);
+
   const getConnectionState = (): ConnectionState => {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return 'offline';
     if (status === 'connected') return 'connected';
     if (status === 'connecting') return 'reconnecting';
     return 'offline';
@@ -210,7 +234,7 @@ export function WebSocketStatus({
           text: 'Connected',
           color: 'text-green-500',
           bgColor: 'bg-green-500',
-          testId: 'ws-status',
+          testId,
         };
       case 'reconnecting':
         return {
@@ -218,7 +242,7 @@ export function WebSocketStatus({
           text: status === 'error' ? 'Connection Error' : 'Reconnecting...',
           color: 'text-yellow-500',
           bgColor: 'bg-yellow-500',
-          testId: 'ws-status',
+          testId,
         };
       case 'offline':
         return {
@@ -226,7 +250,7 @@ export function WebSocketStatus({
           text: 'Offline',
           color: 'text-red-500',
           bgColor: 'bg-red-500',
-          testId: 'offline-indicator',
+          testId: offlineTestId,
         };
     }
   };

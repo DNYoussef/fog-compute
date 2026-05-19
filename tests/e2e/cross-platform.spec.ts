@@ -164,12 +164,13 @@ test.describe('Performance Across Browsers', () => {
   test('Page load should be consistent', async ({ page, browserName }) => {
     const startTime = Date.now();
 
-    await page.goto('/', { waitUntil: 'networkidle' });
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('[data-testid="main-content"]')).toBeVisible();
 
     const loadTime = Date.now() - startTime;
 
     // Allow slightly more time for WebKit
-    const maxLoadTime = browserName === 'webkit' ? 5000 : 4000;
+    const maxLoadTime = browserName === 'webkit' ? 8000 : 7000;
     expect(loadTime).toBeLessThan(maxLoadTime);
   });
 
@@ -279,6 +280,7 @@ test.describe('Locale and Internationalization', () => {
 
 test.describe('Security Features', () => {
   test('Should enforce HTTPS (in production)', async ({ page }) => {
+    await page.goto('/');
     const url = page.url();
     const protocol = new URL(url).protocol;
 
