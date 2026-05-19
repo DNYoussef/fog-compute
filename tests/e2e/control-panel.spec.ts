@@ -61,12 +61,19 @@ test.describe('Betanet Topology View', () => {
     const topology = page.locator('[data-testid="betanet-topology"]');
     await expect(topology).toBeVisible();
 
-    // Check canvas is rendered
-    const canvas = topology.locator('canvas');
-    await expect(canvas).toBeVisible();
+    const renderedTopology = topology
+      .locator('canvas, [data-testid="betanet-topology-fallback"]')
+      .first();
+    await expect(renderedTopology).toBeVisible();
 
-    // Verify canvas dimensions
-    const dimensions = await canvas.boundingBox();
+    const fallback = topology.locator('[data-testid="betanet-topology-fallback"]');
+    if (await fallback.isVisible()) {
+      await expect(fallback.getByRole('button').first()).toBeVisible();
+      return;
+    }
+
+    // Verify canvas dimensions when WebGL is available.
+    const dimensions = await topology.locator('canvas').boundingBox();
     expect(dimensions?.width).toBeGreaterThan(0);
     expect(dimensions?.height).toBeGreaterThan(0);
   });
