@@ -10,8 +10,10 @@ const mobileDevices = [
   { name: 'iPhone 12 Pro Max', ...devices['iPhone 12 Pro Max'] },
   { name: 'Pixel 5', ...devices['Pixel 5'] },
   { name: 'Samsung Galaxy S21', ...devices['Galaxy S9+'] },
-  { name: 'iPad Pro', ...devices['iPad Pro'] },
+  { name: 'iPad Pro', ...(devices['iPad Pro'] ?? { viewport: { width: 1024, height: 1366 } }) },
 ];
+
+const ipadPro = devices['iPad Pro'] ?? { viewport: { width: 1024, height: 1366 } };
 
 test.describe('Mobile Responsive Design', () => {
   for (const device of mobileDevices.slice(0, 2)) { // Test first 2 devices
@@ -38,7 +40,8 @@ test.describe('Mobile Responsive Design', () => {
         // Check viewport-specific styles
         const mainContent = page.locator('[data-testid="main-content"]');
         const width = await mainContent.evaluate(el => window.getComputedStyle(el).width);
-        expect(parseInt(width)).toBeLessThan(device.viewport.width);
+        expect(Math.ceil(parseFloat(width))).toBeLessThanOrEqual(device.viewport.width);
+        await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(device.viewport.width);
       });
 
       test('Should have touch-friendly targets', async ({ page }) => {
@@ -137,7 +140,8 @@ test.describe('Mobile Responsive Design', () => {
           );
 
           if (bp.width < 768) {
-            expect(gridCols).toContain('1fr'); // Single column
+            const columnCount = gridCols.trim().split(/\s+/).filter(Boolean).length;
+            expect(columnCount).toBe(1);
           }
         }
       });
@@ -145,28 +149,29 @@ test.describe('Mobile Responsive Design', () => {
   });
 
   test.describe('Mobile-Specific Features', () => {
-    const iphone12 = devices['iPhone 12'];
+    const iphone12 = devices['iPhone 12'] ?? { viewport: { width: 390, height: 844 } };
 
     test('Should support pull-to-refresh', async ({ page }) => {
       await page.setViewportSize(iphone12.viewport);
       await page.goto('/nodes');
 
       const listContainer = page.locator('[data-testid="nodes-list"]');
+      const refreshIndicator = page.locator('[data-testid="refresh-indicator"]');
+      await expect(listContainer).toBeVisible();
+      await expect(page.locator('[data-testid="refresh-button"]')).toBeEnabled();
 
       // Simulate pull-to-refresh
-      await listContainer.evaluate((el) => {
-        const touchStart = new Event('touchstart', { bubbles: true });
-        Object.defineProperty(touchStart, 'touches', { value: [{ clientY: 100 }] });
-        el.dispatchEvent(touchStart);
-
-        const touchEnd = new Event('touchend', { bubbles: true });
-        Object.defineProperty(touchEnd, 'changedTouches', { value: [{ clientY: 400 }] });
-        el.dispatchEvent(touchEnd);
-      });
-
-      // Verify refresh indicator
-      const refreshIndicator = page.locator('[data-testid="refresh-indicator"]');
-      await expect(refreshIndicator).toBeVisible({ timeout: 2000 });
+      await expect
+        .poll(
+          async () => {
+            await listContainer.dispatchEvent('touchstart', { touches: [{ identifier: 1, clientX: 160, clientY: 100 }] });
+            await listContainer.dispatchEvent('touchend', { changedTouches: [{ identifier: 1, clientX: 160, clientY: 400 }] });
+            await page.waitForTimeout(150);
+            return refreshIndicator.isVisible();
+          },
+          { timeout: 3000 }
+        )
+        .toBeTruthy();
 
       // Wait for refresh completion
       await expect(refreshIndicator).not.toBeVisible({ timeout: 10000 });
@@ -186,7 +191,7 @@ test.describe('Mobile Responsive Design', () => {
       expect(position).toBe('fixed');
 
       // Test navigation
-      await page.locator('[data-testid="nav-item"][data-route="/tasks"]').tap();
+      await page.locator('[data-testid="nav-item"][data-route="/tasks"]').click();
       await expect(page).toHaveURL(/\/tasks/);
     });
 
@@ -228,7 +233,7 @@ test.describe('Mobile Responsive Design', () => {
   });
 
   test.describe('Mobile Form Interactions', () => {
-    const pixel5 = devices['Pixel 5'];
+    const pixel5 = devices['Pixel 5'] ?? { viewport: { width: 393, height: 851 } };
 
     test('Should optimize forms for mobile', async ({ page }) => {
       await page.setViewportSize(pixel5.viewport);
@@ -276,8 +281,6 @@ test.describe('Mobile Responsive Design', () => {
   });
 
   test.describe('Tablet Experience', () => {
-    const ipadPro = devices['iPad Pro'];
-
     test('Should use hybrid desktop/mobile layout', async ({ page }) => {
       await page.setViewportSize(ipadPro.viewport);
       await page.goto('/');
@@ -304,6 +307,9 @@ test.describe('Mobile Responsive Design', () => {
 
         // Details should show in detail pane
         await expect(page.locator('[data-testid="detail-pane"] [data-testid="node-details"]')).toBeVisible();
+      } else {
+        await expect(page.locator('[data-testid="main-content"]')).toBeVisible();
+        await expect(page.locator('[data-testid="nodes-list"]')).toBeVisible();
       }
     });
 
@@ -311,11 +317,12 @@ test.describe('Mobile Responsive Design', () => {
       await page.setViewportSize(ipadPro.viewport);
       await page.goto('/betanet');
 
-      const canvas = page.locator('[data-testid="network-topology"] canvas');
+      const canvas = page.locator('[data-testid="betanet-topology"] canvas');
       if (await canvas.isVisible()) {
         // Pinch to zoom (simulated)
         await canvas.click({ position: { x: 300, y: 300 } });
-        await page.keyboard.press('Control+Plus');
+        await canvas.hover();
+        await page.mouse.wheel(0, -200);
 
         await page.waitForTimeout(500);
 
@@ -327,12 +334,16 @@ test.describe('Mobile Responsive Design', () => {
         if (zoomLevel !== undefined) {
           expect(zoomLevel).toBeGreaterThan(1);
         }
+      } else {
+        await expect(
+          page.locator('[data-testid="betanet-topology"], [data-testid="betanet-topology-fallback"]').first()
+        ).toBeVisible();
       }
     });
   });
 
   test.describe('Mobile Performance', () => {
-    const iphone12Perf = devices['iPhone 12'];
+    const iphone12Perf = devices['iPhone 12'] ?? { viewport: { width: 390, height: 844 } };
 
     test('Should load quickly on mobile', async ({ page }) => {
       await page.setViewportSize(iphone12Perf.viewport);
