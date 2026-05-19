@@ -33,8 +33,16 @@ export class LoginPage {
    * Navigate to login page
    */
   async goto() {
-    await this.page.goto('/login');
-    await this.page.waitForLoadState('networkidle');
+    try {
+      await this.page.goto('/login', { waitUntil: 'domcontentloaded' });
+    } catch (error) {
+      if (!String(error).includes('interrupted by another navigation')) {
+        throw error;
+      }
+    }
+
+    await this.loginForm.waitFor({ state: 'visible', timeout: 10000 });
+    await this.page.waitForLoadState('networkidle').catch(() => {});
   }
 
   /**

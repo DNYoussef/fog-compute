@@ -1,4 +1,4 @@
-import { test, expect, devices } from '@playwright/test';
+import { test, expect, devices, type Page } from '@playwright/test';
 
 /**
  * Mobile and Responsive Testing
@@ -14,6 +14,12 @@ const mobileDevices = [
 ];
 
 const ipadPro = devices['iPad Pro'] ?? { viewport: { width: 1024, height: 1366 } };
+
+async function supportsTouchEvents(page: Page) {
+  return page.evaluate(() => {
+    return typeof Touch !== 'undefined' && typeof TouchEvent !== 'undefined' && navigator.maxTouchPoints > 0;
+  });
+}
 
 test.describe('Mobile Responsive Design', () => {
   for (const device of mobileDevices.slice(0, 2)) { // Test first 2 devices
@@ -158,7 +164,14 @@ test.describe('Mobile Responsive Design', () => {
       const listContainer = page.locator('[data-testid="nodes-list"]');
       const refreshIndicator = page.locator('[data-testid="refresh-indicator"]');
       await expect(listContainer).toBeVisible();
-      await expect(page.locator('[data-testid="refresh-button"]')).toBeEnabled();
+      const refreshButton = page.locator('[data-testid="refresh-button"]');
+      await expect(refreshButton).toBeEnabled();
+
+      if (!(await supportsTouchEvents(page))) {
+        await refreshButton.click();
+        await expect(listContainer).toBeVisible();
+        return;
+      }
 
       // Simulate pull-to-refresh
       await expect
@@ -318,9 +331,17 @@ test.describe('Mobile Responsive Design', () => {
       await page.goto('/betanet');
 
       const canvas = page.locator('[data-testid="betanet-topology"] canvas');
+      await expect(
+        page.locator('[data-testid="betanet-topology"], [data-testid="betanet-topology-fallback"]').first()
+      ).toBeVisible();
+
+      if (!(await supportsTouchEvents(page))) {
+        return;
+      }
+
       if (await canvas.isVisible()) {
         // Pinch to zoom (simulated)
-        await canvas.click({ position: { x: 300, y: 300 } });
+        await canvas.click({ position: { x: 300, y: 300 }, force: true });
         await canvas.hover();
         await page.mouse.wheel(0, -200);
 

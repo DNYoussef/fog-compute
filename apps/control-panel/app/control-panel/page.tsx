@@ -112,12 +112,13 @@ const serviceMetadata: Record<keyof ServiceStatus, ServiceMetadata> = {
 };
 
 const statusColors = {
-  healthy: "bg-green-500",
-  running: "bg-green-500",
-  failed: "bg-red-500",
-  unknown: "bg-yellow-500",
-  unavailable: "bg-red-500",
-  unhealthy: "bg-orange-500",
+  healthy: "bg-green-800",
+  running: "bg-green-800",
+  failed: "bg-red-800",
+  unknown: "bg-amber-800",
+  stopped: "bg-amber-800",
+  unavailable: "bg-red-800",
+  unhealthy: "bg-orange-800",
 };
 
 const statusIcons = {
@@ -250,10 +251,10 @@ export default function ControlPanelPage() {
           {/* System Status Overview */}
           <Card data-testid="system-status-card">
             <CardHeader>
-              <CardTitle className="flex items-center">
+              <h2 className="flex items-center text-lg font-semibold leading-none tracking-normal">
                 <Activity className="mr-2 h-5 w-5" />
                 System Status
-              </CardTitle>
+              </h2>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
