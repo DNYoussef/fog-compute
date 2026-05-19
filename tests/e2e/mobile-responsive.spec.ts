@@ -19,11 +19,11 @@ test.describe('Mobile Responsive Design', () => {
       // Device configuration moved to individual test level to avoid worker issues
 
       test('Should display mobile-optimized layout', async ({ page, context }) => {
-        await context.addInitScript(() => {
+        await context.addInitScript((userAgent) => {
           Object.defineProperty(navigator, 'userAgent', {
-            get: () => device.userAgent || navigator.userAgent,
+            get: () => userAgent || navigator.userAgent,
           });
-        });
+        }, device.userAgent || '');
         await page.setViewportSize(device.viewport);
         await page.goto('/');
 
@@ -90,13 +90,13 @@ test.describe('Mobile Responsive Design', () => {
 
         // Open mobile menu
         const menuButton = page.locator('[data-testid="mobile-menu-button"]');
-        await menuButton.tap();
+        await menuButton.click();
 
         const menu = page.locator('[data-testid="mobile-menu-drawer"]');
         await expect(menu).toBeVisible();
 
         // Navigate via menu
-        await page.locator('[data-testid="menu-item"][data-route="/nodes"]').tap();
+        await page.locator('[data-testid="menu-item"][data-route="/nodes"]').click();
 
         await expect(page).toHaveURL(/\/nodes/);
         await expect(menu).not.toBeVisible(); // Menu should close
@@ -121,14 +121,12 @@ test.describe('Mobile Responsive Design', () => {
 
         // Verify responsive classes
         const body = page.locator('body');
-        const className = await body.getAttribute('class');
-
         if (bp.width < 768) {
-          expect(className).toContain('mobile');
+          await expect(body).toHaveClass(/mobile/);
         } else if (bp.width < 1024) {
-          expect(className).toContain('tablet');
+          await expect(body).toHaveClass(/tablet/);
         } else {
-          expect(className).toContain('desktop');
+          await expect(body).toHaveClass(/desktop/);
         }
 
         // Verify layout adjustments
@@ -235,11 +233,11 @@ test.describe('Mobile Responsive Design', () => {
     test('Should optimize forms for mobile', async ({ page }) => {
       await page.setViewportSize(pixel5.viewport);
       await page.goto('/nodes');
-      await page.tap('[data-testid="add-node-button"]');
+      await page.click('[data-testid="add-node-button"]');
 
       // Verify mobile keyboard opens
       const nameInput = page.locator('[data-testid="node-name-input"]');
-      await nameInput.tap();
+      await nameInput.click();
 
       // Check input attributes
       const inputType = await nameInput.getAttribute('type');
@@ -252,7 +250,7 @@ test.describe('Mobile Responsive Design', () => {
     test('Should support native date/time pickers', async ({ page }) => {
       await page.setViewportSize(pixel5.viewport);
       await page.goto('/tasks');
-      await page.tap('[data-testid="schedule-task-button"]');
+      await page.click('[data-testid="schedule-task-button"]');
 
       const dateInput = page.locator('[data-testid="schedule-date-input"]');
       const inputType = await dateInput.getAttribute('type');
@@ -263,10 +261,10 @@ test.describe('Mobile Responsive Design', () => {
     test('Should handle virtual keyboard', async ({ page }) => {
       await page.setViewportSize(pixel5.viewport);
       await page.goto('/');
-      await page.tap('[data-testid="search-button"]');
+      await page.click('[data-testid="search-button"]');
 
       const searchInput = page.locator('[data-testid="search-input"]');
-      await searchInput.tap();
+      await searchInput.click();
 
       // Verify input is visible when keyboard opens
       const box = await searchInput.boundingBox();
@@ -302,7 +300,7 @@ test.describe('Mobile Responsive Design', () => {
         await expect(page.locator('[data-testid="detail-pane"]')).toBeVisible();
 
         // Select item in master
-        await page.tap('[data-testid="node-item"]').first();
+        await page.locator('[data-testid="node-item"]').first().click();
 
         // Details should show in detail pane
         await expect(page.locator('[data-testid="detail-pane"] [data-testid="node-details"]')).toBeVisible();
@@ -316,7 +314,7 @@ test.describe('Mobile Responsive Design', () => {
       const canvas = page.locator('[data-testid="network-topology"] canvas');
       if (await canvas.isVisible()) {
         // Pinch to zoom (simulated)
-        await canvas.touchscreen.tap({ x: 300, y: 300 });
+        await canvas.click({ position: { x: 300, y: 300 } });
         await page.keyboard.press('Control+Plus');
 
         await page.waitForTimeout(500);

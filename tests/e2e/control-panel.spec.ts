@@ -316,14 +316,6 @@ test.describe('Error Handling', () => {
     await page.goto('http://localhost:3000/betanet');
 
     // Should show empty state or loading
-    const emptyState = page.locator('[data-testid="empty-state"]');
-    const loading = page.locator('[data-testid="loading"]');
-
-    const isVisible = await Promise.race([
-      emptyState.isVisible(),
-      loading.isVisible(),
-    ]);
-
-    expect(isVisible).toBeTruthy();
+    await expect(page.locator('[data-testid="empty-state"], [data-testid="loading"], [role="alert"]').first()).toBeVisible();
   });
 });

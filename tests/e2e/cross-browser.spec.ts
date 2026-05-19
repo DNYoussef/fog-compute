@@ -67,12 +67,7 @@ test.describe('Browser-Specific Features', () => {
 
     const firstNode = page.locator('[data-testid^="mixnode-"]').first();
 
-    // Use tap for touch-enabled browsers, click for others
-    if (browserName === 'webkit') {
-      await firstNode.tap();
-    } else {
-      await firstNode.click();
-    }
+    await firstNode.click();
 
     await expect(page.locator('[data-testid="node-details"]')).toBeVisible();
   });

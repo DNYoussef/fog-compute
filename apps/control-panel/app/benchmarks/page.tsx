@@ -171,7 +171,7 @@ export default function BenchmarksPage() {
             <div className="flex justify-between">
               <span className="text-gray-400">Status:</span>
               <span className={`font-semibold ${isRunning ? 'text-green-400' : 'text-gray-400'}`}>
-                {isRunning ? 'Running' : 'Stopped'}
+                {isRunning ? 'Active' : 'Stopped'}
               </span>
             </div>
             <div className="flex justify-between">
