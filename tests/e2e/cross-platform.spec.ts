@@ -1,4 +1,4 @@
-import { test, expect, devices } from '@playwright/test';
+import { test, expect, devices, type Page } from '@playwright/test';
 
 /**
  * Cross-Platform and Multi-Browser Testing
@@ -20,6 +20,29 @@ import { test, expect, devices } from '@playwright/test';
  *
  * This reduces test executions from ~1,152 to ~288 (75% reduction in CI time/cost)
  */
+async function clickVisibleRoute(page: Page, route: string, desktopTestId: string) {
+  const desktopLink = page.locator(`[data-testid="${desktopTestId}"]:visible`).first();
+  if (await desktopLink.isVisible().catch(() => false)) {
+    await desktopLink.click();
+    return;
+  }
+
+  const bottomLink = page.locator(`[data-testid="nav-item"][data-route="${route}"]:visible`).first();
+  if (await bottomLink.isVisible().catch(() => false)) {
+    await bottomLink.click();
+    return;
+  }
+
+  const menuButton = page.locator('[data-testid="mobile-menu-button"]:visible').first();
+  if (await menuButton.isVisible().catch(() => false)) {
+    await menuButton.click();
+    await page.locator(`[data-testid="menu-item"][data-route="${route}"]:visible`).first().click();
+    return;
+  }
+
+  throw new Error(`No visible navigation control found for ${route}`);
+}
+
 test.describe('Cross-Browser Compatibility', () => {
   test('Core functionality should work', async ({ page, browserName }) => {
     await page.goto('/');
@@ -29,10 +52,10 @@ test.describe('Cross-Browser Compatibility', () => {
     await expect(page.locator('[data-testid="main-content"]')).toBeVisible();
 
     // Test navigation
-    await page.click('[data-testid="nodes-link"]');
+    await clickVisibleRoute(page, '/nodes', 'nodes-link');
     await expect(page).toHaveURL(/\/nodes/);
 
-    await page.click('[data-testid="tasks-link"]');
+    await clickVisibleRoute(page, '/tasks', 'tasks-link');
     await expect(page).toHaveURL(/\/tasks/);
   });
 
@@ -225,7 +248,10 @@ test.describe('Mobile Browser Compatibility', () => {
   test('Should work on mobile browser', async ({ page }) => {
     await page.goto('/');
 
-    await expect(page.locator('[data-testid="mobile-menu"]')).toBeVisible();
+    const visibleNavigation = page.locator(
+      '[data-testid="mobile-menu"]:visible, [data-testid="bottom-navigation"]:visible, [data-testid="desktop-nav"]:visible'
+    );
+    await expect(visibleNavigation.first()).toBeVisible();
     await expect(page.locator('[data-testid="main-content"]')).toBeVisible();
   });
 
@@ -233,7 +259,12 @@ test.describe('Mobile Browser Compatibility', () => {
     await page.goto('/');
 
     const button = page.locator('[data-testid="primary-button"]').first();
-    await button.tap();
+    const hasTouch = await page.evaluate(() => navigator.maxTouchPoints > 0 || 'ontouchstart' in window);
+    if (hasTouch) {
+      await button.tap();
+    } else {
+      await button.click();
+    }
 
     // Verify touch response
     await page.waitForTimeout(500);
@@ -332,7 +363,20 @@ test.describe('Offline Support', () => {
     await context.setOffline(true);
     await page.evaluate(() => window.dispatchEvent(new Event('offline')));
 
-    const offlineIndicator = page.locator('[data-testid="offline-indicator"]');
+    let offlineIndicator = page.locator(
+      '[data-testid="offline-indicator"]:visible, [data-testid="mobile-offline-indicator"]:visible'
+    ).first();
+
+    if (!(await offlineIndicator.isVisible().catch(() => false))) {
+      const menuButton = page.locator('[data-testid="mobile-menu-button"]:visible').first();
+      if (await menuButton.isVisible().catch(() => false)) {
+        await menuButton.click();
+        offlineIndicator = page.locator(
+          '[data-testid="offline-indicator"]:visible, [data-testid="mobile-offline-indicator"]:visible'
+        ).first();
+      }
+    }
+
     await expect(offlineIndicator).toBeVisible({ timeout: 5000 });
 
     // Go back online

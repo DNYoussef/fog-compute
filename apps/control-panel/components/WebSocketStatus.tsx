@@ -324,14 +324,14 @@ export function WebSocketStatus({
 
       {/* Last Update Timestamp */}
       {lastUpdate && state === 'connected' && (
-        <span className="text-xs text-gray-500 ml-auto" data-testid="last-update-timestamp">
+        <span className="text-xs text-gray-400 ml-auto" data-testid="last-update-timestamp">
           {formatLastUpdate()}
         </span>
       )}
 
       {/* Reconnection Info */}
       {state === 'reconnecting' && retryCount > 0 && (
-        <span className="text-xs text-gray-500 ml-auto">
+        <span className="text-xs text-gray-400 ml-auto">
           Attempt {retryCount}/{maxRetries}
         </span>
       )}

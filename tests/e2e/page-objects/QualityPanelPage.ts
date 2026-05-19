@@ -34,10 +34,10 @@ export class QualityPanelPage {
     this.runBenchmarksButton = page.locator('button').filter({ hasText: /Run Benchmarks/i }).first();
 
     // Quick action buttons
-    this.rustQuickButton = page.locator('button').filter({ hasText: 'Rust' });
-    this.pythonQuickButton = page.locator('button').filter({ hasText: 'Python' });
-    this.integrationQuickButton = page.locator('button').filter({ hasText: 'Integration' });
-    this.e2eQuickButton = page.locator('button').filter({ hasText: 'E2E' });
+    this.rustQuickButton = this.panel.locator('button').filter({ hasText: 'Rust' }).first();
+    this.pythonQuickButton = this.panel.locator('button').filter({ hasText: 'Python' }).first();
+    this.integrationQuickButton = this.panel.locator('button').filter({ hasText: 'Integration' }).first();
+    this.e2eQuickButton = this.panel.locator('button').filter({ hasText: 'E2E' }).first();
 
     // Console and status elements
     this.consoleOutput = page.locator('.bg-black\\/50.rounded-lg').first();
@@ -53,7 +53,7 @@ export class QualityPanelPage {
    * Navigate to control panel with quality panel
    */
   async goto() {
-    await this.page.goto('/control-panel');
+    await this.page.goto('/quality');
     await this.page.waitForLoadState('networkidle');
     await this.panel.waitFor({ state: 'visible', timeout: 10000 });
   }

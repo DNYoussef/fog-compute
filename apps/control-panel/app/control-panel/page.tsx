@@ -22,15 +22,15 @@ import {
 } from "lucide-react";
 
 interface ServiceStatus {
-  dao: string;
-  scheduler: string;
-  edge: string;
-  harvest: string;
-  fog_coordinator: string;
-  onion: string;
-  vpn_coordinator: string;
-  p2p: string;
-  betanet: string;
+  dao: ServiceHealth;
+  scheduler: ServiceHealth;
+  edge: ServiceHealth;
+  harvest: ServiceHealth;
+  fog_coordinator: ServiceHealth;
+  onion: ServiceHealth;
+  vpn_coordinator: ServiceHealth;
+  p2p: ServiceHealth;
+  betanet: ServiceHealth;
 }
 
 interface SystemHealth {
@@ -38,6 +38,14 @@ interface SystemHealth {
   services: ServiceStatus;
   version: string;
 }
+
+type ServiceHealth = string | {
+  status?: string;
+  restart_count?: number;
+  last_restart?: string | null;
+  last_error?: string | null;
+  is_critical?: boolean;
+};
 
 interface ServiceMetadata {
   icon: typeof Server;
@@ -105,6 +113,8 @@ const serviceMetadata: Record<keyof ServiceStatus, ServiceMetadata> = {
 
 const statusColors = {
   healthy: "bg-green-500",
+  running: "bg-green-500",
+  failed: "bg-red-500",
   unknown: "bg-yellow-500",
   unavailable: "bg-red-500",
   unhealthy: "bg-orange-500",
@@ -112,10 +122,20 @@ const statusColors = {
 
 const statusIcons = {
   healthy: CheckCircle2,
+  running: CheckCircle2,
+  failed: XCircle,
   unknown: AlertCircle,
   unavailable: XCircle,
   unhealthy: AlertCircle,
 };
+
+function normalizeStatus(value: ServiceHealth | undefined) {
+  if (typeof value === "string") {
+    return value;
+  }
+
+  return value?.status || "unknown";
+}
 
 export default function ControlPanelPage() {
   const [health, setHealth] = useState<SystemHealth | null>(null);
@@ -248,7 +268,10 @@ export default function ControlPanelPage() {
                   <Server className="h-8 w-8 text-blue-500" />
                   <div>
                     <div className="text-2xl font-bold">
-                      {Object.values(health.services).filter((s) => s === "healthy" || s === "unknown").length}/
+                      {Object.values(health.services).filter((s) => {
+                        const status = normalizeStatus(s);
+                        return status === "healthy" || status === "running" || status === "unknown";
+                      }).length}/
                       {Object.keys(health.services).length}
                     </div>
                     <div className="text-sm text-muted-foreground">Services Operational</div>
@@ -279,7 +302,7 @@ export default function ControlPanelPage() {
                 {groupedServices[category].map((serviceKey) => {
                   const service = serviceKey as keyof ServiceStatus;
                   const metadata = serviceMetadata[service];
-                  const status = health.services[service];
+                  const status = normalizeStatus(health.services[service]);
                   const StatusIcon = getStatusIcon(status);
                   const ServiceIcon = metadata.icon;
 
@@ -301,7 +324,7 @@ export default function ControlPanelPage() {
                           </div>
                           <StatusIcon
                             className={`h-5 w-5 ${
-                              status === "healthy" || status === "unknown"
+                              status === "healthy" || status === "running" || status === "unknown"
                                 ? "text-green-500"
                                 : status === "unavailable"
                                   ? "text-red-500"

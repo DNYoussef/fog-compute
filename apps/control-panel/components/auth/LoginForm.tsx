@@ -2,13 +2,13 @@
 
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const passwordRef = useRef<HTMLInputElement>(null);
   const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -21,6 +21,7 @@ export function LoginForm() {
     event.preventDefault();
     setError('');
     setIsSubmitting(true);
+    const password = passwordRef.current?.value || '';
 
     try {
       const response = await fetch('/api/auth/login', {
@@ -33,7 +34,15 @@ export function LoginForm() {
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok || !data.access_token) {
-        setError(data.detail || 'Invalid username or password');
+        const detail = typeof data.detail === 'string' ? data.detail : '';
+        const safeDetail =
+          detail && response.status < 500 && !/unexpected|rate limit|too many/i.test(detail)
+            ? detail
+            : 'Login failed. Invalid username or password.';
+        setError(safeDetail);
+        if (passwordRef.current) {
+          passwordRef.current.value = '';
+        }
         return;
       }
 
@@ -89,22 +98,10 @@ export function LoginForm() {
             type="password"
             autoComplete="current-password"
             required
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
+            ref={passwordRef}
             className="w-full rounded-md border border-white/10 bg-black/30 px-3 py-2 text-white outline-none focus:border-fog-cyan"
           />
         </div>
-
-        <label className="flex items-center gap-2 text-sm text-gray-300">
-          <input
-            name="remember"
-            data-testid="remember-me"
-            type="checkbox"
-            checked={rememberMe}
-            onChange={(event) => setRememberMe(event.target.checked)}
-          />
-          Remember me
-        </label>
 
         {error ? (
           <div data-testid="error-message" role="alert" className="rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200">
@@ -120,6 +117,17 @@ export function LoginForm() {
         >
           {isSubmitting ? 'Signing in...' : 'Login'}
         </button>
+
+        <label className="flex items-center gap-2 text-sm text-gray-300">
+          <input
+            name="remember"
+            data-testid="remember-me"
+            type="checkbox"
+            checked={rememberMe}
+            onChange={(event) => setRememberMe(event.target.checked)}
+          />
+          Remember me
+        </label>
       </form>
 
       <div className="mt-4 flex items-center justify-between text-sm text-gray-300">

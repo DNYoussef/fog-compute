@@ -28,7 +28,7 @@ export class RegisterPage {
     this.passwordInput = page.locator('[data-testid="password-input"], input[name="password"]').first();
     this.confirmPasswordInput = page.locator('[data-testid="confirm-password-input"], input[name="confirmPassword"]');
     this.registerButton = page.locator('[data-testid="register-button"], button[type="submit"]').first();
-    this.errorMessage = page.locator('[data-testid="error-message"], .error-message, [role="alert"]').first();
+    this.errorMessage = page.locator('[data-testid="error-message"], .error-message').first();
     this.successMessage = page.locator('[data-testid="success-message"], .success-message');
     this.loginLink = page.locator('[data-testid="login-link"], a:has-text("Login"), a:has-text("Sign in")');
     this.passwordStrengthIndicator = page.locator('[data-testid="password-strength"], .password-strength');
@@ -132,7 +132,8 @@ export class RegisterPage {
    * Check if error message is visible
    */
   async hasError(): Promise<boolean> {
-    return await this.errorMessage.isVisible();
+    await this.errorMessage.waitFor({ state: 'visible', timeout: 5000 });
+    return true;
   }
 
   /**
