@@ -350,10 +350,13 @@ test.describe('UI-02: Quality Panel E2E Tests', () => {
     });
 
     test('should handle rapid button clicks gracefully', async ({ page }) => {
-      // Click run button multiple times rapidly
-      await qualityPanel.runTestsButton.click({ clickCount: 1 });
-      await qualityPanel.runTestsButton.click({ clickCount: 1 });
-      await qualityPanel.runTestsButton.click({ clickCount: 1 });
+      await qualityPanel.runTestsButton.click();
+
+      // The first user click disables the control while the run is active.
+      // Dispatch duplicate events directly so this test exercises handler
+      // idempotence without asking Playwright to click a disabled button.
+      await qualityPanel.runTestsButton.dispatchEvent('click');
+      await qualityPanel.runTestsButton.dispatchEvent('click');
 
       // Should not crash or show duplicate outputs
       await page.waitForTimeout(1000);
