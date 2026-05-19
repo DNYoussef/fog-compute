@@ -16,9 +16,14 @@ async function proxyAuthRequest(request: NextRequest, context: AuthRouteContext)
   const headers = new Headers();
   const authorization = request.headers.get('authorization');
   const contentType = request.headers.get('content-type');
+  const rateLimitBypass = request.headers.get('x-e2e-rate-limit-bypass');
 
   if (authorization) {
     headers.set('authorization', authorization);
+  }
+
+  if (rateLimitBypass) {
+    headers.set('x-e2e-rate-limit-bypass', rateLimitBypass);
   }
 
   let body: string | undefined;

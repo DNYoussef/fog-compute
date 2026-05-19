@@ -154,6 +154,12 @@ export const test = base.extend<{
    * Auth helper fixture - provides authentication utilities
    */
   authHelper: async ({ page, baseURL }, use) => {
+    if (e2eRateLimitBypassToken) {
+      await page.setExtraHTTPHeaders({
+        'X-E2E-Rate-Limit-Bypass': e2eRateLimitBypassToken,
+      });
+    }
+
     const helper = new AuthHelper(page, baseURL || 'http://localhost:3000');
     await use(helper);
   },

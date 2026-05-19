@@ -106,7 +106,7 @@ test.describe('TEST-06: Registration UI Flow', () => {
       'alllowercase123', // No uppercase
       'ALLUPPERCASE123', // No lowercase
       'NoNumbers', // No numbers
-      'Simple123', // Might not meet complexity requirements
+      '12345678', // No letters
     ];
 
     for (const weakPassword of weakPasswords) {
