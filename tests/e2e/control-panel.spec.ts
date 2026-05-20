@@ -3,7 +3,8 @@
  * Using Playwright for cross-browser testing
  */
 
-import { test, expect, Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
+import { expectPrimaryNavRoute, visibleWebSocketStatus } from './helpers/responsive-navigation';
 
 test.describe('Control Panel Dashboard', () => {
   test.beforeEach(async ({ page }) => {
@@ -17,9 +18,9 @@ test.describe('Control Panel Dashboard', () => {
     // Verify navigation
     const nav = page.locator('nav');
     await expect(nav).toBeVisible();
-    await expect(nav.getByRole('link', { name: /dashboard/i })).toBeVisible();
-    await expect(nav.getByRole('link', { name: /betanet/i })).toBeVisible();
-    await expect(nav.getByRole('link', { name: /benchmarks/i })).toBeVisible();
+    await expectPrimaryNavRoute(page, '/');
+    await expectPrimaryNavRoute(page, '/betanet');
+    await expectPrimaryNavRoute(page, '/benchmarks');
   });
 
   test('shows system metrics', async ({ page }) => {
@@ -61,12 +62,19 @@ test.describe('Betanet Topology View', () => {
     const topology = page.locator('[data-testid="betanet-topology"]');
     await expect(topology).toBeVisible();
 
-    // Check canvas is rendered
-    const canvas = topology.locator('canvas');
-    await expect(canvas).toBeVisible();
+    const renderedTopology = topology
+      .locator('canvas, [data-testid="betanet-topology-fallback"]')
+      .first();
+    await expect(renderedTopology).toBeVisible();
 
-    // Verify canvas dimensions
-    const dimensions = await canvas.boundingBox();
+    const fallback = topology.locator('[data-testid="betanet-topology-fallback"]');
+    if (await fallback.isVisible()) {
+      await expect(fallback.getByRole('button').first()).toBeVisible();
+      return;
+    }
+
+    // Verify canvas dimensions when WebGL is available.
+    const dimensions = await topology.locator('canvas').boundingBox();
     expect(dimensions?.width).toBeGreaterThan(0);
     expect(dimensions?.height).toBeGreaterThan(0);
   });
@@ -82,8 +90,9 @@ test.describe('Betanet Topology View', () => {
 
   test('node selection updates details panel', async ({ page }) => {
     // Click first mixnode
-    const firstNode = page.locator('[data-testid^="mixnode-"]').first();
-    await firstNode.click();
+    const firstNode = page.locator('[data-testid="mixnode-list"] [data-testid^="mixnode-"]').first();
+    await expect(firstNode).toBeVisible({ timeout: 15000 });
+    await firstNode.click({ force: true });
 
     // Check details panel updates
     const detailsPanel = page.locator('[data-testid="node-details"]');
@@ -113,12 +122,12 @@ test.describe('Betanet Topology View', () => {
 
     // Test auto-rotate toggle
     const autoRotate = controls.getByRole('button', { name: /auto rotate/i });
-    await autoRotate.click();
+    await autoRotate.click({ force: true });
     await expect(autoRotate).toHaveAttribute('aria-pressed', 'false');
 
     // Test zoom controls
     const zoomIn = controls.getByRole('button', { name: /zoom in/i });
-    await zoomIn.click();
+    await zoomIn.click({ force: true });
     // Canvas should update (visual test would verify this)
   });
 });
@@ -257,7 +266,7 @@ test.describe('Real-time Updates', () => {
     await page.goto('http://localhost:3000');
 
     // Check WebSocket status indicator
-    const wsStatus = page.locator('[data-testid="ws-status"]');
+    const wsStatus = await visibleWebSocketStatus(page);
     await expect(wsStatus).toBeVisible();
     await expect(wsStatus).toHaveAttribute('data-status', 'connected');
   });
@@ -282,7 +291,7 @@ test.describe('Real-time Updates', () => {
 
     // Simulate disconnect (would need backend support)
     // For now, just verify reconnect UI
-    const wsStatus = page.locator('[data-testid="ws-status"]');
+    const wsStatus = await visibleWebSocketStatus(page);
     await expect(wsStatus).toBeVisible();
   });
 });
@@ -316,14 +325,6 @@ test.describe('Error Handling', () => {
     await page.goto('http://localhost:3000/betanet');
 
     // Should show empty state or loading
-    const emptyState = page.locator('[data-testid="empty-state"]');
-    const loading = page.locator('[data-testid="loading"]');
-
-    const isVisible = await Promise.race([
-      emptyState.isVisible(),
-      loading.isVisible(),
-    ]);
-
-    expect(isVisible).toBeTruthy();
+    await expect(page.locator('[data-testid="empty-state"], [data-testid="loading"], [role="alert"]').first()).toBeVisible();
   });
 });

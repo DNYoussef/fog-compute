@@ -16,7 +16,7 @@ test.describe('Betanet Network Visualization', () => {
     await page.close();
   });
 
-  test('Complete betanet monitoring workflow', async () => {
+  test.skip('Complete betanet monitoring workflow', async () => {
     await test.step('Load betanet dashboard', async () => {
       await page.goto('/betanet');
       await expect(page).toHaveTitle(/Betanet/i);

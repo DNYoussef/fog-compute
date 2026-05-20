@@ -253,11 +253,11 @@ test.describe('UI-02: Quality Panel E2E Tests', () => {
   test.describe('QP-05: Error Handling and Recovery', () => {
     test('should handle test execution failures gracefully', async ({ page }) => {
       // Mock failed test execution
-      await page.route('**/api/tests/run', async route => {
+      await page.route('**/api/quality/run-tests', async route => {
         await route.fulfill({
           status: 500,
-          contentType: 'application/json',
-          body: JSON.stringify({ error: 'Test execution failed' }),
+          contentType: 'text/plain',
+          body: 'Error: Test execution failed\n',
         });
       });
 
@@ -275,13 +275,13 @@ test.describe('UI-02: Quality Panel E2E Tests', () => {
     test('should recover from errors and allow retry', async ({ page }) => {
       // First request fails
       let requestCount = 0;
-      await page.route('**/api/tests/run', async route => {
+      await page.route('**/api/quality/run-tests', async route => {
         requestCount++;
         if (requestCount === 1) {
           await route.fulfill({
             status: 500,
-            contentType: 'application/json',
-            body: JSON.stringify({ error: 'Temporary failure' }),
+            contentType: 'text/plain',
+            body: 'Error: Temporary failure\n',
           });
         } else {
           await route.continue();
@@ -316,19 +316,24 @@ test.describe('UI-02: Quality Panel E2E Tests', () => {
 
     test('should handle timeout scenarios', async ({ page }) => {
       // Mock slow response
-      await page.route('**/api/tests/run', async route => {
-        await page.waitForTimeout(5000);
-        await route.continue();
+      await page.route('**/api/quality/run-tests', async route => {
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        await route.fulfill({
+          status: 200,
+          contentType: 'text/plain',
+          body: 'Slow test complete\n',
+        });
       });
 
       await qualityPanel.clickRunTests();
 
       // Should show loading state
-      await page.waitForTimeout(1000);
-      const isRunning = await qualityPanel.isRunning();
+      await expect(qualityPanel.loadingIndicator).toBeVisible({ timeout: 1000 });
 
       // Just verify UI doesn't crash
       await expect(qualityPanel.panel).toBeVisible();
+      await qualityPanel.waitForTestsToComplete(10000);
+      await expect(qualityPanel.consoleOutput).toContainText('Slow test complete');
     });
   });
 
@@ -345,10 +350,13 @@ test.describe('UI-02: Quality Panel E2E Tests', () => {
     });
 
     test('should handle rapid button clicks gracefully', async ({ page }) => {
-      // Click run button multiple times rapidly
-      await qualityPanel.runTestsButton.click({ clickCount: 1 });
-      await qualityPanel.runTestsButton.click({ clickCount: 1 });
-      await qualityPanel.runTestsButton.click({ clickCount: 1 });
+      await qualityPanel.runTestsButton.click();
+
+      // The first user click disables the control while the run is active.
+      // Dispatch duplicate events directly so this test exercises handler
+      // idempotence without asking Playwright to click a disabled button.
+      await qualityPanel.runTestsButton.dispatchEvent('click');
+      await qualityPanel.runTestsButton.dispatchEvent('click');
 
       // Should not crash or show duplicate outputs
       await page.waitForTimeout(1000);
@@ -358,13 +366,14 @@ test.describe('UI-02: Quality Panel E2E Tests', () => {
     test('should handle large console output efficiently', async ({ page }) => {
       // Mock large output
       await page.evaluate(() => {
-        const console = document.querySelector('.bg-black\\/50.rounded-lg .space-y-1');
-        if (console) {
-          let largeOutput = '';
+        const consoleElement = document.querySelector('.bg-black\\/50.rounded-lg');
+        if (consoleElement) {
+          let largeOutput = '<div class="space-y-1">';
           for (let i = 0; i < 1000; i++) {
             largeOutput += `<div>Test line ${i}</div>`;
           }
-          console.innerHTML = largeOutput;
+          largeOutput += '</div>';
+          consoleElement.innerHTML = largeOutput;
         }
       });
 
@@ -459,13 +468,31 @@ test.describe('UI-02: Quality Panel E2E Tests', () => {
       // Check specifically for color-contrast issues
       const results = await page.evaluate(async () => {
         // @ts-ignore - axe is injected
-        const axeResults = await axe.run({
-          rules: ['color-contrast'],
+        const panel = document.querySelector('.glass.rounded-xl');
+        if (!panel) {
+          throw new Error('Quality panel not found for color contrast audit');
+        }
+
+        // @ts-ignore - axe is injected
+        const axeResults = await axe.run(panel, {
+          runOnly: {
+            type: 'rule',
+            values: ['color-contrast'],
+          },
         });
-        return axeResults.violations;
+        return axeResults.violations.map((violation: any) => ({
+          id: violation.id,
+          impact: violation.impact,
+          description: violation.description,
+          nodes: violation.nodes.map((node: any) => ({
+            target: node.target,
+            html: node.html,
+            failureSummary: node.failureSummary,
+          })),
+        }));
       });
 
-      expect(results.length).toBe(0);
+      expect(results, JSON.stringify(results, null, 2)).toEqual([]);
     });
 
     test('should indicate loading state to screen readers', async ({ page }) => {
