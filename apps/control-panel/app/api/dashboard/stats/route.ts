@@ -36,22 +36,22 @@ export async function GET() {
       _mock: true,
       _warning: 'Backend unavailable - showing mock data (dev only)',
       betanet: {
-        mixnodes: 0,
-        activeConnections: 0,
-        packetsProcessed: 0,
-        status: 'offline' as const
+        mixnodes: 3,
+        activeConnections: 6,
+        packetsProcessed: 266000,
+        status: 'online' as const
       },
       bitchat: {
-        activePeers: 0,
-        messagesDelivered: 0,
-        encryptionStatus: false,
-        meshHealth: 'unknown' as const
+        activePeers: 2,
+        messagesDelivered: 128,
+        encryptionStatus: true,
+        meshHealth: 'good' as const
       },
       benchmarks: {
-        avgLatency: 0.0,
-        throughput: 0.0,
-        cpuUsage: 0.0,
-        memoryUsage: 0.0
+        avgLatency: 18.3,
+        throughput: 250.0,
+        cpuUsage: 21.5,
+        memoryUsage: 42.0
       }
     });
   }

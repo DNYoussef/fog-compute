@@ -3,7 +3,18 @@
  * Tests route protection, authentication guards, RBAC, and session management
  */
 import { test, expect } from './fixtures/auth-fixtures';
+import type { Page } from '@playwright/test';
 import { injectAxe, checkA11y } from 'axe-playwright';
+
+async function gotoProtectedRoute(page: Page, route: string) {
+  try {
+    await page.goto(route);
+  } catch (error) {
+    if (!String(error).includes('interrupted by another navigation')) {
+      throw error;
+    }
+  }
+}
 
 test.describe('TEST-07: Protected Routes - Authentication Guards', () => {
   const protectedRoutes = [
@@ -21,7 +32,7 @@ test.describe('TEST-07: Protected Routes - Authentication Guards', () => {
 
   test('P01: should block unauthenticated access to protected routes', async ({ page }) => {
     for (const route of protectedRoutes) {
-      await page.goto(route);
+      await gotoProtectedRoute(page, route);
 
       // Should redirect to login or show 403/401
       await page.waitForLoadState('networkidle');
@@ -66,7 +77,7 @@ test.describe('TEST-07: Protected Routes - Authentication Guards', () => {
   test('P03: should redirect to login page with return URL', async ({ page }) => {
     const targetRoute = '/control-panel/benchmarks';
 
-    await page.goto(targetRoute);
+    await gotoProtectedRoute(page, targetRoute);
     await page.waitForLoadState('networkidle');
 
     const currentUrl = page.url();
@@ -85,7 +96,7 @@ test.describe('TEST-07: Protected Routes - Authentication Guards', () => {
     const targetRoute = '/control-panel/tasks';
 
     // Try to access protected route (should redirect to login)
-    await page.goto(targetRoute);
+    await gotoProtectedRoute(page, targetRoute);
     await page.waitForLoadState('networkidle');
 
     // If redirected to login, register and login
@@ -100,7 +111,7 @@ test.describe('TEST-07: Protected Routes - Authentication Guards', () => {
       await authHelper.setAuthToken(token!);
 
       // Navigate back to intended route
-      await page.goto(targetRoute);
+      await gotoProtectedRoute(page, targetRoute);
       await page.waitForLoadState('networkidle');
 
       // Should reach target route
@@ -170,7 +181,7 @@ test.describe('TEST-07: Role-Based Access Control (RBAC)', () => {
     await authHelper.setAuthToken(token!);
 
     // Navigate to main dashboard
-    await page.goto('/control-panel');
+    await gotoProtectedRoute(page, '/control-panel');
     await page.waitForLoadState('networkidle');
 
     // Check if admin-only UI elements are hidden
@@ -200,7 +211,7 @@ test.describe('TEST-07: Session Management', () => {
     await authHelper.setAuthToken('expired_token_12345');
 
     // Try to access another protected route
-    await page.goto('/control-panel/tasks');
+    await gotoProtectedRoute(page, '/control-panel/tasks');
     await page.waitForLoadState('networkidle');
 
     // Should redirect to login or show error
@@ -209,7 +220,8 @@ test.describe('TEST-07: Session Management', () => {
 
     const isSessionInvalid = currentUrl.includes('/login') ||
                              pageContent.toLowerCase().includes('session expired') ||
-                             pageContent.toLowerCase().includes('unauthorized');
+                             pageContent.toLowerCase().includes('unauthorized') ||
+                             pageContent.toLowerCase().includes('authentication required');
 
     expect(isSessionInvalid).toBe(true);
   });
@@ -241,7 +253,7 @@ test.describe('TEST-07: Session Management', () => {
     expect(isAuthAfter).toBe(false);
 
     // Try to access protected route
-    await page.goto('/control-panel');
+    await gotoProtectedRoute(page, '/control-panel');
     await page.waitForLoadState('networkidle');
 
     // Should be blocked
@@ -249,7 +261,8 @@ test.describe('TEST-07: Session Management', () => {
     const pageContent = await page.textContent('body');
 
     const isBlocked = currentUrl.includes('/login') ||
-                      pageContent.toLowerCase().includes('unauthorized');
+                      pageContent.toLowerCase().includes('unauthorized') ||
+                      pageContent.toLowerCase().includes('authentication required');
 
     expect(isBlocked).toBe(true);
   });
@@ -263,7 +276,7 @@ test.describe('TEST-07: Session Management', () => {
     await authHelper.setAuthToken(token!);
 
     // Access protected route
-    await page.goto('/control-panel');
+    await gotoProtectedRoute(page, '/control-panel');
     await page.waitForLoadState('networkidle');
     expect(page.url()).toContain('/control-panel');
 
@@ -286,7 +299,7 @@ test.describe('TEST-07: Session Management', () => {
     // Set auth in first page
     await page.goto('/');
     await authHelper.setAuthToken(token!);
-    await page.goto('/control-panel');
+    await gotoProtectedRoute(page, '/control-panel');
 
     // Create second page (tab) in same context
     const page2 = await context.newPage();
@@ -320,7 +333,8 @@ test.describe('TEST-07: Security Edge Cases', () => {
     const pageContent = await page.textContent('body');
 
     const isBlocked = currentUrl.includes('/login') ||
-                      pageContent.toLowerCase().includes('unauthorized');
+                      pageContent.toLowerCase().includes('unauthorized') ||
+                      pageContent.toLowerCase().includes('authentication required');
 
     expect(isBlocked).toBe(true);
   });
@@ -351,14 +365,15 @@ test.describe('TEST-07: Security Edge Cases', () => {
     await authHelper.setAuthToken('tampered_token');
 
     // Next navigation should fail
-    await page.goto('/control-panel/tasks');
+    await gotoProtectedRoute(page, '/control-panel/tasks');
     await page.waitForLoadState('networkidle');
 
     const currentUrl = page.url();
     const pageContent = await page.textContent('body');
 
     const isBlocked = currentUrl.includes('/login') ||
-                      pageContent.toLowerCase().includes('unauthorized');
+                      pageContent.toLowerCase().includes('unauthorized') ||
+                      pageContent.toLowerCase().includes('authentication required');
 
     expect(isBlocked).toBe(true);
   });

@@ -1,38 +1,63 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
-import { Wifi, WifiOff, RefreshCw } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { RefreshCw, Wifi, WifiOff } from 'lucide-react';
 
 interface WebSocketStatusProps {
   url?: string;
   maxRetries?: number;
   initialReconnectDelay?: number;
   maxReconnectDelay?: number;
+  testId?: string;
+  offlineTestId?: string;
 }
 
 type ConnectionStatus = 'connected' | 'disconnected' | 'connecting' | 'error';
 type ConnectionState = 'connected' | 'reconnecting' | 'offline';
 
+function resolveDefaultWebSocketUrl(): string {
+  if (process.env.NEXT_PUBLIC_WS_URL) {
+    return process.env.NEXT_PUBLIC_WS_URL;
+  }
+
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    try {
+      const apiUrl = new URL(process.env.NEXT_PUBLIC_API_URL);
+      apiUrl.protocol = apiUrl.protocol === 'https:' ? 'wss:' : 'ws:';
+      apiUrl.pathname = '/ws/metrics';
+      apiUrl.search = '';
+      apiUrl.hash = '';
+      return apiUrl.toString();
+    } catch {
+      // Fall through to the local development default.
+    }
+  }
+
+  return 'ws://127.0.0.1:8000/ws/metrics';
+}
+
 export function WebSocketStatus({
-  url = 'ws://localhost:8000/ws/metrics',
+  url = resolveDefaultWebSocketUrl(),
   maxRetries = 10,
   initialReconnectDelay = 5000,
-  maxReconnectDelay = 30000
+  maxReconnectDelay = 30000,
+  testId = 'ws-status',
+  offlineTestId = 'offline-indicator'
 }: WebSocketStatusProps) {
   const [status, setStatus] = useState<ConnectionStatus>('disconnected');
   const [lastMessage, setLastMessage] = useState<string>('');
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [retryCount, setRetryCount] = useState(0);
-  const retryCountRef = useRef(0);
+  const [isBrowserOffline, setIsBrowserOffline] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
   const reconnectDelayRef = useRef(initialReconnectDelay);
   const isManualDisconnectRef = useRef(false);
+  const retryCountRef = useRef(0);
 
   useEffect(() => {
     const connect = () => {
-      // Don't reconnect if we've exceeded max retries
-      if (retryCountRef.current > maxRetries) {
+      if (retryCountRef.current >= maxRetries) {
         setStatus('error');
         setLastMessage(`Max reconnection attempts (${maxRetries}) exceeded`);
         return;
@@ -48,14 +73,13 @@ export function WebSocketStatus({
           setLastUpdate(new Date());
           retryCountRef.current = 0;
           setRetryCount(0);
-          reconnectDelayRef.current = initialReconnectDelay; // Reset backoff
-          console.log('✅ WebSocket connected');
+          reconnectDelayRef.current = initialReconnectDelay;
+          console.log('WebSocket connected');
         };
 
         wsRef.current.onclose = (event) => {
           wsRef.current = null;
 
-          // Don't reconnect if this was a manual disconnect
           if (isManualDisconnectRef.current) {
             setStatus('disconnected');
             setLastMessage('Manually disconnected');
@@ -66,7 +90,6 @@ export function WebSocketStatus({
           const reason = event.reason || 'Unknown reason';
           setLastMessage(`Disconnected: ${reason}`);
 
-          // Exponential backoff with jitter
           const jitter = Math.random() * 1000;
           const delay = Math.min(reconnectDelayRef.current + jitter, maxReconnectDelay);
           const nextRetryCount = retryCountRef.current + 1;
@@ -82,7 +105,7 @@ export function WebSocketStatus({
           reconnectTimeoutRef.current = setTimeout(() => {
             reconnectDelayRef.current = Math.min(reconnectDelayRef.current * 2, maxReconnectDelay);
             retryCountRef.current = nextRetryCount;
-            setRetryCount(retryCountRef.current);
+            setRetryCount(nextRetryCount);
             connect();
           }, delay);
         };
@@ -90,7 +113,7 @@ export function WebSocketStatus({
         wsRef.current.onerror = (error) => {
           setStatus('error');
           setLastMessage('Connection error occurred');
-          console.error('WebSocket error:', error);
+          console.warn('WebSocket error:', error);
         };
 
         wsRef.current.onmessage = (event) => {
@@ -101,7 +124,6 @@ export function WebSocketStatus({
         setStatus('error');
         setLastMessage(`Failed to connect: ${error instanceof Error ? error.message : String(error)}`);
 
-        // Retry with backoff
         const delay = Math.min(reconnectDelayRef.current, maxReconnectDelay);
         const nextRetryCount = retryCountRef.current + 1;
 
@@ -114,18 +136,16 @@ export function WebSocketStatus({
         reconnectTimeoutRef.current = setTimeout(() => {
           reconnectDelayRef.current = Math.min(reconnectDelayRef.current * 2, maxReconnectDelay);
           retryCountRef.current = nextRetryCount;
-          setRetryCount(retryCountRef.current);
+          setRetryCount(nextRetryCount);
           connect();
         }, delay);
       }
     };
 
-    // Start initial connection
     isManualDisconnectRef.current = false;
     connect();
 
     return () => {
-      // Mark as manual disconnect to prevent reconnection
       isManualDisconnectRef.current = true;
 
       if (wsRef.current) {
@@ -138,34 +158,31 @@ export function WebSocketStatus({
     };
   }, [url, maxRetries, initialReconnectDelay, maxReconnectDelay]);
 
-  const handleManualReconnect = (resetRetry: boolean = true) => {
-    // Clear any pending reconnection
+  const handleManualReconnect = (resetRetry = true) => {
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
     }
 
-    // Close existing connection
     if (wsRef.current) {
       isManualDisconnectRef.current = true;
       wsRef.current.close();
       wsRef.current = null;
     }
 
-    // Reset state and reconnect
     if (resetRetry) {
       retryCountRef.current = 0;
       setRetryCount(0);
-    } else if (retryCountRef.current > maxRetries) {
+    } else if (retryCountRef.current >= maxRetries) {
       setStatus('error');
       setLastMessage(`Max reconnection attempts (${maxRetries}) exceeded`);
       return;
     }
+
     reconnectDelayRef.current = initialReconnectDelay;
     setStatus('connecting');
     setLastMessage('Manually reconnecting...');
     isManualDisconnectRef.current = false;
 
-    // Trigger reconnection by creating new connection
     try {
       const ws = new WebSocket(url);
       wsRef.current = ws;
@@ -208,7 +225,7 @@ export function WebSocketStatus({
         reconnectTimeoutRef.current = setTimeout(() => {
           reconnectDelayRef.current = Math.min(reconnectDelayRef.current * 2, maxReconnectDelay);
           retryCountRef.current = nextRetryCount;
-          setRetryCount(retryCountRef.current);
+          setRetryCount(nextRetryCount);
           handleManualReconnect(false);
         }, delay);
       };
@@ -216,7 +233,7 @@ export function WebSocketStatus({
       ws.onerror = (error) => {
         setStatus('error');
         setLastMessage('Connection error occurred');
-        console.error('WebSocket error:', error);
+        console.warn('WebSocket error:', error);
       };
 
       ws.onmessage = (event) => {
@@ -229,10 +246,32 @@ export function WebSocketStatus({
     }
   };
 
+  useEffect(() => {
+    const handleOffline = () => {
+      setIsBrowserOffline(true);
+      setStatus('disconnected');
+      setLastMessage('Browser is offline');
+    };
+    const handleOnline = () => {
+      setIsBrowserOffline(false);
+      setStatus('connecting');
+      setLastMessage('Network restored');
+    };
+
+    setIsBrowserOffline(typeof navigator !== 'undefined' && !navigator.onLine);
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('online', handleOnline);
+    };
+  }, []);
+
   const getConnectionState = (): ConnectionState => {
+    if (isBrowserOffline) return 'offline';
     if (status === 'connected') return 'connected';
-    if (status === 'connecting') return 'reconnecting';
-    return 'offline';
+    return 'reconnecting';
   };
 
   const state = getConnectionState();
@@ -245,7 +284,7 @@ export function WebSocketStatus({
           text: 'Connected',
           color: 'text-green-500',
           bgColor: 'bg-green-500',
-          testId: 'ws-status',
+          testId,
         };
       case 'reconnecting':
         return {
@@ -253,7 +292,7 @@ export function WebSocketStatus({
           text: status === 'error' ? 'Connection Error' : 'Reconnecting...',
           color: 'text-yellow-500',
           bgColor: 'bg-yellow-500',
-          testId: 'ws-status',
+          testId,
         };
       case 'offline':
         return {
@@ -261,7 +300,7 @@ export function WebSocketStatus({
           text: 'Offline',
           color: 'text-red-500',
           bgColor: 'bg-red-500',
-          testId: 'offline-indicator',
+          testId: offlineTestId,
         };
     }
   };
@@ -285,7 +324,6 @@ export function WebSocketStatus({
       data-status={state}
       className="flex items-center gap-3 px-3 py-2 bg-gray-900 border border-gray-800 rounded-lg"
     >
-      {/* Animated Status Dot */}
       <div className="relative flex-shrink-0">
         <div className={`w-2 h-2 ${config.bgColor} rounded-full ${state === 'connected' ? 'animate-pulse' : ''}`} />
         {state === 'connected' && (
@@ -293,29 +331,24 @@ export function WebSocketStatus({
         )}
       </div>
 
-      {/* Icon */}
       <Icon className={`w-4 h-4 ${config.color} flex-shrink-0 ${state === 'reconnecting' ? 'animate-spin' : ''}`} />
 
-      {/* Status Text */}
       <span className={`text-sm font-medium ${config.color}`}>
         {config.text}
       </span>
 
-      {/* Last Update Timestamp */}
       {lastUpdate && state === 'connected' && (
-        <span className="text-xs text-gray-500 ml-auto" data-testid="last-update-timestamp">
+        <span className="text-xs text-gray-400 ml-auto" data-testid="last-update-timestamp">
           {formatLastUpdate()}
         </span>
       )}
 
-      {/* Reconnection Info */}
       {state === 'reconnecting' && retryCount > 0 && (
-        <span className="text-xs text-gray-500 ml-auto">
+        <span className="text-xs text-gray-400 ml-auto">
           Attempt {retryCount}/{maxRetries}
         </span>
       )}
 
-      {/* Manual Reconnect Button */}
       {state === 'offline' && retryCount < maxRetries && (
         <button
           onClick={() => handleManualReconnect()}
@@ -326,7 +359,6 @@ export function WebSocketStatus({
         </button>
       )}
 
-      {/* Error State - Try Again or Reload */}
       {retryCount >= maxRetries && (
         <div className="ml-auto flex gap-2">
           <button

@@ -1,43 +1,43 @@
-import * as React from "react";
+import type { ButtonHTMLAttributes } from 'react';
+import { cn } from '@/lib/utils';
 
-import { cn } from "@/lib/utils";
-
-type ButtonVariant = "default" | "outline" | "ghost" | "secondary" | "destructive";
-type ButtonSize = "default" | "sm" | "lg" | "icon";
-
-const variantClasses: Record<ButtonVariant, string> = {
-  default: "bg-fog-cyan text-black hover:bg-fog-cyan/80",
-  outline: "border border-white/20 bg-transparent hover:bg-white/10",
-  ghost: "hover:bg-white/10",
-  secondary: "bg-white/10 hover:bg-white/20",
-  destructive: "bg-red-600 text-white hover:bg-red-700",
-};
-
-const sizeClasses: Record<ButtonSize, string> = {
-  default: "h-10 px-4 py-2",
-  sm: "h-9 px-3",
-  lg: "h-11 px-8",
-  icon: "h-10 w-10",
-};
-
-export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: ButtonVariant;
-  size?: ButtonSize;
+interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: 'default' | 'outline' | 'ghost' | 'secondary' | 'destructive';
+  size?: 'default' | 'sm' | 'lg' | 'icon';
 }
 
-export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = "default", size = "default", ...props }, ref) => (
+const variants: Record<NonNullable<ButtonProps['variant']>, string> = {
+  default: 'bg-fog-cyan text-black hover:bg-fog-cyan/80',
+  outline: 'border border-white/15 bg-white/5 text-white hover:bg-white/10',
+  ghost: 'bg-transparent text-gray-300 hover:bg-white/10 hover:text-white',
+  secondary: 'bg-white/10 text-white hover:bg-white/20',
+  destructive: 'bg-red-500 text-white hover:bg-red-600',
+};
+
+const sizes: Record<NonNullable<ButtonProps['size']>, string> = {
+  default: 'min-h-[44px] px-4 py-2',
+  sm: 'min-h-[36px] px-3 py-1.5 text-sm',
+  lg: 'min-h-[48px] px-6 py-3',
+  icon: 'h-10 w-10 p-0',
+};
+
+export function Button({
+  className = '',
+  variant = 'default',
+  size = 'default',
+  type = 'button',
+  ...props
+}: ButtonProps) {
+  return (
     <button
-      ref={ref}
+      type={type}
       className={cn(
-        "inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50",
-        variantClasses[variant],
-        sizeClasses[size],
-        className,
+        'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors disabled:pointer-events-none disabled:opacity-50',
+        variants[variant],
+        sizes[size],
+        className
       )}
       {...props}
     />
-  ),
-);
-Button.displayName = "Button";
+  );
+}

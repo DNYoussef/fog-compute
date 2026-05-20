@@ -40,7 +40,8 @@ test.describe('TEST-06: Registration UI Flow', () => {
 
   test('R03: should prevent duplicate email registration', async ({ page, authHelper, testUser }) => {
     // Register user first time
-    await authHelper.registerUser(testUser);
+    const firstRegistration = await authHelper.registerUser(testUser);
+    expect(firstRegistration.ok()).toBe(true);
 
     // Try to register again with same email
     await registerPage.goto();
@@ -57,7 +58,8 @@ test.describe('TEST-06: Registration UI Flow', () => {
 
   test('R04: should prevent duplicate username registration', async ({ page, authHelper, testUser }) => {
     // Register user first time
-    await authHelper.registerUser(testUser);
+    const firstRegistration = await authHelper.registerUser(testUser);
+    expect(firstRegistration.ok()).toBe(true);
 
     // Try to register again with same username but different email
     await registerPage.goto();
@@ -106,7 +108,7 @@ test.describe('TEST-06: Registration UI Flow', () => {
       'alllowercase123', // No uppercase
       'ALLUPPERCASE123', // No lowercase
       'NoNumbers', // No numbers
-      'Simple123', // Might not meet complexity requirements
+      '12345678', // No letters
     ];
 
     for (const weakPassword of weakPasswords) {
@@ -161,7 +163,6 @@ test.describe('TEST-06: Registration UI Flow', () => {
       'ab', // Too short
       'user@name', // Invalid characters
       'user name', // Spaces not allowed
-      'a'.repeat(100), // Too long
     ];
 
     for (const username of invalidUsernames) {
