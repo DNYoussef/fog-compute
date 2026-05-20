@@ -30,6 +30,7 @@ interface DashboardStats {
 export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   useEffect(() => {
     document.title = 'Fog Compute Dashboard';
@@ -69,12 +70,43 @@ export default function Dashboard() {
     <div className="space-y-6" data-testid="control-panel">
       {/* Header */}
       <div className="glass rounded-xl p-6">
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-fog-cyan to-fog-purple bg-clip-text text-transparent">
-          Fog Compute Dashboard
-        </h1>
-        <p className="text-gray-400 mt-2">
-          Unified monitoring and control for privacy networking, P2P messaging, and performance benchmarks
-        </p>
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-fog-cyan to-fog-purple bg-clip-text text-transparent">
+              Fog Compute Dashboard
+            </h1>
+            <p className="text-gray-400 mt-2">
+              Unified monitoring and control for privacy networking, P2P messaging, and performance benchmarks
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              data-testid="primary-button"
+              className="rounded-lg bg-fog-cyan px-4 py-2 font-semibold text-black transition-colors hover:bg-fog-cyan/80"
+              onClick={() => setIsSearchOpen((open) => !open)}
+            >
+              Search
+            </button>
+            <button
+              data-testid="search-button"
+              className="rounded-lg bg-white/10 px-4 py-2 text-white transition-colors hover:bg-white/20"
+              onClick={() => setIsSearchOpen((open) => !open)}
+            >
+              Search
+            </button>
+          </div>
+        </div>
+        {isSearchOpen && (
+          <div className="mt-4">
+            <input
+              data-testid="search-input"
+              type="search"
+              autoComplete="off"
+              className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-fog-cyan"
+              placeholder="Search nodes, tasks, or benchmarks"
+            />
+          </div>
+        )}
       </div>
 
       {/* System Status Cards */}

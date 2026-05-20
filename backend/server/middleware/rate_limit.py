@@ -8,6 +8,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from typing import Dict, Tuple, Optional
 from datetime import datetime, timedelta
 from collections import defaultdict
+import hmac
+import os
 import time
 import logging
 
@@ -129,6 +131,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if request.url.path in self.EXEMPT_PATHS:
             return await call_next(request)
 
+        if self._is_e2e_bypass_request(request):
+            return await call_next(request)
+
         # Get identifier (IP address or user ID)
         identifier = self._get_identifier(request)
 
@@ -219,6 +224,21 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         # Default limit
         return self.LIMITS["default"]
+
+    def _is_e2e_bypass_request(self, request: Request) -> bool:
+        """
+        Allow Playwright setup helpers to seed auth state without consuming the
+        brute-force limiter. This is enabled only in explicit test runtime.
+        """
+        if os.getenv("ENVIRONMENT") != "test":
+            return False
+
+        bypass_token = os.getenv("E2E_RATE_LIMIT_BYPASS_TOKEN")
+        if not bypass_token:
+            return False
+
+        provided_token = request.headers.get("x-e2e-rate-limit-bypass", "")
+        return hmac.compare_digest(provided_token, bypass_token)
 
 
 def rate_limit(limit: int = 60):
