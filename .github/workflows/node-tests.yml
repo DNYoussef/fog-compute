@@ -25,6 +25,9 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
+    - name: Install control panel dependencies
+      run: npm ci --prefix apps/control-panel
+
     - name: Run tests
       run: npm test
 
