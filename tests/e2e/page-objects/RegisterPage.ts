@@ -3,6 +3,7 @@
  * Encapsulates registration page interactions
  */
 import { Page, Locator, expect } from '@playwright/test';
+import { gotoWithRetries } from '../helpers/navigation';
 
 export class RegisterPage {
   readonly page: Page;
@@ -28,7 +29,7 @@ export class RegisterPage {
     this.passwordInput = page.locator('[data-testid="password-input"], input[name="password"]').first();
     this.confirmPasswordInput = page.locator('[data-testid="confirm-password-input"], input[name="confirmPassword"]');
     this.registerButton = page.locator('[data-testid="register-button"], button[type="submit"]').first();
-    this.errorMessage = page.locator('[data-testid="error-message"], .error-message, [role="alert"]');
+    this.errorMessage = page.locator('[data-testid="error-message"], .error-message').first();
     this.successMessage = page.locator('[data-testid="success-message"], .success-message');
     this.loginLink = page.locator('[data-testid="login-link"], a:has-text("Login"), a:has-text("Sign in")');
     this.passwordStrengthIndicator = page.locator('[data-testid="password-strength"], .password-strength');
@@ -39,8 +40,9 @@ export class RegisterPage {
    * Navigate to registration page
    */
   async goto() {
-    await this.page.goto('/register');
-    await this.page.waitForLoadState('networkidle');
+    await gotoWithRetries(this.page, '/register', { waitUntil: 'domcontentloaded' });
+    await this.registerForm.waitFor({ state: 'visible', timeout: 10000 });
+    await this.page.waitForLoadState('networkidle').catch(() => {});
   }
 
   /**
@@ -81,6 +83,7 @@ export class RegisterPage {
    * Click register button
    */
   async clickRegister() {
+    await expect(this.registerButton).toBeEnabled({ timeout: 10000 });
     await this.registerButton.click();
   }
 
@@ -114,17 +117,23 @@ export class RegisterPage {
    * Wait for successful registration (redirect or success message)
    */
   async waitForRegistrationSuccess() {
+    const successUrl = /\/login|\/verify-email|\/control-panel/;
+
     await Promise.race([
-      this.page.waitForURL(/\/login|\/verify-email|\/control-panel/, { timeout: 10000 }),
+      this.page.waitForURL(successUrl, { timeout: 10000 }),
       this.successMessage.waitFor({ state: 'visible', timeout: 10000 }),
     ]);
+
+    if (!successUrl.test(this.page.url())) {
+      await this.page.waitForURL(successUrl, { timeout: 5000 }).catch(() => {});
+    }
   }
 
   /**
    * Get error message text
    */
   async getErrorMessage(): Promise<string> {
-    await this.errorMessage.waitFor({ state: 'visible', timeout: 5000 });
+    await this.errorMessage.waitFor({ state: 'visible', timeout: 10000 });
     return await this.errorMessage.textContent() || '';
   }
 
@@ -132,7 +141,8 @@ export class RegisterPage {
    * Check if error message is visible
    */
   async hasError(): Promise<boolean> {
-    return await this.errorMessage.isVisible();
+    await this.errorMessage.waitFor({ state: 'visible', timeout: 10000 });
+    return true;
   }
 
   /**

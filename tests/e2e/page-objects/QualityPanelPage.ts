@@ -29,31 +29,31 @@ export class QualityPanelPage {
     this.panelTitle = page.locator('h2').filter({ hasText: 'Test Execution' });
 
     // Control elements
-    this.testSuiteDropdown = page.locator('select').first();
-    this.runTestsButton = page.locator('button').filter({ hasText: /Run Tests/i }).first();
-    this.runBenchmarksButton = page.locator('button').filter({ hasText: /Run Benchmarks/i }).first();
+    this.testSuiteDropdown = this.panel.locator('#quality-test-suite-select');
+    this.runTestsButton = this.panel.getByTestId('quality-run-tests-button');
+    this.runBenchmarksButton = this.panel.getByTestId('quality-run-benchmarks-button');
 
     // Quick action buttons
-    this.rustQuickButton = page.locator('button').filter({ hasText: 'Rust' });
-    this.pythonQuickButton = page.locator('button').filter({ hasText: 'Python' });
-    this.integrationQuickButton = page.locator('button').filter({ hasText: 'Integration' });
-    this.e2eQuickButton = page.locator('button').filter({ hasText: 'E2E' });
+    this.rustQuickButton = this.panel.locator('button').filter({ hasText: 'Rust' }).first();
+    this.pythonQuickButton = this.panel.locator('button').filter({ hasText: 'Python' }).first();
+    this.integrationQuickButton = this.panel.locator('button').filter({ hasText: 'Integration' }).first();
+    this.e2eQuickButton = this.panel.locator('button').filter({ hasText: 'E2E' }).first();
 
     // Console and status elements
     this.consoleOutput = page.locator('.bg-black\\/50.rounded-lg').first();
-    this.clearButton = page.locator('button').filter({ hasText: 'Clear' });
-    this.loadingIndicator = page.locator('.animate-spin, .animate-pulse');
+    this.clearButton = this.panel.getByTestId('quality-clear-console-button');
+    this.loadingIndicator = this.panel.locator('[data-testid="quality-running-indicator"]');
     this.testCommandsDetails = page.locator('details');
 
     // Error elements
-    this.errorMessages = page.locator('.text-red-400, [role="alert"]');
+    this.errorMessages = this.panel.locator('[role="alert"], [data-testid="quality-error-message"]');
   }
 
   /**
    * Navigate to control panel with quality panel
    */
   async goto() {
-    await this.page.goto('/control-panel');
+    await this.page.goto('/quality');
     await this.page.waitForLoadState('networkidle');
     await this.panel.waitFor({ state: 'visible', timeout: 10000 });
   }
@@ -139,6 +139,8 @@ export class QualityPanelPage {
    * Clear console output
    */
   async clearConsole() {
+    await this.waitForTestsToComplete(30000).catch(() => undefined);
+    await expect(this.clearButton).toBeEnabled({ timeout: 5000 });
     await this.clearButton.click();
     await this.page.waitForTimeout(1000); // Wait for reload
   }
