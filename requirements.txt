@@ -2,7 +2,6 @@
 # For fog benchmarking and orchestration components
 
 # Core dependencies
-asyncio-compat==0.1.1
 dataclasses-json==0.6.3
 
 # System monitoring
@@ -10,7 +9,6 @@ psutil==5.9.7
 py-cpuinfo==9.0.0
 
 # Benchmarking and metrics
-statistics==1.0.3.5
 numpy==1.26.3
 pandas==2.1.4
 matplotlib==3.8.2
