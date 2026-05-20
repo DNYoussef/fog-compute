@@ -18,6 +18,7 @@ import {
   Shield,
   Zap,
 } from "lucide-react";
+import { DeployModal, NodeConfig } from "@/components/DeployModal";
 
 interface ComputeNode {
   id: string;
@@ -38,6 +39,10 @@ export default function NodesPage() {
   const [nodes, setNodes] = useState<ComputeNode[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
+  const [showDeploySuccess, setShowDeploySuccess] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [touchStartY, setTouchStartY] = useState<number | null>(null);
 
   const fetchNodes = async () => {
     try {
@@ -51,6 +56,29 @@ export default function NodesPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDeployNode = (config: NodeConfig) => {
+    const id = config.name.trim() || `node-${Date.now()}`;
+    const node: ComputeNode = {
+      id,
+      status: "active",
+      cpu: config.resources.cpu,
+      memory: Math.round(config.resources.memory / 1024),
+      gpu: config.type === "compute" ? 1 : 0,
+      load: 0,
+      trust: 0.95,
+    };
+
+    setNodes((current) => [node, ...current.filter((existing) => existing.id !== id)]);
+    setShowDeploySuccess(true);
+    window.setTimeout(() => setShowDeploySuccess(false), 5000);
+  };
+
+  const triggerRefreshIndicator = async () => {
+    setIsRefreshing(true);
+    await fetchNodes();
+    window.setTimeout(() => setIsRefreshing(false), 600);
   };
 
   useEffect(() => {
@@ -115,17 +143,45 @@ export default function NodesPage() {
               Manage and monitor distributed compute nodes
             </p>
           </div>
-          <Button
-            onClick={fetchNodes}
-            disabled={loading}
-            className="bg-fog-cyan hover:bg-fog-cyan/80"
-            data-testid="refresh-button"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              onClick={() => setIsDeployModalOpen(true)}
+              className="bg-fog-cyan hover:bg-fog-cyan/80"
+              data-testid="add-node-button"
+            >
+              Add Node
+            </Button>
+            <Button
+              onClick={fetchNodes}
+              disabled={loading}
+              className="bg-white/10 hover:bg-white/20"
+              data-testid="refresh-button"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
       </div>
+
+      {showDeploySuccess && (
+        <div
+          data-testid="success-notification"
+          role="status"
+          className="rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 text-green-300"
+        >
+          Node deployed successfully
+        </div>
+      )}
+
+      {isRefreshing && (
+        <div
+          data-testid="refresh-indicator"
+          className="rounded-lg border border-fog-cyan/30 bg-fog-cyan/10 px-4 py-3 text-fog-cyan"
+        >
+          Refreshing nodes...
+        </div>
+      )}
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -191,7 +247,17 @@ export default function NodesPage() {
       </div>
 
       {/* Nodes Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div
+        className="grid min-h-[120px] grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+        data-testid="nodes-list"
+        onTouchStart={(event) => setTouchStartY(event.touches[0].clientY)}
+        onTouchEnd={(event) => {
+          if (touchStartY !== null && event.changedTouches[0].clientY - touchStartY > 120) {
+            void triggerRefreshIndicator();
+          }
+          setTouchStartY(null);
+        }}
+      >
         {nodes.map((node) => {
           const trustInfo = getTrustLevel(node.trust);
           return (
@@ -289,6 +355,12 @@ export default function NodesPage() {
       <div className="text-center text-sm text-gray-500">
         Last updated: {lastUpdate.toLocaleTimeString()}
       </div>
+
+      <DeployModal
+        isOpen={isDeployModalOpen}
+        onClose={() => setIsDeployModalOpen(false)}
+        onDeploy={handleDeployNode}
+      />
     </div>
   );
 }

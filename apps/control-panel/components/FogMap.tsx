@@ -30,6 +30,13 @@ export function FogMap() {
 
         if (cancelled) return;
 
+        if (data._unavailable) {
+          setNodes([]);
+          setDataSource('unavailable');
+          setLastFetched(new Date());
+          return;
+        }
+
         // Map topology response to FogNode[] if devices are returned
         if (data.devices && Array.isArray(data.devices)) {
           setNodes(

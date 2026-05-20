@@ -84,7 +84,7 @@ export function NodeListTable({ onEdit, onNodeClick, refreshTrigger }: NodeListT
   }
 
   return (
-    <div className="overflow-x-auto" data-testid="mixnode-list">
+    <div className="overflow-x-auto" data-testid="node-list-table">
       <table className="w-full text-left">
         <thead>
           <tr className="border-b border-gray-800">
@@ -101,7 +101,7 @@ export function NodeListTable({ onEdit, onNodeClick, refreshTrigger }: NodeListT
           {nodes.map((node) => (
             <tr
               key={node.id}
-              data-testid={`mixnode-${node.id}`}
+              data-testid={`betanet-node-${node.id}`}
               onClick={() => onNodeClick?.(node)}
               className="border-b border-gray-800 hover:bg-gray-800/50 cursor-pointer"
             >

@@ -5,6 +5,9 @@ const serviceInitTimeout = process.env.SERVICE_INIT_TIMEOUT || (isCI ? '30' : ''
 const skipExternalServices = process.env.SKIP_EXTERNAL_SERVICES ?? (isCI ? 'true' : '');
 const p2pTimeout = process.env.P2P_TIMEOUT || (isCI ? '5' : '');
 const betanetUrl = process.env.BETANET_URL || '';
+const e2eRateLimitBypassToken = process.env.E2E_RATE_LIMIT_BYPASS_TOKEN
+  || (isCI ? 'fog-compute-e2e-rate-limit-bypass' : '');
+const repoRoot = __dirname;
 
 /**
  * Playwright configuration for E2E testing
@@ -126,10 +129,8 @@ export default defineConfig({
   // Playwright automatically manages server lifecycle (start before tests, stop after)
   webServer: [
     {
-      // FIXED: Use cwd instead of shell "cd" command to avoid platform-specific issues
-      // Windows cmd.exe and Unix bash handle "cd && command" differently
-      command: 'python -m uvicorn server.main:app --port 8000',
-      cwd: 'backend',  // Playwright's native cwd support (cross-platform)
+      command: 'python -m uvicorn backend.server.main:app --port 8000',
+      cwd: repoRoot,
       url: 'http://localhost:8000/health',
       reuseExistingServer: false,  // Always start fresh servers for each test run to avoid port conflicts
       timeout: 120 * 1000,  // Increased from 60s for database initialization
@@ -146,6 +147,7 @@ export default defineConfig({
         SERVICE_INIT_TIMEOUT: serviceInitTimeout,
         P2P_TIMEOUT: p2pTimeout,
         BETANET_URL: betanetUrl,
+        E2E_RATE_LIMIT_BYPASS_TOKEN: e2eRateLimitBypassToken,
         // Additional backend configuration
         ENVIRONMENT: process.env.CI ? 'test' : 'development',
         LOG_LEVEL: process.env.CI ? 'WARNING' : 'INFO',
