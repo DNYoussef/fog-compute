@@ -3,6 +3,7 @@
  * Encapsulates login page interactions
  */
 import { Page, Locator, expect } from '@playwright/test';
+import { gotoWithRetries } from '../helpers/navigation';
 
 export class LoginPage {
   readonly page: Page;
@@ -23,7 +24,7 @@ export class LoginPage {
     this.usernameInput = page.locator('[data-testid="username-input"], input[name="username"], input[type="text"]').first();
     this.passwordInput = page.locator('[data-testid="password-input"], input[name="password"], input[type="password"]').first();
     this.loginButton = page.locator('[data-testid="login-button"], button[type="submit"]').first();
-    this.errorMessage = page.locator('[data-testid="error-message"], .error-message, [role="alert"]');
+    this.errorMessage = page.locator('[data-testid="error-message"], .error-message').first();
     this.rememberMeCheckbox = page.locator('[data-testid="remember-me"], input[type="checkbox"][name="remember"]');
     this.forgotPasswordLink = page.locator('[data-testid="forgot-password-link"], a:has-text("Forgot")');
     this.registerLink = page.locator('[data-testid="register-link"], a:has-text("Register"), a:has-text("Sign up")');
@@ -33,8 +34,9 @@ export class LoginPage {
    * Navigate to login page
    */
   async goto() {
-    await this.page.goto('/login');
-    await this.page.waitForLoadState('networkidle');
+    await gotoWithRetries(this.page, '/login', { waitUntil: 'domcontentloaded' });
+    await this.loginForm.waitFor({ state: 'visible', timeout: 10000 });
+    await this.page.waitForLoadState('networkidle').catch(() => {});
   }
 
   /**
@@ -104,7 +106,8 @@ export class LoginPage {
    * Check if error message is visible
    */
   async hasError(): Promise<boolean> {
-    return await this.errorMessage.isVisible();
+    await this.errorMessage.waitFor({ state: 'visible', timeout: 5000 });
+    return true;
   }
 
   /**

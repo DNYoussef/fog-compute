@@ -30,6 +30,7 @@ python-multipart==0.0.6
 # Utilities
 python-dotenv==1.0.0
 python-jose[cryptography]==3.3.0
+PyJWT==2.8.0
 passlib[bcrypt]==1.7.4
 bcrypt>=3.1.7,<4.0.0  # Pin to 3.x - passlib 1.7.4 incompatible with bcrypt 4.x (__about__ removed)
 
