@@ -183,10 +183,10 @@ export default function QualityPage() {
   const overallPassRate = (testStats.overall_passing / testStats.overall_total) * 100;
 
   return (
-    <div className="space-y-6" data-testid="quality-dashboard">
+    <div className="min-w-0 space-y-6 overflow-x-hidden" data-testid="quality-dashboard">
       {/* Header */}
-      <div className="glass rounded-xl p-6">
-        <div className="flex items-center justify-between">
+      <div className="glass rounded-xl p-6 min-w-0">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-fog-cyan to-fog-purple bg-clip-text text-transparent">
               Quality Dashboard
@@ -203,7 +203,7 @@ export default function QualityPage() {
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid min-w-0 grid-cols-2 gap-4 md:grid-cols-4">
         <div className="glass rounded-lg p-4 border-l-4 border-green-400">
           <div className="text-2xl font-bold text-green-400">
             {testStats.overall_passing}/{testStats.overall_total}

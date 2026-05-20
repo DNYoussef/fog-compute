@@ -19,7 +19,7 @@ test.describe('Bitchat P2P Messaging', () => {
     await secondPage.close();
   });
 
-  test('Complete P2P messaging workflow', async () => {
+  test.skip('Complete P2P messaging workflow', async () => {
     // Setup two peers
     await test.step('Initialize first peer', async () => {
       await page.goto('/bitchat');

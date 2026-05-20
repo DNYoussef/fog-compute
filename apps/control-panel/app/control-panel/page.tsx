@@ -22,15 +22,15 @@ import {
 } from "lucide-react";
 
 interface ServiceStatus {
-  dao: string;
-  scheduler: string;
-  edge: string;
-  harvest: string;
-  fog_coordinator: string;
-  onion: string;
-  vpn_coordinator: string;
-  p2p: string;
-  betanet: string;
+  dao: ServiceHealth;
+  scheduler: ServiceHealth;
+  edge: ServiceHealth;
+  harvest: ServiceHealth;
+  fog_coordinator: ServiceHealth;
+  onion: ServiceHealth;
+  vpn_coordinator: ServiceHealth;
+  p2p: ServiceHealth;
+  betanet: ServiceHealth;
 }
 
 interface SystemHealth {
@@ -38,6 +38,14 @@ interface SystemHealth {
   services: ServiceStatus;
   version: string;
 }
+
+type ServiceHealth = string | {
+  status?: string;
+  restart_count?: number;
+  last_restart?: string | null;
+  last_error?: string | null;
+  is_critical?: boolean;
+};
 
 interface ServiceMetadata {
   icon: typeof Server;
@@ -104,18 +112,31 @@ const serviceMetadata: Record<keyof ServiceStatus, ServiceMetadata> = {
 };
 
 const statusColors = {
-  healthy: "bg-green-500",
-  unknown: "bg-yellow-500",
-  unavailable: "bg-red-500",
-  unhealthy: "bg-orange-500",
+  healthy: "bg-green-800",
+  running: "bg-green-800",
+  failed: "bg-red-800",
+  unknown: "bg-amber-800",
+  stopped: "bg-amber-800",
+  unavailable: "bg-red-800",
+  unhealthy: "bg-orange-800",
 };
 
 const statusIcons = {
   healthy: CheckCircle2,
+  running: CheckCircle2,
+  failed: XCircle,
   unknown: AlertCircle,
   unavailable: XCircle,
   unhealthy: AlertCircle,
 };
+
+function normalizeStatus(value: ServiceHealth | undefined) {
+  if (typeof value === "string") {
+    return value;
+  }
+
+  return value?.status || "unknown";
+}
 
 export default function ControlPanelPage() {
   const [health, setHealth] = useState<SystemHealth | null>(null);
@@ -230,10 +251,10 @@ export default function ControlPanelPage() {
           {/* System Status Overview */}
           <Card data-testid="system-status-card">
             <CardHeader>
-              <CardTitle className="flex items-center">
+              <h2 className="flex items-center text-lg font-semibold leading-none tracking-normal">
                 <Activity className="mr-2 h-5 w-5" />
                 System Status
-              </CardTitle>
+              </h2>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -248,7 +269,10 @@ export default function ControlPanelPage() {
                   <Server className="h-8 w-8 text-blue-500" />
                   <div>
                     <div className="text-2xl font-bold">
-                      {Object.values(health.services).filter((s) => s === "healthy" || s === "unknown").length}/
+                      {Object.values(health.services).filter((s) => {
+                        const status = normalizeStatus(s);
+                        return status === "healthy" || status === "running" || status === "unknown";
+                      }).length}/
                       {Object.keys(health.services).length}
                     </div>
                     <div className="text-sm text-muted-foreground">Services Operational</div>
@@ -279,7 +303,7 @@ export default function ControlPanelPage() {
                 {groupedServices[category].map((serviceKey) => {
                   const service = serviceKey as keyof ServiceStatus;
                   const metadata = serviceMetadata[service];
-                  const status = health.services[service];
+                  const status = normalizeStatus(health.services[service]);
                   const StatusIcon = getStatusIcon(status);
                   const ServiceIcon = metadata.icon;
 
@@ -301,7 +325,7 @@ export default function ControlPanelPage() {
                           </div>
                           <StatusIcon
                             className={`h-5 w-5 ${
-                              status === "healthy" || status === "unknown"
+                              status === "healthy" || status === "running" || status === "unknown"
                                 ? "text-green-500"
                                 : status === "unavailable"
                                   ? "text-red-500"

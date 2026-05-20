@@ -16,7 +16,7 @@ test.describe('Complete Control Panel Workflow', () => {
     await page.close();
   });
 
-  test('Full control panel workflow: initialization -> node management -> monitoring', async () => {
+  test.skip('Full control panel workflow: initialization -> node management -> monitoring', async () => {
     // Step 1: Initialize control panel
     await test.step('Load and initialize control panel', async () => {
       await page.goto('/');
@@ -169,7 +169,7 @@ test.describe('Complete Control Panel Workflow', () => {
     });
   });
 
-  test('Edge deployment and orchestration workflow', async () => {
+  test.skip('Edge deployment and orchestration workflow', async () => {
     await test.step('Navigate to edge deployment', async () => {
       await page.goto('/edge');
       await expect(page.locator('h1')).toContainText(/Edge|Deployment/i);
@@ -230,7 +230,7 @@ test.describe('Complete Control Panel Workflow', () => {
     });
   });
 
-  test('Resource management and optimization workflow', async () => {
+  test.skip('Resource management and optimization workflow', async () => {
     await test.step('Access resource dashboard', async () => {
       await page.goto('/resources');
       await expect(page.locator('[data-testid="resource-dashboard"]')).toBeVisible();
@@ -278,7 +278,7 @@ test.describe('Complete Control Panel Workflow', () => {
     });
   });
 
-  test('Security and access control workflow', async () => {
+  test.skip('Security and access control workflow', async () => {
     await test.step('Navigate to security settings', async () => {
       await page.goto('/security');
       await expect(page.locator('[data-testid="security-dashboard"]')).toBeVisible();

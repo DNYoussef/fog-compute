@@ -47,6 +47,7 @@ export default function TasksPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>("all");
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [showScheduler, setShowScheduler] = useState(false);
 
   const fetchTasks = async (status?: string) => {
     try {
@@ -153,17 +154,40 @@ export default function TasksPage() {
               Monitor and manage scheduled compute tasks
             </p>
           </div>
-          <Button
-            onClick={() => fetchTasks(activeTab === "all" ? undefined : activeTab)}
-            disabled={loading}
-            className="bg-fog-cyan hover:bg-fog-cyan/80"
-            data-testid="refresh-button"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              onClick={() => setShowScheduler((open) => !open)}
+              className="bg-fog-cyan hover:bg-fog-cyan/80"
+              data-testid="schedule-task-button"
+            >
+              Schedule Task
+            </Button>
+            <Button
+              onClick={() => fetchTasks(activeTab === "all" ? undefined : activeTab)}
+              disabled={loading}
+              className="bg-white/10 hover:bg-white/20"
+              data-testid="refresh-button"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
       </div>
+
+      {showScheduler && (
+        <div className="glass rounded-xl p-6" data-testid="schedule-task-form">
+          <label htmlFor="schedule-date" className="mb-2 block text-sm font-medium text-gray-300">
+            Schedule Date
+          </label>
+          <input
+            id="schedule-date"
+            data-testid="schedule-date-input"
+            type="date"
+            className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-fog-cyan md:max-w-xs"
+          />
+        </div>
+      )}
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
