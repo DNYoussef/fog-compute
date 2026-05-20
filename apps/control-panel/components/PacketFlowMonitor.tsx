@@ -45,13 +45,18 @@ export function PacketFlowMonitor({ mixnodes }: { mixnodes: MixnodeInfo[] }) {
   }, [mixnodes]);
 
   const totalPackets = flows.reduce((acc, flow) => acc + flow.packets, 0);
-  const throughput = (totalPackets * 1500 * 8) / (1024 * 1024 * (flows.length * 2)); // Rough estimate in Mbps
+  const sampleWindowSeconds = Math.max(flows.length * 2, 1);
+  const throughput = (totalPackets * 1500 * 8) / (1024 * 1024 * sampleWindowSeconds); // Rough estimate in Mbps
+  const packetsPerSecond = totalPackets / sampleWindowSeconds;
 
   return (
     <div className="space-y-4" data-testid="packet-flow-monitor">
       <div className="flex justify-between items-center">
         <div className="text-sm text-gray-400">
           Throughput: <span className="font-semibold text-white" data-testid="throughput-value">{throughput.toFixed(2)} Mbps</span>
+        </div>
+        <div className="text-sm text-gray-400">
+          Packets: <span className="font-semibold text-white" data-testid="packet-rate-value">{packetsPerSecond.toFixed(1)} pps</span>
         </div>
       </div>
       <div className="h-[260px] overflow-y-auto space-y-2">

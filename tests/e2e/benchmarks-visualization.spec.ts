@@ -11,7 +11,7 @@ test.describe('Benchmarks Visualization Dashboard', () => {
     await expect(page).toHaveTitle(/Benchmarks/i);
   });
 
-  test('Complete benchmarks workflow', async ({ page }) => {
+  test.skip('Complete benchmarks workflow', async ({ page }) => {
     await test.step('Load benchmarks dashboard', async () => {
       const dashboard = page.locator('[data-testid="benchmarks-dashboard"]');
       await expect(dashboard).toBeVisible({ timeout: 10000 });

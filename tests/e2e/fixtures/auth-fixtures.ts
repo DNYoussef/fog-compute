@@ -3,6 +3,11 @@
  * Shared fixtures for E2E authentication tests
  */
 import { test as base, expect, Page } from '@playwright/test';
+import { gotoWithRetries } from '../helpers/navigation';
+
+const isCI = process.env.CI === 'true' || process.env.CI === '1';
+const e2eRateLimitBypassToken = process.env.E2E_RATE_LIMIT_BYPASS_TOKEN
+  || (isCI ? 'fog-compute-e2e-rate-limit-bypass' : '');
 
 /**
  * Test user data generator
@@ -23,12 +28,55 @@ export function generateTestUser() {
 export class AuthHelper {
   constructor(private page: Page, private baseURL: string) {}
 
+  private getSetupHeaders(): Record<string, string> | undefined {
+    if (!e2eRateLimitBypassToken) {
+      return undefined;
+    }
+
+    return {
+      'X-E2E-Rate-Limit-Bypass': e2eRateLimitBypassToken,
+    };
+  }
+
+  private async ensureAppOrigin() {
+    const targetOrigin = new URL(this.baseURL).origin;
+
+    try {
+      if (new URL(this.page.url()).origin === targetOrigin) {
+        return;
+      }
+    } catch {
+      // about:blank and other opaque origins cannot access localStorage.
+    }
+
+    await gotoWithRetries(this.page, this.baseURL, { waitUntil: 'domcontentloaded' });
+  }
+
+  private async clearStorageIfOnAppOrigin() {
+    const targetOrigin = new URL(this.baseURL).origin;
+
+    try {
+      if (new URL(this.page.url()).origin !== targetOrigin) {
+        return;
+      }
+    } catch {
+      return;
+    }
+
+    await this.page.evaluate(() => {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('token_type');
+      sessionStorage.clear();
+    });
+  }
+
   /**
    * Register a new user via API
    */
   async registerUser(userData: { username: string; email: string; password: string }) {
     const response = await this.page.request.post(`${this.baseURL.replace(':3000', ':8000')}/api/auth/register`, {
       data: userData,
+      headers: this.getSetupHeaders(),
     });
     return response;
   }
@@ -39,6 +87,7 @@ export class AuthHelper {
   async loginUser(username: string, password: string) {
     const response = await this.page.request.post(`${this.baseURL.replace(':3000', ':8000')}/api/auth/login`, {
       data: { username, password },
+      headers: this.getSetupHeaders(),
     });
     if (response.ok()) {
       const data = await response.json();
@@ -51,6 +100,7 @@ export class AuthHelper {
    * Set authentication token in browser storage
    */
   async setAuthToken(token: string) {
+    await this.ensureAppOrigin();
     await this.page.evaluate((authToken) => {
       localStorage.setItem('access_token', authToken);
       localStorage.setItem('token_type', 'bearer');
@@ -61,17 +111,15 @@ export class AuthHelper {
    * Clear authentication from browser storage
    */
   async clearAuth() {
-    await this.page.evaluate(() => {
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('token_type');
-      sessionStorage.clear();
-    });
+    await this.page.context().clearCookies();
+    await this.clearStorageIfOnAppOrigin();
   }
 
   /**
    * Get current auth token from browser storage
    */
   async getAuthToken(): Promise<string | null> {
+    await this.ensureAppOrigin();
     return await this.page.evaluate(() => {
       return localStorage.getItem('access_token');
     });
@@ -120,6 +168,12 @@ export const test = base.extend<{
    * Auth helper fixture - provides authentication utilities
    */
   authHelper: async ({ page, baseURL }, use) => {
+    if (e2eRateLimitBypassToken) {
+      await page.setExtraHTTPHeaders({
+        'X-E2E-Rate-Limit-Bypass': e2eRateLimitBypassToken,
+      });
+    }
+
     const helper = new AuthHelper(page, baseURL || 'http://localhost:3000');
     await use(helper);
   },
