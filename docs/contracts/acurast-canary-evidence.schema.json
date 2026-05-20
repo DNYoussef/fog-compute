@@ -1,0 +1,158 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "acurast-canary-evidence.schema.json",
+  "title": "Acurast Cargo Canary Evidence",
+  "description": "Sanitized evidence envelope for a live Acurast canary run",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "captured_at",
+    "network",
+    "prototype_git_commit",
+    "operator_boundary",
+    "acurast_cli",
+    "deployment",
+    "result",
+    "receipt",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "fog.acurast-cargo.canary-evidence.v1"
+    },
+    "captured_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "network": {
+      "type": "string",
+      "const": "canary"
+    },
+    "prototype_git_commit": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "operator_boundary": {
+      "type": "object",
+      "required": ["secrets_in_repo", "raw_artifacts_in_repo", "evidence_sanitized"],
+      "properties": {
+        "secrets_in_repo": { "type": "boolean", "const": false },
+        "raw_artifacts_in_repo": { "type": "boolean", "const": false },
+        "evidence_sanitized": { "type": "boolean", "const": true }
+      },
+      "additionalProperties": false
+    },
+    "acurast_cli": {
+      "type": "object",
+      "required": ["version"],
+      "properties": {
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][A-Za-z0-9_.-]+)?$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "deployment": {
+      "type": "object",
+      "required": ["project_name", "deployment_id", "status", "processor_matching"],
+      "properties": {
+        "project_name": {
+          "type": "string",
+          "const": "fog-cargo-minimal"
+        },
+        "deployment_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 255,
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["submitted", "matched", "running", "completed", "failed", "unknown"]
+        },
+        "processor_matching": {
+          "type": "string",
+          "enum": ["explicit", "open"]
+        },
+        "processor_address": {
+          "type": "string",
+          "minLength": 16,
+          "maxLength": 255,
+          "pattern": "^[A-Za-z0-9:_-]+$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "required": ["schema_version", "task_id", "provider", "success", "artifact_sha256", "trust"],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "const": "fog.acurast-cargo.result.v1"
+        },
+        "task_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "provider": {
+          "type": "string",
+          "const": "acurast_cargo"
+        },
+        "success": { "type": "boolean" },
+        "artifact_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "trust": {
+          "type": "object",
+          "required": ["trusted", "receipt_state", "reason"],
+          "properties": {
+            "trusted": { "type": "boolean", "const": false },
+            "receipt_state": {
+              "type": "string",
+              "enum": ["missing", "malformed", "present_unverified", "expired"]
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "receipt": {
+      "type": "object",
+      "required": ["captured", "state"],
+      "properties": {
+        "captured": { "type": "boolean" },
+        "state": {
+          "type": "string",
+          "enum": ["missing", "malformed", "present_unverified", "expired"]
+        },
+        "metadata_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "notes": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1000
+      }
+    }
+  },
+  "additionalProperties": false
+}

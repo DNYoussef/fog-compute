@@ -34,6 +34,9 @@ tests/output/
 **/playwright-artifacts/
 test_data/files/
 prototypes/acurast-cargo/app/fog_task_result*.json
+prototypes/acurast-cargo/canary-evidence/raw/
+prototypes/acurast-cargo/canary-evidence/*.raw.json
+prototypes/acurast-cargo/canary-evidence/*.raw.txt
 
 # Acurast CLI local logs/deploy state. Canary wallet material must stay outside
 # the repository.
