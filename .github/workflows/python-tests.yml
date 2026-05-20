@@ -25,13 +25,16 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pip install pytest pytest-asyncio psutil pydantic jsonschema
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r backend/requirements.txt
 
     - name: Run contract tests
       env:
         APP_ENV: development
         ALLOW_MOCKS: "true"
         SECRET_KEY: "ci-test-secret-key-for-contract-tests-32chars!"
+        DATABASE_URL: "postgresql+asyncpg://postgres:postgres@localhost:5432/fog_compute_test"
       run: |
         python -m pytest tests/contracts/ -v --tb=short -p no:cacheprovider
 

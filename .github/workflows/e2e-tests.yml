@@ -95,6 +95,15 @@ jobs:
         shell: pwsh
         run: echo "DATABASE_URL=${{ steps.postgres.outputs.connection-uri }}" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
+      - name: Verify backend import for Playwright webServer
+        run: python -c "import backend.server.main; print('backend app import ok')"
+        env:
+          CI: "true"
+          SKIP_EXTERNAL_SERVICES: "true"
+          SERVICE_INIT_TIMEOUT: "30"
+          P2P_TIMEOUT: "5"
+          BETANET_URL: ""
+
       # Playwright's webServer configuration will handle server startup automatically
       # No manual server startup needed - servers will start before tests and stop after
 
@@ -176,6 +185,15 @@ jobs:
       - name: Set DATABASE_URL environment variable
         run: echo "DATABASE_URL=${{ steps.postgres.outputs.connection-uri }}" >> $GITHUB_ENV
 
+      - name: Verify backend import for Playwright webServer
+        run: python -c "import backend.server.main; print('backend app import ok')"
+        env:
+          CI: "true"
+          SKIP_EXTERNAL_SERVICES: "true"
+          SERVICE_INIT_TIMEOUT: "30"
+          P2P_TIMEOUT: "5"
+          BETANET_URL: ""
+
       # Playwright's webServer configuration will handle server startup automatically
       # No manual server startup needed - servers will start before tests and stop after
 
@@ -248,6 +266,15 @@ jobs:
       - name: Set DATABASE_URL environment variable
         run: echo "DATABASE_URL=${{ steps.postgres.outputs.connection-uri }}" >> $GITHUB_ENV
 
+      - name: Verify backend import for Playwright webServer
+        run: python -c "import backend.server.main; print('backend app import ok')"
+        env:
+          CI: "true"
+          SKIP_EXTERNAL_SERVICES: "true"
+          SERVICE_INIT_TIMEOUT: "30"
+          P2P_TIMEOUT: "5"
+          BETANET_URL: ""
+
       # Playwright's webServer configuration will handle server startup automatically
       # No manual server startup needed - servers will start before tests and stop after
 
@@ -291,20 +318,47 @@ jobs:
         with:
           path: all-blob-reports
           pattern: blob-report-*
-          merge-multiple: true
         continue-on-error: true
 
       - name: Merge reports
         run: |
-          if [ -d "all-blob-reports" ] && [ "$(ls -A all-blob-reports 2>/dev/null)" ]; then
-            echo "Merging blob reports into HTML report..."
-            # Use merge config to handle cross-OS path differences (Windows vs Linux)
-            npx playwright merge-reports -c playwright.merge.config.ts --reporter html ./all-blob-reports
+          mkdir -p normalized-blob-reports playwright-report
+
+          if [ -d "all-blob-reports" ]; then
+            mapfile -d '' reports < <(find all-blob-reports -type f -name '*.zip' -print0 2>/dev/null || true)
           else
-            echo "No blob reports found, creating placeholder report..."
-            mkdir -p playwright-report
-            echo "<html><head><title>No Test Reports</title></head><body><h1>No test reports available</h1><p>All test jobs may have failed or no artifacts were uploaded.</p></body></html>" > playwright-report/index.html
+            reports=()
           fi
+
+          valid_reports=0
+          for report in "${reports[@]}"; do
+            if unzip -t "$report" >/dev/null 2>&1; then
+              valid_reports=$((valid_reports + 1))
+              cp "$report" "normalized-blob-reports/report-${valid_reports}.zip"
+            else
+              echo "::warning file=${report}::Skipping invalid Playwright blob report"
+            fi
+          done
+
+          if [ "$valid_reports" -gt 0 ]; then
+            echo "Merging ${valid_reports} Playwright blob reports into HTML report..."
+            if npx playwright merge-reports -c playwright.merge.config.ts --reporter html ./normalized-blob-reports; then
+              exit 0
+            fi
+            echo "::warning::Playwright blob report merge failed; creating placeholder report"
+          else
+            echo "::warning::No valid Playwright blob reports found; creating placeholder report"
+          fi
+
+          cat > playwright-report/index.html <<'HTML'
+          <html>
+            <head><title>Playwright Report Unavailable</title></head>
+            <body>
+              <h1>Playwright report unavailable</h1>
+              <p>No valid blob reports were available to merge. Check the failed E2E jobs for direct failure logs.</p>
+            </body>
+          </html>
+          HTML
 
       - name: Upload combined HTML report
         uses: actions/upload-artifact@v4
