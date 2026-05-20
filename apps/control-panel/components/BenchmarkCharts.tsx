@@ -19,7 +19,11 @@ interface BenchmarkChartsProps {
 export function BenchmarkCharts({ data }: BenchmarkChartsProps) {
   // Show skeleton while waiting for initial data
   if (data.length === 0) {
-    return <MultiChartSkeleton count={3} />;
+    return (
+      <div className="space-y-6" data-testid="benchmark-charts">
+        <MultiChartSkeleton count={3} />
+      </div>
+    );
   }
 
   const chartData = data.map(d => ({

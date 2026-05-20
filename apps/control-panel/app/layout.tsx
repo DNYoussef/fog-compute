@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import { Navigation } from '@/components/Navigation';
 import { Toaster } from 'react-hot-toast';
-import { BottomNavigation } from '@/components/mobile/BottomNavigation';
+import { ResponsiveRuntime } from '@/components/ResponsiveRuntime';
+import { AppShell } from '@/components/AppShell';
 
 export const metadata: Metadata = {
   title: 'Fog Compute Control Panel',
@@ -15,8 +15,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className="antialiased">
+    <html lang="en" dir="ltr">
+      <body className="antialiased mobile tablet desktop">
+        <ResponsiveRuntime />
         <Toaster
           position="top-right"
           toastOptions={{
@@ -39,15 +40,7 @@ export default function RootLayout({
             },
           }}
         />
-        <div className="min-h-screen flex flex-col pb-16 md:pb-0" data-testid="main-layout">
-          <Navigation />
-          <main className="flex-1 container mx-auto px-4 py-6" data-testid="main-content">
-            <div data-testid="main-grid">
-              {children}
-            </div>
-          </main>
-        </div>
-        <BottomNavigation />
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );
