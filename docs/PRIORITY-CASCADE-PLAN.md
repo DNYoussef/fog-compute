@@ -69,6 +69,20 @@ WAVE 7: Technical Debt Cleanup
     +---> DEBT-01/05: Convert TODOs to issues
     +---> DEBT-02/03/04: Dead code removal
     +---> UI-05/07: Debug logs, type safety
+    |
+    v
+WAVE 8: Acurast Competitive Validation and Outreach
+    |
+    +---> ACU-01/02: Current-source comparison and regression baseline
+    +---> ACU-03: Feasibility spike scope only after comparison
+    +---> ACU-04/05: Outreach brief and GitHub follow-up issue
+    |
+    v
+WAVE 9: Dirty Worktree Release Hygiene
+    |
+    +---> REL-01: Classify dirty code, docs, generated artifacts
+    +---> REL-02: Run full and targeted regression gates
+    +---> REL-03: Split publishable scopes before prototype work
 ```
 
 ---
@@ -323,6 +337,63 @@ WAVE 7: Technical Debt Cleanup
 
 ---
 
+## WAVE 8: ACURAST COMPETITIVE VALIDATION AND OUTREACH
+**Time Estimate**: 12-16 hours
+**Dependencies**: Wave 6 complete; can overlap Wave 7 if it remains documentation/research only
+
+### Tasks (Sequential)
+
+| Order | ID | Task | Effort | Output |
+|-------|-----|------|--------|--------|
+| 8.1 | ACU-01 | Compare Acurast against Fog Compute across smartphone onboarding, attestation, Cargo/Linux containers, routing privacy, token economics, developer UX, and live-network maturity | 4h | Update `docs/FOG-COMPUTE-COMPETITIVE-ANALYSIS.md` or create a cited comparison brief |
+| 8.2 | ACU-02 | Define a baseline test envelope before any prototype: backend unit tests, frontend tests, and Playwright smoke/e2e | 2h | Baseline commands and pass/fail snapshot |
+| 8.3 | ACU-03 | Scope one small feasibility spike only if the comparison justifies it: Fog workload on Acurast Cargo, or Acurast-style Android attestation model for Fog idle compute | 4h | Spike plan with rollback and regression criteria |
+| 8.4 | ACU-04 | Prepare outreach email linking Acurast creators/team routes with the Fog Compute GitHub repo | 2h | `docs/ACURAST-FOG-COMPUTE-OUTREACH.md` |
+| 8.5 | ACU-05 | Create GitHub issue/milestone for any accepted follow-up | 1h | https://github.com/DNYoussef/fog-compute/issues/24 |
+
+### Success Criteria
+- [ ] Acurast is normalized by verified project name, not transcript spelling variants (`Acurass`, `Acuras`)
+- [ ] Comparison uses current cited sources, not the YouTube transcript alone
+- [ ] Fog Compute GitHub remote is linked as `https://github.com/DNYoussef/fog-compute`
+- [ ] Outreach email names public Acurast contact routes and avoids unsupported claims about partnership, tokens, or endorsement
+- [ ] If any code changes are made after the comparison, run and record: `pytest backend/tests`, frontend tests from `apps/control-panel`, and `npx playwright test tests/e2e/smoke.spec.ts`
+- [ ] For documentation-only work, run `git diff --check` and confirm no production code changed
+
+### Why After Testing?
+- Competitive claims need a stable baseline, otherwise the comparison becomes marketing copy instead of engineering evidence
+- Acurast's strongest differentiators are live smartphone onboarding, TEE-backed verification, and Cargo containers; Fog Compute must compare against those with tests and repo evidence
+- Outreach should happen after the repo presents a clean, defensible technical story
+
+---
+
+## WAVE 9: DIRTY WORKTREE RELEASE HYGIENE
+**Time Estimate**: 8-12 hours
+**Dependencies**: Wave 8 complete; required before Acurast Cargo prototype or deployment
+
+### Tasks (Sequential)
+
+| Order | ID | Task | Effort | Output |
+|-------|-----|------|--------|--------|
+| 9.1 | REL-01 | Classify dirty worktree into docs, backend control plane, frontend control panel, P2P/security, and generated artifacts | 2h | `docs/WAVE9-DIRTY-WORKTREE-RELEASE-HYGIENE.md`; https://github.com/DNYoussef/fog-compute/issues/25 |
+| 9.2 | REL-02 | Fix safe hygiene failures only, without reverting unrelated dirty changes | 1h | Full `git diff --check` passes |
+| 9.3 | REL-03 | Run targeted regression gates for dirty backend, frontend, and security surfaces | 3-4h | Recorded pass/fail matrix |
+| 9.4 | REL-04 | Decide PR boundaries and generated-artifact handling before publish | 2-4h | Release split plan and blockers |
+
+### Success Criteria
+- [ ] Full `git diff --check` passes, ignoring CRLF conversion warnings only
+- [ ] Production mock and placeholder gates pass
+- [ ] Dirty backend/control-plane tests pass
+- [ ] Frontend lint/build/smoke gates pass
+- [ ] Generated artifacts are explicitly kept, ignored, or removed by owner decision
+- [ ] Acurast prototype issue #24 remains blocked until release scope is clean
+
+### Why Before Prototype?
+- The current branch mixes backend control-plane work, frontend route work, docs, lockfiles, database state, profiling output, and generated test data.
+- Any new prototype would make ownership and regression failures harder to isolate.
+- Publishing should happen from small, reviewable scopes rather than one broad dirty branch.
+
+---
+
 ## TIMELINE SUMMARY
 
 | Wave | Name | Duration | Cumulative |
@@ -335,8 +406,10 @@ WAVE 7: Technical Debt Cleanup
 | 5 | Stabilization | 32-40 hours | Week 5-6 |
 | 6 | Testing | 40-48 hours | Week 7-8 |
 | 7 | Technical Debt | 24-32 hours | Week 9-10 |
+| 8 | Acurast Validation & Outreach | 12-16 hours | Week 10 |
+| 9 | Dirty Worktree Release Hygiene | 8-12 hours | Week 10-11 |
 
-**Total Estimated Effort**: 170-224 hours (4-6 weeks with single developer)
+**Total Estimated Effort**: 190-252 hours (4-6 weeks with single developer)
 **Parallel Execution**: 3-4 weeks with 2-3 developers
 
 ---
