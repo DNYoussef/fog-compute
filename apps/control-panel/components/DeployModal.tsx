@@ -8,7 +8,7 @@ interface DeployModalProps {
   onDeploy: (config: NodeConfig) => void;
 }
 
-interface NodeConfig {
+export interface NodeConfig {
   name: string;
   ip: string;
   type: 'compute' | 'storage' | 'gateway';
@@ -86,6 +86,7 @@ export function DeployModal({ isOpen, onClose, onDeploy }: DeployModalProps) {
               <input
                 id="node-name"
                 type="text"
+                autoComplete="name"
                 data-testid="node-name-input"
                 value={config.name}
                 onChange={(e) => setConfig({ ...config, name: e.target.value })}
@@ -102,6 +103,7 @@ export function DeployModal({ isOpen, onClose, onDeploy }: DeployModalProps) {
               <input
                 id="node-ip"
                 type="text"
+                autoComplete="off"
                 data-testid="node-ip-input"
                 value={config.ip}
                 onChange={(e) => setConfig({ ...config, ip: e.target.value })}

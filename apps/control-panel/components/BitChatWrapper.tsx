@@ -186,9 +186,15 @@ export default function BitChatWrapper({ userId }: { userId: string }) {
   }, [discoverPeers]);
 
   return (
-    <div className="h-full flex" data-testid="bitchat-wrapper">
+    <div className="h-full" data-testid="bitchat-wrapper">
+      <div className="h-full flex" data-testid="bitchat-container">
       {/* Peer List Sidebar */}
       <div className="w-64 border-r border-white/10 p-4">
+        <div className="mb-4 rounded-lg border border-white/10 bg-white/5 p-3" data-testid="peer-status">
+          <div className="text-xs font-semibold uppercase tracking-wide text-gray-400">Peer ID</div>
+          <div className="mt-1 break-all font-mono text-sm text-white">{userId}</div>
+        </div>
+
         {/* Error Banner */}
         {error && error.type === 'connection' && (
           <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
@@ -218,7 +224,7 @@ export default function BitChatWrapper({ userId }: { userId: string }) {
         )}
 
         <div className="space-y-2" data-testid="peer-list">
-          <h3 className="text-sm font-semibold text-gray-400 mb-2" data-testid="peer-status">Available Peers ({peers.length})</h3>
+          <h3 className="text-sm font-semibold text-gray-400 mb-2">Available Peers ({peers.length})</h3>
           {peers.map(peer => (
             <div
               key={peer.id}
@@ -344,6 +350,7 @@ export default function BitChatWrapper({ userId }: { userId: string }) {
             </div>
           </div>
         )}
+      </div>
       </div>
     </div>
   );

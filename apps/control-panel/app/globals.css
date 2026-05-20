@@ -6,6 +6,7 @@
   --foreground-rgb: 255, 255, 255;
   --background-start-rgb: 10, 14, 39;
   --background-end-rgb: 0, 0, 0;
+  --primary-color: #06b6d4;
 }
 
 body {
@@ -81,4 +82,10 @@ body {
 
 .animate-float {
   animation: float 3s ease-in-out infinite;
+}
+
+button,
+a[href] {
+  min-width: 44px;
+  min-height: 44px;
 }
