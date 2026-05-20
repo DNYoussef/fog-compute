@@ -2,11 +2,26 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from datetime import UTC, datetime
 from typing import Any
 
 ACURAST_CARGO_PROVIDER = "acurast_cargo"
 FOG_RESULT_TRUST_KEY = "_fog_result_trust"
 REQUIRED_RECEIPT_FIELDS = ("kind", "payload_hash", "signature")
+
+
+def _parse_receipt_timestamp(value: Any) -> datetime | None:
+    if not isinstance(value, str) or not value:
+        return None
+    if "T" not in value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        return None
+    return parsed.astimezone(UTC)
 
 
 def _receipt_state(receipt: Any) -> tuple[str, str]:
@@ -22,6 +37,15 @@ def _receipt_state(receipt: Any) -> tuple[str, str]:
     ]
     if missing:
         return "malformed", f"Acurast Cargo receipt missing fields: {', '.join(missing)}"
+
+    expires_at = receipt.get("expires_at")
+    if expires_at is not None:
+        parsed_expires_at = _parse_receipt_timestamp(expires_at)
+        if parsed_expires_at is None:
+            return "malformed", "Acurast Cargo receipt expires_at must be an RFC3339 timestamp"
+        if parsed_expires_at <= datetime.now(UTC):
+            return "expired", f"Acurast Cargo receipt expired at {parsed_expires_at.isoformat()}"
+
     return "present_unverified", "Acurast Cargo receipt is present but not cryptographically verified"
 
 
