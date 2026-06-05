@@ -7,6 +7,10 @@ from fastapi.security import APIKeyHeader
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, Dict, Any
 import logging
+import os
+import sqlite3
+import tempfile
+import time
 
 from ..auth.api_key import APIKeyManager
 from ..database import get_db
@@ -16,6 +20,11 @@ logger = logging.getLogger(__name__)
 
 # Header scheme for API key
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+
+def _invalid_key_log_context(api_key: str) -> str:
+    """Return non-reusable invalid-key metadata for audit logs."""
+    return f"length={len(api_key)}"
 
 
 async def get_api_key_user(
@@ -43,7 +52,7 @@ async def get_api_key_user(
     key_data = await APIKeyManager.validate_key(api_key, db)
 
     if not key_data:
-        logger.warning(f"Invalid API key attempt: {api_key[:15]}...")
+        logger.warning("Invalid API key attempt (%s)", _invalid_key_log_context(api_key))
         return None
 
     logger.info(f"API key authenticated: {key_data['key_name']} (user: {key_data['user'].username})")
@@ -78,7 +87,7 @@ async def require_api_key(
     key_data = await APIKeyManager.validate_key(api_key, db)
 
     if not key_data:
-        logger.warning(f"Invalid API key attempt: {api_key[:15]}...")
+        logger.warning("Invalid API key attempt (%s)", _invalid_key_log_context(api_key))
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid API key",
@@ -123,11 +132,34 @@ class APIKeyRateLimiter:
     Enforces per-key rate limits defined in the API key metadata
     """
 
-    def __init__(self):
-        # Structure: {key_id: [(timestamp, count)]}
-        from collections import defaultdict
-        self.requests: Dict[str, list] = defaultdict(list)
-        self.window_size = 3600  # 1 hour window (matching rate_limit field)
+    def __init__(self, storage_path: Optional[str] = None, window_size: int = 3600):
+        self.window_size = window_size  # 1 hour window (matching rate_limit field)
+        self.storage_path = storage_path or os.environ.get(
+            "FOG_API_KEY_RATE_LIMIT_DB",
+            os.path.join(tempfile.gettempdir(), "fog_compute_api_key_rate_limits.sqlite3"),
+        )
+
+    def _connect(self) -> sqlite3.Connection:
+        parent_dir = os.path.dirname(os.path.abspath(self.storage_path))
+        os.makedirs(parent_dir, exist_ok=True)
+        conn = sqlite3.connect(self.storage_path, timeout=5.0, isolation_level=None)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS api_key_rate_limit_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                key_id TEXT NOT NULL,
+                requested_at REAL NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_api_key_rate_limit_events_key_time
+            ON api_key_rate_limit_events (key_id, requested_at)
+            """
+        )
+        return conn
 
     def is_allowed(self, key_id: str, rate_limit: int) -> tuple[bool, int, int]:
         """
@@ -140,33 +172,52 @@ class APIKeyRateLimiter:
         Returns:
             Tuple of (is_allowed, current_count, time_until_reset)
         """
-        import time
+        try:
+            rate_limit = int(rate_limit)
+        except (TypeError, ValueError):
+            return False, 0, self.window_size
+
+        if rate_limit <= 0:
+            return False, 0, self.window_size
 
         current_time = time.time()
         window_start = current_time - self.window_size
 
-        # Get requests in current window
-        key_requests = self.requests[key_id]
-        requests_in_window = [
-            (ts, count) for ts, count in key_requests
-            if ts > window_start
-        ]
+        try:
+            with self._connect() as conn:
+                conn.execute("BEGIN IMMEDIATE")
+                conn.execute(
+                    "DELETE FROM api_key_rate_limit_events WHERE requested_at <= ?",
+                    (window_start,),
+                )
+                row = conn.execute(
+                    """
+                    SELECT COUNT(*), MIN(requested_at)
+                    FROM api_key_rate_limit_events
+                    WHERE key_id = ? AND requested_at > ?
+                    """,
+                    (key_id, window_start),
+                ).fetchone()
 
-        # Calculate total requests
-        total_requests = sum(count for _, count in requests_in_window)
+                current_count = int(row[0] or 0)
+                oldest_request = row[1]
+                time_until_reset = self.window_size
+                if oldest_request is not None:
+                    time_until_reset = max(1, int(self.window_size - (current_time - float(oldest_request))))
 
-        # Update request log
-        self.requests[key_id] = requests_in_window + [(current_time, 1)]
+                if current_count >= rate_limit:
+                    conn.commit()
+                    return False, current_count, time_until_reset
 
-        # Calculate time until reset
-        if requests_in_window:
-            oldest_request = min(ts for ts, _ in requests_in_window)
-            time_until_reset = int(self.window_size - (current_time - oldest_request))
-        else:
-            time_until_reset = int(self.window_size)
-
-        is_allowed = total_requests < rate_limit
-        return is_allowed, total_requests + 1, time_until_reset
+                conn.execute(
+                    "INSERT INTO api_key_rate_limit_events (key_id, requested_at) VALUES (?, ?)",
+                    (key_id, current_time),
+                )
+                conn.commit()
+                return True, current_count + 1, time_until_reset
+        except sqlite3.Error:
+            logger.exception("API key rate limiter storage unavailable; failing closed")
+            return False, rate_limit, self.window_size
 
 
 # Global rate limiter for API keys

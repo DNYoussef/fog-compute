@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import uvicorn
 import logging
+import os
 import sys
 from pathlib import Path
 from contextlib import asynccontextmanager
@@ -395,15 +396,35 @@ async def global_exception_handler(request, exc):
     )
 
 
+def _env_truthy(value: str | None) -> bool:
+    """Return True for explicit truthy environment flags."""
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def resolve_uvicorn_reload(env=os.environ) -> bool:
+    """Auto-reload is an explicit local-development opt-in, never a production default."""
+    if str(env.get("APP_ENV", "")).strip().lower() == "production":
+        return False
+    if env.get("RAILWAY_ENVIRONMENT") or env.get("RAILWAY_PROJECT_ID"):
+        return False
+    return _env_truthy(env.get("FOG_COMPUTE_API_RELOAD") or env.get("UVICORN_RELOAD"))
+
+
 def main():
     """Run the API server"""
-    logger.info(f"Starting server on {settings.API_HOST}:{settings.API_PORT}")
+    reload_enabled = resolve_uvicorn_reload()
+    logger.info(
+        "Starting server on %s:%s (reload=%s)",
+        settings.API_HOST,
+        settings.API_PORT,
+        reload_enabled,
+    )
 
     uvicorn.run(
         "backend.server.main:app",
         host=settings.API_HOST,
         port=settings.API_PORT,
-        reload=True,  # Enable auto-reload in development
+        reload=reload_enabled,
         log_level="info"
     )
 

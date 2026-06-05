@@ -1,8 +1,9 @@
 """
 Fog Onion Routing Coordinator
 
-Integrates onion routing privacy layer with fog computing task distribution.
-Provides privacy-aware task scheduling, hidden service hosting, and secure gossip protocols.
+Coordinates local onion-routing primitives with fog task distribution.
+Nym mixnet support is not implemented; the mixnet client is a fail-closed stub
+that reports unavailable instead of simulating anonymity.
 """
 
 import asyncio
@@ -95,6 +96,8 @@ class NymMixnetClient:
             "packets_received": 0,
             "stub_implementation": True,
             "mixnet_available": MIXNET_AVAILABLE,
+            "evidence_status": "not_implemented",
+            "production_ready": False,
         }
 
 
@@ -166,13 +169,16 @@ class PrivacyAwareService:
 
 class FogOnionCoordinator:
     """
-    Privacy-aware fog computing coordinator using onion routing.
+    Privacy-aware fog computing coordinator for local onion-routing experiments.
 
-    Integrates onion routing and mixnet technologies to provide:
-    - Anonymous task submission and execution
-    - Hidden service hosting for fog services
-    - Private inter-node communication
-    - Traffic analysis resistant gossip protocols
+    Implemented:
+    - Local onion-circuit integration when an OnionRouter is available
+    - Hidden-service creation through the local router
+    - Private inter-node communication over configured local circuits
+
+    Not implemented:
+    - Nym mixnet delivery
+    - Production anonymity or traffic-analysis resistance claims
     """
 
     def __init__(
@@ -481,7 +487,13 @@ class FogOnionCoordinator:
         if self.onion_router:
             onion_stats = self.onion_router.get_stats()
 
-        mixnet_stats = {}
+        mixnet_stats = {
+            "running": False,
+            "stub_implementation": True,
+            "mixnet_available": MIXNET_AVAILABLE,
+            "evidence_status": "not_implemented",
+            "production_ready": False,
+        }
         if self.mixnet_client:
             mixnet_stats = await self.mixnet_client.get_mixnet_stats()
 
@@ -494,6 +506,10 @@ class FogOnionCoordinator:
             "circuit_service": self.circuit_service.get_circuit_stats() if self.circuit_service else {},
             "onion_routing": onion_stats,
             "mixnet": mixnet_stats,
+            "claim_status": {
+                "nym_mixnet": "not_implemented",
+                "production_anonymity": "not_claimed",
+            },
         }
 
     # ============================================================================

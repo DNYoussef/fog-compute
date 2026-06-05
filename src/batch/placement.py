@@ -21,14 +21,10 @@ import time
 from typing import Any
 
 # Import reputation system for trust scoring
-# Note: reputation module not yet implemented - using optional import
 try:
     from ..reputation import BayesianReputationEngine
 except ImportError:
-    # Mock reputation engine for now
-    class BayesianReputationEngine:
-        def get_trust_score(self, node_id: str) -> float:
-            return 0.8  # Default trust score
+    from reputation import BayesianReputationEngine
 
 # Import marketplace for pricing constraints
 from .marketplace import BidType, PricingTier
@@ -914,7 +910,7 @@ class FogScheduler:
 
             # Update reputation system with latest trust score
             reputation_score = self.reputation_engine.get_reputation_score(node_id)
-            if reputation_score:
+            if reputation_score is not None:
                 node.trust_score = self.reputation_engine.get_trust_score(node_id)
 
     async def schedule_job(

@@ -4,11 +4,12 @@ Endpoints for P2P messaging network
 """
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
 import logging
 
 from ..database import get_db
+from ..middleware.api_key_auth import require_api_key
 from ..services.bitchat import bitchat_service
 from ..schemas.bitchat import (
     PeerRegisterRequest,
@@ -636,6 +637,7 @@ from fastapi import UploadFile, File as FastAPIFile, Form
 @router.post("/files/upload", response_model=FileTransferResponse, status_code=status.HTTP_201_CREATED)
 async def initialize_file_upload(
     request: FileUploadInitRequest,
+    _api_key: Dict[str, Any] = Depends(require_api_key),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -670,6 +672,7 @@ async def upload_file_chunk(
     file_id: str,
     chunk_index: int,
     chunk_data: UploadFile = FastAPIFile(...),
+    _api_key: Dict[str, Any] = Depends(require_api_key),
     db: AsyncSession = Depends(get_db)
 ):
     """
