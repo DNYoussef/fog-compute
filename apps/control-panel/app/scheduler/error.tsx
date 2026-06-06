@@ -34,7 +34,7 @@ export default function SchedulerError({ error, reset }: ErrorProps) {
               {error.message || 'Unknown error occurred'}
             </p>
           </div>
-        </div>
+        )}
 
         <div className="flex gap-3">
           <button

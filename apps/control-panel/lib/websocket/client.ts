@@ -9,6 +9,7 @@ export interface WebSocketMessage {
   type: string;
   data?: any;
   room?: string;
+  rooms?: string[];
   timestamp?: string;
 }
 

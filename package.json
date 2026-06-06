@@ -5,13 +5,15 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "echo \"Monorepo: Each app manages its own build (see apps/control-panel)\" || true",
+    "build": "npm --prefix apps/control-panel run build",
+    "build:control-panel": "npm --prefix apps/control-panel run build",
     "test": "jest --passWithNoTests",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:rust": "cd tests/rust && cargo test",
     "test:python": "pytest tests/python/",
     "test:e2e": "playwright test",
+    "test:e2e:smoke": "playwright test --config=playwright.smoke.config.ts",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:debug": "playwright test --debug",
     "test:mobile": "playwright test mobile.spec.ts",
@@ -32,7 +34,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/fog-compute"
+    "url": "https://github.com/DNYoussef/fog-compute"
   },
   "keywords": [
     "fog-compute",

@@ -9,6 +9,7 @@ import asyncio
 import hashlib
 import logging
 import os
+import re
 from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,6 +20,7 @@ from ..models.database import FileTransfer, FileChunk, Peer
 from ..constants import DEFAULT_CHUNK_SIZE
 
 logger = logging.getLogger(__name__)
+SAFE_FILENAME_RE = re.compile(r"[^A-Za-z0-9._-]+")
 
 
 @dataclass
@@ -91,6 +93,7 @@ class FileTransferService:
         # Active transfers
         self.active_uploads: Dict[str, asyncio.Task] = {}
         self.active_downloads: Dict[str, asyncio.Task] = {}
+        self._file_locks: Dict[str, asyncio.Lock] = {}
 
         # Bandwidth tracking
         self.bytes_transferred = 0
@@ -209,7 +212,7 @@ class FileTransferService:
         chunk_path = self._get_chunk_path(file_id, chunk_index)
         chunk_path.parent.mkdir(parents=True, exist_ok=True)
 
-        async with asyncio.Lock():
+        async with self._get_file_lock(file_id):
             with open(chunk_path, 'wb') as f:
                 f.write(chunk_data)
 
@@ -315,7 +318,7 @@ class FileTransferService:
             logger.error(f"Chunk file not found: {chunk_path}")
             return None
 
-        async with asyncio.Lock():
+        async with self._get_file_lock(file_id):
             with open(chunk_path, 'rb') as f:
                 data = f.read()
 
@@ -468,7 +471,7 @@ class FileTransferService:
         file_path = self._get_file_path(file_id, file_transfer.filename)
         file_path.parent.mkdir(parents=True, exist_ok=True)
 
-        async with asyncio.Lock():
+        async with self._get_file_lock(file_id):
             with open(file_path, 'wb') as output:
                 for chunk in chunks:
                     chunk_path = self._get_chunk_path(file_id, chunk.chunk_index)
@@ -481,9 +484,28 @@ class FileTransferService:
         """Get path for a chunk file"""
         return self.storage_path / file_id / "chunks" / f"chunk_{chunk_index:06d}"
 
+    def _get_file_lock(self, file_id: str) -> asyncio.Lock:
+        """Return the persistent lock that serializes one file transfer."""
+        lock = self._file_locks.get(file_id)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._file_locks[file_id] = lock
+        return lock
+
     def _get_file_path(self, file_id: str, filename: str) -> Path:
         """Get path for assembled file"""
-        return self.storage_path / file_id / filename
+        safe_name = Path(filename).name
+        safe_name = SAFE_FILENAME_RE.sub("_", safe_name).strip("._")
+        if not safe_name:
+            safe_name = "download"
+
+        transfer_dir = (self.storage_path / file_id).resolve()
+        file_path = (transfer_dir / safe_name).resolve()
+        try:
+            file_path.relative_to(transfer_dir)
+        except ValueError as exc:
+            raise ValueError("Invalid filename") from exc
+        return file_path
 
     def _generate_file_id(self, filename: str, peer_id: str) -> str:
         """Generate unique file ID"""

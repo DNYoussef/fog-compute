@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { proxyToBackend } from '@/lib/backend-proxy';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * Token Balance API Route
  * Proxies to FastAPI backend - get wallet balance

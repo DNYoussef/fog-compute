@@ -1,89 +1,54 @@
 # Fog Compute Infrastructure
 
-Complete distributed fog computing system with P2P networking, idle compute harvesting, privacy layer, and tokenomics.
+Fog-compute is a prototype fog-computing workspace that combines backend routes,
+P2P transport experiments, scheduling components, and a control-panel UI. Several
+subsystems are implemented; several privacy, mobile, and tokenomics capabilities
+remain development-only or not implemented. This README is intentionally status
+oriented so prototype code is not presented as shipped production infrastructure.
 
 ## Control Panel UI
 
-Unified web-based control panel for monitoring and managing all fog compute services.
+The control panel exposes monitoring pages for backend services when those
+services are available. Screenshots in `screenshots/` are illustrative local
+captures, not production uptime evidence.
 
 ### Dashboard
 ![Dashboard](screenshots/dashboard.png)
-Real-time system status with BetaNet privacy network, BitChat mesh network, and performance benchmarks.
+Backend service status, network counters, and benchmark displays.
 
 ### BetaNet Privacy Network
 ![BetaNet](screenshots/betanet.png)
-Monitor mixnode topology, packet flow, and network latency for the privacy layer.
+BetaNet transport monitoring where the BetaNet bridge is running.
 
 ### BitChat P2P Messaging
 ![BitChat](screenshots/bitchat.png)
-Secure peer-to-peer messaging with end-to-end encryption and mesh networking.
+Peer messaging and mesh-network status for the BitChat transport.
 
 ### Performance Benchmarks
 ![Benchmarks](screenshots/benchmarks.png)
-Real-time latency, throughput, CPU, memory, and network utilization metrics.
+Benchmark results from local benchmark runners.
 
 ### Quality Dashboard
 ![Quality](screenshots/quality.png)
-Comprehensive testing metrics with 92.3% pass rate (289/313 tests), VPN performance, and resource optimization.
+Test and quality metrics from local suites. Treat displayed percentages as
+runner output, not an external certification.
 
-## Core Components
+## Component Status
 
-### 1. **BetaNet** - Privacy-First Network
-- HTX-powered privacy network for internet communication
-- End-to-end encryption with onion routing
-- Circuit management and node registry
-- Location: `src/betanet/`
-
-### 2. **BitChat** - P2P Messaging
-- BLE-based offline P2P messaging
-- Mesh networking for local communication
-- Message routing and discovery
-- Location: `src/bitchat/`
-
-### 3. **P2P Unified System**
-- Consolidates BitChat (BLE) + BetaNet (HTX) + Mesh protocols
-- Seamless switching between online/offline modes
-- Cross-protocol message routing
-- Location: `src/p2p/`
-
-### 4. **Idle Compute Harvesting**
-- Mobile device compute collection during charging
-- Battery and thermal-aware resource management
-- Cross-platform support (Android/iOS/Desktop)
-- Edge device orchestration
-- Location: `src/idle/`
-
-### 5. **VPN/Onion Routing Privacy Layer**
-- Multi-layer encryption with circuit creation
-- Mixnet integration for anonymity
-- Privacy-preserving task routing
-- Fog-native onion coordination
-- Location: `src/vpn/`
-
-### 6. **Tokenomics System**
-- DAO governance with voting mechanisms
-- Market-based resource pricing
-- Token staking and rewards
-- Decentralized marketplace
-- Location: `src/tokenomics/`
-
-### 7. **Batch Processing Scheduler**
-- NSGA-II multi-objective optimization
-- SLA-aware job placement
-- Batch job submission and management
-- Resource-aware scheduling
-- Location: `src/batch/`
-
-### 8. **Fog Infrastructure**
-- Performance benchmarking suite
-- Coordinator modules
-- System monitoring
-- Configuration management
-- Location: `src/fog/`
+| Component | Status |
+| --- | --- |
+| BetaNet transport | Implemented as an HTX/BetaNet bridge when the supporting service is configured. |
+| BitChat P2P messaging | Implemented for local/offline P2P messaging experiments. |
+| Unified P2P system | Consolidates BitChat and BetaNet transports. Native mobile bridge is not implemented. |
+| Idle compute harvesting | Prototype resource-management code exists. Native mobile compute harvesting is not shipped. |
+| VPN/onion privacy layer | Local onion-circuit code exists. Directory consensus is simulated in development unless real authorities are configured. |
+| Nym mixnet | Not implemented. The `NymMixnetClient` is a fail-closed stub and reports unavailable. |
+| Tokenomics | Token balances, staking records, proposals, and rewards can be read from the DAO service. Market cap, token price, and staking APR are unavailable unless a live price feed/reward model is configured. |
+| Batch processing scheduler | NSGA-II and placement code exists for scheduling experiments. |
 
 ## Quick Start
 
-### Run Full Benchmark Suite
+### Run Benchmark Suite
 ```bash
 python src/fog/benchmarks/run_benchmarks.py --mode full
 ```
@@ -93,34 +58,21 @@ python src/fog/benchmarks/run_benchmarks.py --mode full
 python src/p2p/unified_p2p_system.py
 ```
 
-### Launch Idle Compute Harvesting
+### Launch Idle Compute Prototype
 ```bash
 python src/idle/harvest_manager.py
 ```
 
-### Initialize Privacy Network
+### Initialize Privacy Coordinator
 ```bash
 python src/vpn/fog_onion_coordinator.py
 ```
 
-## Features
+## Claim-Control Notes
 
-### Distributed Computing
-- **Idle Harvesting**: Utilizes spare compute from mobile devices during charging
-- **Edge Orchestration**: Manages heterogeneous edge devices
-- **Resource Awareness**: Battery, thermal, and network-aware scheduling
-
-### Privacy & Security
-- **Onion Routing**: Multi-layer encryption for anonymous communication
-- **VPN Integration**: Secure tunneling for fog nodes
-- **Circuit Management**: Dynamic circuit creation and rotation
-
-### P2P Networking
-- **Multi-Protocol**: BLE for offline, HTX for online, Mesh for resilience
-- **Seamless Handoff**: Automatic protocol switching based on connectivity
-- **Message Persistence**: Store-and-forward for disconnected scenarios
-
-### Economic Incentives
-- **Token Rewards**: Compensation for compute contribution
-- **DAO Governance**: Decentralized decision making
-- **Market Pricing**: Dynamic resource pricing based on demand
+- Mobile native bridge: not implemented.
+- Mobile compute harvesting: prototype only; no shipped Android/iOS bridge.
+- Nym mixnet: not implemented; stub calls fail closed in production mode.
+- Onion consensus: simulated in development; no real directory-authority fetch is wired.
+- Token market cap/APR: unavailable without a configured live price feed and reward-rate model.
+- Marketplace activity: dashboard copy must come from live data or say unavailable.

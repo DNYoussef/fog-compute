@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { proxyToBackend } from '@/lib/backend-proxy';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * P2P Stats API Route
  * Proxies to FastAPI backend - P2P network metrics

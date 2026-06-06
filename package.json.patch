@@ -1,6 +1,0 @@
-{
-  "devDependencies_to_add": {
-    "axe-playwright": "^2.0.1"
-  },
-  "install_command": "npm install --save-dev axe-playwright"
-}

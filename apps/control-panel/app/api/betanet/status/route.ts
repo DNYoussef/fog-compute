@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * Betanet Status API Route
  * Proxies to FastAPI backend and adapts response shape for the UI.

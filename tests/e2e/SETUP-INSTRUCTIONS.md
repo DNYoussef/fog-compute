@@ -47,6 +47,11 @@ npx playwright test test_protected_routes.spec.ts
 
 # Or run all E2E tests
 npm run test:e2e
+
+# Minimal smoke gate; starts only the control panel.
+# Backend-backed API checks accept either healthy (200) or unavailable (503).
+# Dashboard may request /api/fog/topology; 404 is accepted until that backend route ships.
+npm run test:e2e:smoke
 ```
 
 ## Current Implementation Status

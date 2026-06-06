@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface ResourceLimits {
   cpu: { limit: number; reserve: number };
@@ -20,6 +20,10 @@ export default function ResourcesPage() {
     minInstances: 2,
     maxInstances: 10
   });
+
+  useEffect(() => {
+    document.title = 'Resources | Fog Compute';
+  }, []);
 
   const handleApplyLimits = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -42,9 +46,6 @@ export default function ResourcesPage() {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
 
-  useEffect(() => {
-    document.title = 'Resources | Fog Compute';
-  }, []);
     setAutoScalingConfig({
       scaleUpThreshold: parseInt(formData.get('scale-up-threshold') as string),
       scaleDownThreshold: parseInt(formData.get('scale-down-threshold') as string),

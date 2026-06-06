@@ -22,6 +22,12 @@ from typing import Optional, Any
 from datetime import datetime, UTC
 import logging
 import asyncio
+import json
+import os
+from enum import Enum
+from pathlib import Path
+
+from pydantic import BaseModel
 
 from ..schemas.fog_bridge import (
     DeviceRegisterRequest,
@@ -50,10 +56,121 @@ security = HTTPBearer(auto_error=False)
 # Service startup time for health check
 _service_start_time = datetime.now(UTC)
 
-# In-memory stores (replace with database in production)
-_registered_devices: dict[str, dict[str, Any]] = {}
-_task_queue: dict[str, dict[str, Any]] = {}
-_device_quotas: dict[str, DeviceQuota] = {}
+
+def _default_state_path() -> Path:
+    return Path(os.getenv("FOG_BRIDGE_STATE_PATH", "data/fog_bridge_state.json"))
+
+
+def _jsonable(value: Any) -> Any:
+    if isinstance(value, BaseModel):
+        return value.model_dump(mode="json")
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, Enum):
+        return value.value
+    if isinstance(value, dict):
+        return {str(k): _jsonable(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_jsonable(v) for v in value]
+    return value
+
+
+def _parse_datetime(value: Any) -> Any:
+    if isinstance(value, datetime) or value is None:
+        return value
+    if isinstance(value, str):
+        try:
+            parsed = datetime.fromisoformat(value)
+            return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+        except ValueError:
+            return value
+    return value
+
+
+def _hydrate_device(data: dict[str, Any]) -> dict[str, Any]:
+    hydrated = dict(data)
+    for key in ("registered_at", "last_heartbeat"):
+        hydrated[key] = _parse_datetime(hydrated.get(key))
+    return hydrated
+
+
+def _hydrate_task(data: dict[str, Any]) -> dict[str, Any]:
+    hydrated = dict(data)
+    for key in ("created_at", "started_at", "completed_at"):
+        hydrated[key] = _parse_datetime(hydrated.get(key))
+    return hydrated
+
+
+class FogBridgeStateStore:
+    """File-backed state for fog bridge device registry, task queue, and quotas."""
+
+    def __init__(self, state_path: Path | str | None = None):
+        self.state_path = Path(state_path) if state_path is not None else _default_state_path()
+        self.devices: dict[str, dict[str, Any]] = {}
+        self.tasks: dict[str, dict[str, Any]] = {}
+        self.quotas: dict[str, DeviceQuota] = {}
+        self.load()
+
+    def load(self) -> None:
+        if not self.state_path.exists():
+            self.devices = {}
+            self.tasks = {}
+            self.quotas = {}
+            return
+
+        raw = json.loads(self.state_path.read_text(encoding="utf-8"))
+        self.devices = {
+            device_id: _hydrate_device(device)
+            for device_id, device in raw.get("devices", {}).items()
+        }
+        self.tasks = {
+            task_id: _hydrate_task(task)
+            for task_id, task in raw.get("tasks", {}).items()
+        }
+        self.quotas = {
+            device_id: DeviceQuota.model_validate(quota)
+            for device_id, quota in raw.get("quotas", {}).items()
+        }
+
+    def save(self) -> None:
+        self.state_path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "devices": _jsonable(self.devices),
+            "tasks": _jsonable(self.tasks),
+            "quotas": _jsonable(self.quotas),
+        }
+        tmp_path = self.state_path.with_suffix(f"{self.state_path.suffix}.tmp")
+        tmp_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        tmp_path.replace(self.state_path)
+
+
+_fog_bridge_store = FogBridgeStateStore()
+_registered_devices: dict[str, dict[str, Any]] = _fog_bridge_store.devices
+_task_queue: dict[str, dict[str, Any]] = _fog_bridge_store.tasks
+_device_quotas: dict[str, DeviceQuota] = _fog_bridge_store.quotas
+
+
+def _bind_fog_bridge_store(store: FogBridgeStateStore) -> None:
+    global _fog_bridge_store, _registered_devices, _task_queue, _device_quotas
+    _fog_bridge_store = store
+    _registered_devices = store.devices
+    _task_queue = store.tasks
+    _device_quotas = store.quotas
+
+
+def configure_fog_bridge_state_store(state_path: Path | str) -> FogBridgeStateStore:
+    store = FogBridgeStateStore(state_path)
+    _bind_fog_bridge_store(store)
+    return store
+
+
+def persist_fog_bridge_state() -> None:
+    _fog_bridge_store.save()
+
+
+def reload_fog_bridge_state() -> None:
+    _fog_bridge_store.load()
+    _bind_fog_bridge_store(_fog_bridge_store)
 
 
 # === Dependencies ===
@@ -157,6 +274,7 @@ async def register_device(request: DeviceRegisterRequest) -> DeviceRegisterRespo
             quota_reset_at=datetime.now(UTC).replace(hour=0, minute=0, second=0) + \
                           __import__('datetime').timedelta(days=1)
         )
+        persist_fog_bridge_state()
 
         # WebSocket URL
         ws_url = f"ws://{settings.API_HOST}:{settings.API_PORT}/api/fog-bridge/ws/{device_id}"
@@ -308,6 +426,7 @@ async def unregister_device(
         del _registered_devices[target_device_id]
     if target_device_id in _device_quotas:
         del _device_quotas[target_device_id]
+    persist_fog_bridge_state()
 
     logger.info(f"Device unregistered: {target_device_id}")
 
@@ -346,6 +465,7 @@ async def device_heartbeat(
         device_data["status"] = DeviceStatus.IDLE
     else:
         device_data["status"] = DeviceStatus.ONLINE
+    persist_fog_bridge_state()
 
     # Check for pending commands (task assignments, etc.)
     commands = []
@@ -497,6 +617,7 @@ async def create_task(
         quota = _device_quotas.get(assigned_device)
         if quota:
             quota.tasks_today += 1
+    persist_fog_bridge_state()
 
     logger.info(f"Task created: {task_id} -> {assigned_device or 'queued'}")
 
@@ -561,6 +682,7 @@ async def submit_task_result(
         device_data["current_task_id"] = None
         if request.success:
             device_data["total_tasks_completed"] = device_data.get("total_tasks_completed", 0) + 1
+    persist_fog_bridge_state()
 
     logger.info(f"Task {task_id} completed: {'success' if request.success else 'failed'}")
 
@@ -586,6 +708,7 @@ async def cancel_task(
 
     task_data["status"] = "cancelled"
     task_data["completed_at"] = datetime.now(UTC)
+    persist_fog_bridge_state()
 
     logger.info(f"Task cancelled: {task_id}")
 
@@ -634,6 +757,7 @@ async def update_quota(
     for key, value in update_data.items():
         if value is not None:
             setattr(quota, key, value)
+    persist_fog_bridge_state()
 
     return quota
 

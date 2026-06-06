@@ -32,6 +32,19 @@ from .task_security import (
 logger = logging.getLogger(__name__)
 
 
+def _process_sandbox_enabled() -> bool:
+    return os.getenv("FOGBURST_ALLOW_PROCESS_SANDBOX", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def _process_resource_limits_available() -> bool:
+    return platform.system() != "Windows"
+
+
 class SandboxType(str, Enum):
     """Type of sandbox isolation"""
     PROCESS = "process"       # Basic subprocess with ulimit
@@ -178,8 +191,9 @@ class TaskSandbox:
 
         ulimit_cmd = " && ".join(ulimit_parts)
 
-        # Wrap original command
-        wrapped = ["bash", "-c", f"{ulimit_cmd} && {' '.join(cmd)}"]
+        # Wrap original command without interpolating user-controlled argv into
+        # the shell program. Args after $0 are preserved as "$@".
+        wrapped = ["bash", "-c", f"{ulimit_cmd} && exec \"$@\"", "fogburst-task", *cmd]
 
         return wrapped
 
@@ -204,6 +218,35 @@ class TaskSandbox:
         """
         if not self._sandbox_dir:
             await self.setup()
+
+        if self.config.sandbox_type == SandboxType.PROCESS and not _process_sandbox_enabled():
+            now = datetime.now(UTC)
+            return SandboxResult(
+                execution_id=self.execution_id,
+                status=SandboxStatus.FAILED,
+                started_at=now,
+                completed_at=now,
+                duration_ms=0,
+                error_message=(
+                    "Process sandbox execution is disabled by default because it "
+                    "does not enforce network/filesystem isolation. Set "
+                    "FOGBURST_ALLOW_PROCESS_SANDBOX=1 only for trusted local tasks."
+                ),
+            )
+
+        if self.config.sandbox_type == SandboxType.PROCESS and not _process_resource_limits_available():
+            now = datetime.now(UTC)
+            return SandboxResult(
+                execution_id=self.execution_id,
+                status=SandboxStatus.FAILED,
+                started_at=now,
+                completed_at=now,
+                duration_ms=0,
+                error_message=(
+                    "Windows process sandbox resource limits are not implemented. "
+                    "Use Docker sandboxing or run on a Unix host with ulimit support."
+                ),
+            )
 
         self._status = SandboxStatus.RUNNING
         self._started_at = datetime.now(UTC)
@@ -325,6 +368,39 @@ class TaskSandboxService:
 
         logger.info(f"TaskSandboxService initialized with base dir: {SANDBOX_BASE_DIR}")
 
+    def _validation_failure(self, message: str) -> SandboxResult:
+        now = datetime.now(UTC)
+        return SandboxResult(
+            execution_id="validation-failed",
+            status=SandboxStatus.FAILED,
+            started_at=now,
+            completed_at=now,
+            duration_ms=0,
+            error_message=message,
+        )
+
+    def validate_task_access(
+        self,
+        task_type: str,
+        filesystem_paths: Optional[list[str]] = None,
+        network_targets: Optional[list[tuple[str, int]]] = None,
+    ) -> Optional[str]:
+        type_result = self._security_service.validate_task_type(task_type)
+        if not type_result.is_valid:
+            return type_result.error_message or f"Task type '{task_type}' is not allowed"
+
+        for path in filesystem_paths or []:
+            allowed, error = self._security_service.validate_filesystem_path(path, task_type)
+            if not allowed:
+                return error or f"Filesystem path '{path}' is not allowed"
+
+        for host, port in network_targets or []:
+            allowed, error = self._security_service.validate_network_access(host, port, task_type)
+            if not allowed:
+                return error or f"Network target '{host}:{port}' is not allowed"
+
+        return None
+
     def create_sandbox(
         self,
         task_type: str,
@@ -354,6 +430,11 @@ class TaskSandboxService:
         if not constraints:
             raise SandboxError(f"No security constraints for task type '{task_type}'")
 
+        for allowed_path in constraints.allowed_filesystem_paths:
+            allowed, error = self._security_service.validate_filesystem_path(allowed_path, task_type)
+            if not allowed:
+                raise SandboxError(error or f"Invalid allowed filesystem path for '{task_type}'")
+
         # Build sandbox config from constraints
         config = SandboxConfig(
             sandbox_type=sandbox_type,
@@ -380,7 +461,9 @@ class TaskSandboxService:
         command: list[str],
         stdin_data: Optional[bytes] = None,
         env: Optional[dict[str, str]] = None,
-        sandbox_type: SandboxType = SandboxType.PROCESS
+        sandbox_type: SandboxType = SandboxType.PROCESS,
+        filesystem_paths: Optional[list[str]] = None,
+        network_targets: Optional[list[tuple[str, int]]] = None,
     ) -> SandboxResult:
         """
         Execute a task in a sandbox.
@@ -397,6 +480,10 @@ class TaskSandboxService:
         Returns:
             Execution result
         """
+        access_error = self.validate_task_access(task_type, filesystem_paths, network_targets)
+        if access_error:
+            return self._validation_failure(access_error)
+
         sandbox = self.create_sandbox(task_type, sandbox_type)
 
         try:

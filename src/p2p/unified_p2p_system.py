@@ -1,20 +1,18 @@
 #!/usr/bin/env python3
 """
 UNIFIED P2P DECENTRALIZED SYSTEM
-Consolidated BitChat + BetaNet + Mesh Protocol + Mobile Integration
+Consolidated BitChat + BetaNet + mesh protocol experiments
 
-MISSION: Consolidate scattered P2P implementations into unified decentralized architecture
-Target: BitChat (offline/BLE) + BetaNet (internet/HTX) + Unified Mesh (reliability) + Mobile Bridges
-
-This consolidates 120+ P2P files into ONE production-ready decentralized system:
+This module consolidates P2P transport code into one runtime surface:
 - BitChat BLE mesh for offline communication with mobile optimization
 - BetaNet HTX transport for internet with privacy (Rust integration)
 - Unified mesh protocol for reliability and routing (multi-hop)
 - Seamless transport selection and intelligent failover
-- Mobile platform bridges (iOS/Android native integration)
 - Integration bridges for Fog Computing cloud
 - Advanced message handling with store-and-forward capabilities
-- Production-ready configuration management
+
+Native iOS/Android mobile bridge integration is not implemented; requests for it
+are reported as unavailable rather than treated as shipped mobile harvesting.
 """
 
 import asyncio
@@ -276,20 +274,22 @@ class PeerInfo:
 
 class UnifiedDecentralizedSystem:
     """
-    PRODUCTION-READY UNIFIED P2P DECENTRALIZED SYSTEM
+    Unified P2P decentralized-system runtime.
 
-    Consolidates BitChat + BetaNet + Mesh Protocol + Mobile Integration into a single,
-    production-ready decentralized system with intelligent transport selection,
-    mobile optimization, and comprehensive feature set.
+    Consolidates BitChat + BetaNet + mesh protocol code into a single runtime
+    with intelligent transport selection and store-and-forward messaging.
 
     Key Features:
     - BitChat BLE mesh for offline/local communication with 7-hop routing
     - BetaNet HTX transport for privacy-enhanced internet communication
-    - Mobile-optimized bridges for iOS/Android platforms
     - Intelligent transport selection based on device context
     - Store-and-forward messaging with persistent queues
     - Fog computing integration for cloud services
     - Advanced message handling with chunking, compression, and encryption
+
+    Not implemented:
+    - Native mobile platform bridge
+    - Production mobile compute harvesting
     """
 
     def __init__(
@@ -568,7 +568,9 @@ class UnifiedDecentralizedSystem:
 
             # Mobile bridge not yet implemented
             if self.enable_mobile_bridge:
-                logger.warning("Mobile bridge requested but not yet implemented")
+                logger.warning(
+                    "Mobile bridge requested but not implemented; status will report unavailable"
+                )
 
             logger.info(f"Initialized {success_count} transports")
             return success_count > 0
@@ -1165,6 +1167,15 @@ class UnifiedDecentralizedSystem:
             "running": self._running,
             "degraded": is_degraded,
             "transports_available": TRANSPORTS_AVAILABLE,
+            "mobile_bridge_available": MOBILE_BRIDGE_AVAILABLE,
+            "mobile_bridge_requested": self.enable_mobile_bridge,
+            "mobile_bridge_status": (
+                "available"
+                if MOBILE_BRIDGE_AVAILABLE
+                else "not_implemented"
+                if self.enable_mobile_bridge
+                else "disabled"
+            ),
             "uptime_seconds": time.time() - self.metrics.get("system_start_time", time.time()),
             "active_transports": active,
             "peer_count": len(self.peers),

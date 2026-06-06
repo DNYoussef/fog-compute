@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { proxyToBackend } from '@/lib/backend-proxy';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * Tokenomics Stats API Route
  * Proxies to FastAPI backend - token supply, staking, DAO metrics
@@ -20,8 +22,13 @@ export async function GET() {
       activeStakers: 0,
       proposalsActive: 0,
       proposalsTotal: 0,
-      marketCap: 0,
-      stakingAPR: 0,
+      tokenPrice: null,
+      marketCap: null,
+      stakingAPR: null,
+      evidenceStatus: {
+        marketCap: 'unavailable_backend_unreachable',
+        stakingAPR: 'unavailable_backend_unreachable',
+      },
       error: 'Backend unavailable'
     });
   }

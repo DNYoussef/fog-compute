@@ -1,15 +1,17 @@
 """
 Onion Routing Implementation for Fog Computing
 
-Implements Tor-inspired onion routing for anonymous fog computing traffic.
-Provides censorship-resistant hidden service hosting with multi-hop circuits.
+Implements local Tor-inspired onion-circuit primitives for fog-computing
+experiments. Relay consensus is simulated in development unless real directory
+authorities are configured, so this module does not claim production anonymity or
+censorship resistance by itself.
 
-Key Features (inspired by Tor):
+Implemented primitives:
 - 3-hop default circuits with telescoping path construction
-- Directory authorities for relay discovery
-- Hidden service protocol with rendezvous points
+- Development-only simulated relay consensus
+- Hidden service address and rendezvous helpers
 - Perfect forward secrecy with ephemeral keys
-- Traffic analysis resistance with padding and timing obfuscation
+- Payload padding helpers
 """
 
 import base64
@@ -194,7 +196,7 @@ class OnionRouter:
         self.hidden_services: dict[str, HiddenService] = {}
         self.introduction_circuits: dict[str, OnionCircuit] = {}
 
-        # Directory authorities (hardcoded like Tor)
+        # Development-only generated authorities; not real directory authorities.
         self.directory_authorities = self._initialize_directory_authorities()
 
         # Performance tracking
@@ -207,9 +209,8 @@ class OnionRouter:
         )
 
     def _initialize_directory_authorities(self) -> list[OnionNode]:
-        """Initialize hardcoded directory authorities"""
-        # In production, these would be well-known, trusted nodes
-        # For fog network, we use federated authorities
+        """Initialize development-only generated directory authority placeholders."""
+        # No real directory-authority list is configured in this module.
         authorities = []
         for i in range(5):
             auth_key = ed25519.Ed25519PrivateKey.generate()
@@ -741,6 +742,13 @@ class OnionRouter:
             "use_betanet": self.use_betanet,
             "betanet_packets_sent": self.betanet_packets_sent,
             "python_packets_sent": self.python_packets_sent,
+            "directory_authority_status": (
+                "simulated_development_only" if self.consensus_simulated else "not_configured"
+            ),
+            "consensus_evidence_status": (
+                "simulated_not_directory_authority" if self.consensus_simulated else "not_fetched"
+            ),
+            "production_anonymity_claimed": False,
         }
 
         # Add BetaNet transport stats if available

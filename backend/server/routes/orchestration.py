@@ -2,10 +2,12 @@
 Service Orchestration API
 Provides endpoints for service management, health checks, and dependency graphs
 """
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from typing import Dict, Any, List
 from pydantic import BaseModel
 import logging
+
+from ..middleware.api_key_auth import require_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +98,8 @@ async def get_health_status() -> Dict[str, Any]:
 @router.post("/restart/{service_name}", summary="Restart a service")
 async def restart_service(
     service_name: str,
-    request: ServiceRestartRequest = ServiceRestartRequest()
+    request: ServiceRestartRequest = ServiceRestartRequest(),
+    _api_key: Dict[str, Any] = Depends(require_api_key),
 ) -> Dict[str, Any]:
     """
     Restart a specific service
@@ -335,7 +338,9 @@ async def get_service_details(service_name: str) -> Dict[str, Any]:
 
 
 @router.post("/health/check-now", summary="Force immediate health check")
-async def force_health_check() -> Dict[str, Any]:
+async def force_health_check(
+    _api_key: Dict[str, Any] = Depends(require_api_key),
+) -> Dict[str, Any]:
     """
     Force an immediate health check on all services
 

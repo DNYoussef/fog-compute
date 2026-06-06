@@ -42,11 +42,36 @@ from fastapi import APIRouter, HTTPException
 from typing import Dict, Any
 import logging
 import psutil
+import time
 
 from ..services.enhanced_service_manager import enhanced_service_manager as service_manager
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
+_NETWORK_CAPACITY_MBPS = 1000.0
+_network_sample: tuple[int, float] | None = None
+
+
+def _calculate_network_metrics(net_io, now: float | None = None) -> Dict[str, float]:
+    """Calculate point-in-time network rate from cumulative psutil counters."""
+    global _network_sample
+    now = time.monotonic() if now is None else now
+    total_bytes = int(net_io.bytes_sent + net_io.bytes_recv)
+
+    if _network_sample is None:
+        _network_sample = (total_bytes, now)
+        return {"throughput": 0.0, "networkUtilization": 0.0}
+
+    previous_bytes, previous_time = _network_sample
+    _network_sample = (total_bytes, now)
+    elapsed = max(now - previous_time, 1e-9)
+    delta_bytes = max(total_bytes - previous_bytes, 0)
+    throughput_mbps = (delta_bytes * 8) / elapsed / 1_000_000
+    network_util = min(100.0, (throughput_mbps / _NETWORK_CAPACITY_MBPS) * 100)
+    return {
+        "throughput": round(throughput_mbps, 3),
+        "networkUtilization": round(network_util, 3),
+    }
 
 
 @router.get("/stats")
@@ -97,15 +122,15 @@ async def get_dashboard_stats() -> Dict[str, Any]:
             cpu_percent = psutil.cpu_percent(interval=0.1)
             memory_info = psutil.virtual_memory()
             net_io = psutil.net_io_counters()
-
-            # Calculate network utilization as percentage of typical gigabit capacity
-            # Using simple heuristic: (bytes_sent + bytes_recv) as indicator
-            network_util = min(100.0, (net_io.bytes_sent + net_io.bytes_recv) / (1024 * 1024 * 100) * 10)
+            network_metrics = _calculate_network_metrics(net_io) if net_io else {
+                "throughput": 0.0,
+                "networkUtilization": 0.0,
+            }
 
             benchmarks_stats = {
                 "avgLatency": scheduler.get_avg_latency() if scheduler and hasattr(scheduler, 'get_avg_latency') else 0.0,
-                "throughput": (net_io.bytes_sent + net_io.bytes_recv) / (1024 * 1024) if net_io else 0.0,  # MB
-                "networkUtilization": network_util,
+                "throughput": network_metrics["throughput"],
+                "networkUtilization": network_metrics["networkUtilization"],
                 "cpuUsage": cpu_percent,
                 "memoryUsage": memory_info.percent
             }
