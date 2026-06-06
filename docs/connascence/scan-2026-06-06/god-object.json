@@ -1,0 +1,48 @@
+{
+  "analyzer": "god_object",
+  "path": "D:\\Projects\\fog-compute",
+  "success": true,
+  "threshold": 15,
+  "violations": [
+    {
+      "description": "God Object detected: Class 'FogNetworkManager' has 16 methods (threshold: 15)",
+      "file_path": "D:\\Projects\\fog-compute\\backend\\container_runtime\\network.py",
+      "id": "god_object_FogNetworkManager_network",
+      "line_number": 154,
+      "rule_id": "GOD_OBJECT_METHODS",
+      "severity": "high",
+      "type": "CoA",
+      "weight": 4.0
+    },
+    {
+      "description": "God Object detected: Class 'CircuitBreaker' has 19 methods (threshold: 15)",
+      "file_path": "D:\\Projects\\fog-compute\\lib\\library\\circuit_breaker\\circuit_breaker.py",
+      "id": "god_object_CircuitBreaker_circuit_breaker",
+      "line_number": 179,
+      "rule_id": "GOD_OBJECT_METHODS",
+      "severity": "high",
+      "type": "CoA",
+      "weight": 4.0
+    },
+    {
+      "description": "God Object detected: Class 'NSGA2PlacementEngine' has 18 methods (threshold: 15)",
+      "file_path": "D:\\Projects\\fog-compute\\src\\batch\\placement.py",
+      "id": "god_object_NSGA2PlacementEngine_placement",
+      "line_number": 237,
+      "rule_id": "GOD_OBJECT_METHODS",
+      "severity": "high",
+      "type": "CoA",
+      "weight": 4.0
+    },
+    {
+      "description": "God Object detected: Class 'QualityValidator' has 21 methods (threshold: 15)",
+      "file_path": "D:\\Projects\\fog-compute\\tools\\lib\\validation\\quality_validator.py",
+      "id": "god_object_QualityValidator_quality_validator",
+      "line_number": 297,
+      "rule_id": "GOD_OBJECT_METHODS",
+      "severity": "high",
+      "type": "CoA",
+      "weight": 4.0
+    }
+  ]
+}
