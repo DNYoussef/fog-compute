@@ -29,6 +29,12 @@ original_*/
 CLEANUP_BACKUP_*/
 
 # Test output
+.coverage
+.swarm/memory.db
+test.db
+backend/data/*.db
+backend/test_profiling_reports/
+test_profiling_reports/
 tests/output/
 **/playwright-report/
 **/playwright-artifacts/
