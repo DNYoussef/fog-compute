@@ -48,7 +48,8 @@ from .routes import (
     deployment,
     usage,
     mfa,
-    fog_bridge
+    fog_bridge,
+    mesh
 )
 
 # Import WebSocket handlers
@@ -331,6 +332,7 @@ app.include_router(deployment.router)  # Deployment orchestration
 app.include_router(usage.router)  # Usage tracking and limits
 app.include_router(mfa.router)  # MFA authentication
 app.include_router(fog_bridge.router)  # Fog mesh device management
+app.include_router(mesh.router)  # Device mesh API
 
 
 # WebSocket for real-time metrics
