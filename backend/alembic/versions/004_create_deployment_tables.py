@@ -23,17 +23,17 @@ def upgrade():
     deployment_status = postgresql.ENUM(
         'pending', 'scheduled', 'running', 'stopped', 'failed', 'deleted',
         name='deploymentstatus',
-        create_type=True
+        create_type=False
     )
-    deployment_status.create(op.get_bind())
+    deployment_status.create(op.get_bind(), checkfirst=True)
 
     # Create replica_status enum
     replica_status = postgresql.ENUM(
         'pending', 'starting', 'running', 'stopping', 'stopped', 'failed',
         name='replicastatus',
-        create_type=True
+        create_type=False
     )
-    replica_status.create(op.get_bind())
+    replica_status.create(op.get_bind(), checkfirst=True)
 
     # 1. Create deployments table
     op.create_table(

@@ -1,11 +1,14 @@
 """
-Batch Scheduler API Routes
-Handles job submission, scheduling, and NSGA-II optimization
+Batch scheduler API routes.
+
+This route family is for batch placement and NSGA-II scheduling. It is not the
+authoritative fog task control plane.
 """
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
+import inspect
 import logging
 import uuid
 from sqlalchemy import select
@@ -16,7 +19,15 @@ from ..database import get_db
 from ..models.database import Job
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/api/scheduler", tags=["scheduler"])
+router = APIRouter(prefix="/api/scheduler", tags=["batch-scheduler"])
+SCHEDULER_ROUTE_CAPABILITIES = {
+    "get_metrics",
+    "get_job_queue",
+    "submit_job",
+    "update_job_status",
+    "cancel_job",
+    "nodes",
+}
 
 
 class JobSubmitRequest(BaseModel):
@@ -33,6 +44,42 @@ class JobUpdateRequest(BaseModel):
     status: str
 
 
+def _require_scheduler(*capabilities: str) -> Any:
+    """Return the configured scheduler or fail explicitly when wiring is broken."""
+    scheduler = service_manager.get("scheduler")
+
+    if scheduler is None:
+        raise HTTPException(status_code=503, detail="Scheduler service unavailable")
+
+    missing = []
+    for capability in capabilities:
+        if capability == "nodes":
+            if not hasattr(scheduler, capability):
+                missing.append(capability)
+            continue
+
+        if not callable(getattr(scheduler, capability, None)):
+            missing.append(capability)
+
+    if missing:
+        available = sorted(
+            capability
+            for capability in SCHEDULER_ROUTE_CAPABILITIES
+            if capability == "nodes" and hasattr(scheduler, capability)
+            or capability != "nodes" and callable(getattr(scheduler, capability, None))
+        )
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Scheduler service misconfigured: "
+                f"got {type(scheduler).__module__}.{type(scheduler).__name__}, "
+                f"missing {sorted(missing)}, available {available}"
+            ),
+        )
+
+    return scheduler
+
+
 @router.get("/stats")
 async def get_scheduler_stats() -> Dict[str, Any]:
     """
@@ -44,15 +91,12 @@ async def get_scheduler_stats() -> Dict[str, Any]:
         - Resource utilization
         - Optimization metrics
     """
-    scheduler = service_manager.get('scheduler')
-
-    if scheduler is None:
-        raise HTTPException(status_code=503, detail="Scheduler service unavailable")
+    scheduler = _require_scheduler("get_metrics", "get_job_queue")
 
     try:
         # Get metrics from NSGA-II scheduler
-        metrics = scheduler.get_metrics() if hasattr(scheduler, 'get_metrics') else {}
-        job_queue = scheduler.get_job_queue() if hasattr(scheduler, 'get_job_queue') else []
+        metrics = scheduler.get_metrics()
+        job_queue = scheduler.get_job_queue()
 
         # Calculate stats
         total_jobs = len(job_queue)
@@ -97,13 +141,10 @@ async def get_jobs(status: Optional[str] = None, limit: int = 100) -> Dict[str, 
     Returns:
         List of jobs with details
     """
-    scheduler = service_manager.get('scheduler')
-
-    if scheduler is None:
-        raise HTTPException(status_code=503, detail="Scheduler service unavailable")
+    scheduler = _require_scheduler("get_job_queue")
 
     try:
-        job_queue = scheduler.get_job_queue() if hasattr(scheduler, 'get_job_queue') else []
+        job_queue = scheduler.get_job_queue()
 
         # Filter by status if provided
         if status:
@@ -153,6 +194,8 @@ async def submit_job(request: JobSubmitRequest, db: AsyncSession = Depends(get_d
         Job ID and estimated start time
     """
     try:
+        scheduler = _require_scheduler("submit_job")
+
         # Create database job record
         db_job = Job(
             name=request.name,
@@ -167,20 +210,21 @@ async def submit_job(request: JobSubmitRequest, db: AsyncSession = Depends(get_d
         )
 
         db.add(db_job)
+        await db.flush()
+
+        submit_result = scheduler.submit_job({
+            'job_id': str(db_job.id),
+            'name': request.name,
+            'sla_tier': request.sla_tier,
+            'cpu_required': request.cpu_required,
+            'memory_required': request.memory_required,
+            'gpu_required': request.gpu_required
+        })
+        if inspect.isawaitable(submit_result):
+            await submit_result
+
         await db.commit()
         await db.refresh(db_job)
-
-        # Also submit to in-memory scheduler if available
-        scheduler = service_manager.get('scheduler')
-        if scheduler and hasattr(scheduler, 'submit_job'):
-            scheduler.submit_job({
-                'job_id': str(db_job.id),
-                'name': request.name,
-                'sla_tier': request.sla_tier,
-                'cpu_required': request.cpu_required,
-                'memory_required': request.memory_required,
-                'gpu_required': request.gpu_required
-            })
 
         logger.info(f"Job {db_job.id} submitted successfully")
 
@@ -191,7 +235,11 @@ async def submit_job(request: JobSubmitRequest, db: AsyncSession = Depends(get_d
             "estimatedStartTime": None,  # Would be calculated by scheduler
             "sla": request.sla_tier
         }
+    except HTTPException:
+        await db.rollback()
+        raise
     except Exception as e:
+        await db.rollback()
         logger.error(f"Error submitting job: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -199,14 +247,11 @@ async def submit_job(request: JobSubmitRequest, db: AsyncSession = Depends(get_d
 @router.get("/jobs/{job_id}")
 async def get_job(job_id: str) -> Dict[str, Any]:
     """Get details for a specific job"""
-    scheduler = service_manager.get('scheduler')
-
-    if scheduler is None:
-        raise HTTPException(status_code=503, detail="Scheduler service unavailable")
+    scheduler = _require_scheduler("get_job_queue")
 
     try:
         # Find job
-        job_queue = scheduler.get_job_queue() if hasattr(scheduler, 'get_job_queue') else []
+        job_queue = scheduler.get_job_queue()
         job = next((j for j in job_queue if getattr(j, 'job_id', None) == job_id), None)
 
         if not job:
@@ -237,15 +282,11 @@ async def get_job(job_id: str) -> Dict[str, Any]:
 @router.patch("/jobs/{job_id}")
 async def update_job(job_id: str, request: JobUpdateRequest) -> Dict[str, Any]:
     """Update job status (cancel, pause, resume)"""
-    scheduler = service_manager.get('scheduler')
-
-    if scheduler is None:
-        raise HTTPException(status_code=503, detail="Scheduler service unavailable")
+    scheduler = _require_scheduler("update_job_status")
 
     try:
         # Update job status
-        if hasattr(scheduler, 'update_job_status'):
-            scheduler.update_job_status(job_id, request.status)
+        scheduler.update_job_status(job_id, request.status)
 
         return {
             "success": True,
@@ -260,14 +301,10 @@ async def update_job(job_id: str, request: JobUpdateRequest) -> Dict[str, Any]:
 @router.delete("/jobs/{job_id}")
 async def cancel_job(job_id: str) -> Dict[str, Any]:
     """Cancel a pending or running job"""
-    scheduler = service_manager.get('scheduler')
-
-    if scheduler is None:
-        raise HTTPException(status_code=503, detail="Scheduler service unavailable")
+    scheduler = _require_scheduler("cancel_job")
 
     try:
-        if hasattr(scheduler, 'cancel_job'):
-            scheduler.cancel_job(job_id)
+        scheduler.cancel_job(job_id)
 
         return {
             "success": True,
@@ -282,13 +319,10 @@ async def cancel_job(job_id: str) -> Dict[str, Any]:
 @router.get("/nodes")
 async def get_nodes() -> Dict[str, Any]:
     """Get available compute nodes for scheduling"""
-    scheduler = service_manager.get('scheduler')
-
-    if scheduler is None:
-        raise HTTPException(status_code=503, detail="Scheduler service unavailable")
+    scheduler = _require_scheduler("nodes")
 
     try:
-        nodes = scheduler.nodes if hasattr(scheduler, 'nodes') else []
+        nodes = scheduler.nodes
 
         return {
             "nodes": [

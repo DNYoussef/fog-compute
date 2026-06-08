@@ -1,12 +1,8 @@
 """
-Enhanced Fog Coordinator with Cache and Load Balancer Integration
+Legacy enhanced fog coordinator with local caching and load balancing.
 
-Optimizations:
-- Redis cache integration (reduces DB hits by 80%)
-- Batch node registration (100 nodes <500ms)
-- Advanced load balancing with circuit breaker
-- Predictive node selection
-- Performance monitoring with metrics export
+This module remains for simulation and non-request-path tests. It is not the
+authoritative control plane for durable task ownership.
 """
 
 import asyncio
@@ -28,6 +24,7 @@ from .coordinator_interface import (
 from .load_balancer import LoadBalancer, LoadBalancingAlgorithm
 
 logger = logging.getLogger(__name__)
+LEGACY_NON_AUTHORITATIVE = True
 
 
 class EnhancedFogCoordinator(IFogCoordinator):
@@ -230,6 +227,11 @@ class EnhancedFogCoordinator(IFogCoordinator):
                 logger.warning(f"Node {node_id} not found for unregistration")
                 return False
 
+            node = self._nodes[node_id]
+
+            if node.active_tasks > 0:
+                await self._handle_node_failure_unlocked(node_id)
+
             node = self._nodes.pop(node_id)
 
             # Remove from cache
@@ -237,10 +239,6 @@ class EnhancedFogCoordinator(IFogCoordinator):
                 await self.cache.delete(f"node:{node_id}")
 
             logger.info(f"Unregistered node: {node_id} (type={node.node_type.value})")
-
-            # Handle any active tasks on this node
-            # FOG-002: Call unlocked version since we already hold _node_lock
-            await self._handle_node_failure_unlocked(node_id)
             return True
 
     async def update_node_status(self, node_id: str, status: NodeStatus) -> bool:

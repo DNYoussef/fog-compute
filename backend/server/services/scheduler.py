@@ -1,7 +1,8 @@
 """
-Deployment Scheduler Service
-Handles resource-based scheduling of deployments to fog nodes
-Implements FIFO queue with priority support and multi-criteria scoring
+Deployment and batch scheduler service.
+
+This service handles resource-based deployment placement. It is not the fog
+task control plane for worker/task/lease ownership.
 """
 import asyncio
 import logging
@@ -12,6 +13,7 @@ from sqlalchemy import select, and_, func
 from uuid import UUID
 import uuid
 
+from ..database import AsyncSessionLocal
 from ..models.database import Node
 from ..models.deployment import (
     Deployment,
@@ -58,8 +60,11 @@ MAX_LATENCY_MS = 200  # Maximum latency for normalization
 
 class DeploymentScheduler:
     """
-    Resource-based deployment scheduler
-    Allocates deployments to fog nodes using multi-criteria scoring
+    Resource-based deployment scheduler.
+
+    Allocates deployments to fog nodes using multi-criteria scoring. This
+    class is batch/deployment specific and not authoritative for fog task
+    execution ownership.
     """
 
     def __init__(self):
@@ -186,7 +191,28 @@ class DeploymentScheduler:
 
             # Step 7: Trigger container creation via Docker client
             # Uses aiodocker for real containers, or mock mode if Docker unavailable
-            await self._transition_replicas_to_running(db, created_replicas)
+            startup_errors = await self._transition_replicas_to_running(db, created_replicas)
+
+            if startup_errors:
+                error_details = "; ".join(
+                    f"{error['replica_id']}: {error['error']}"
+                    for error in startup_errors[:3]
+                )
+                if len(startup_errors) > 3:
+                    error_details += f"; +{len(startup_errors) - 3} more replica failures"
+
+                error_msg = f"Replica startup failed: {error_details}"
+                await self._update_deployment_status(
+                    db, deployment_id, DeploymentStatus.FAILED, reason=error_msg
+                )
+                await db.commit()
+
+                return {
+                    "success": False,
+                    "error": error_msg,
+                    "failed_replicas": startup_errors,
+                    "scheduled_replicas": len(created_replicas) - len(startup_errors),
+                }
 
             # Step 8: Update deployment to running
             await self._update_deployment_status(
@@ -480,7 +506,7 @@ class DeploymentScheduler:
         cpu_cores: float = 1.0,
         memory_mb: int = 512,
         env: Optional[Dict[str, str]] = None
-    ):
+    ) -> List[Dict[str, str]]:
         """
         Transition replicas from PENDING to RUNNING.
         Creates and starts Docker containers for each replica.
@@ -495,6 +521,7 @@ class DeploymentScheduler:
         """
         # Get Docker client (will use mock automatically if Docker unavailable)
         client = await get_docker_client()
+        startup_errors: List[Dict[str, str]] = []
 
         for replica in replicas:
             replica.status = ReplicaStatus.STARTING
@@ -519,7 +546,9 @@ class DeploymentScheduler:
                 container_id = await client.create_container(config)
 
                 # Start container
-                await client.start_container(container_id)
+                started = await client.start_container(container_id)
+                if not started:
+                    raise DockerClientError(f"Failed to start container {container_id}")
 
                 # Update replica with container ID
                 replica.container_id = container_id
@@ -534,17 +563,26 @@ class DeploymentScheduler:
                 logger.error(f"Failed to create container for replica {replica.id}: {e}")
                 replica.status = ReplicaStatus.FAILED
                 replica.container_id = None
+                startup_errors.append({
+                    "replica_id": str(replica.id),
+                    "error": str(e),
+                })
 
             except Exception as e:
-                # Unexpected error - rely on docker_client mock fallback safeguards
-                logger.warning(
-                    f"Container orchestration error for replica {replica.id}: {e}. "
-                    f"Using mock container identifier fallback."
+                logger.error(
+                    f"Container orchestration error for replica {replica.id}: {e}",
+                    exc_info=True,
                 )
-                replica.status = ReplicaStatus.RUNNING
-                replica.container_id = f"mock-container-{replica.id}"
+                replica.status = ReplicaStatus.FAILED
+                replica.container_id = None
+                startup_errors.append({
+                    "replica_id": str(replica.id),
+                    "error": str(e),
+                })
 
             logger.debug(f"Replica {replica.id} transitioned to {replica.status.value}")
+
+        return startup_errors
 
     async def _scheduler_worker(self):
         """
@@ -554,6 +592,7 @@ class DeploymentScheduler:
         logger.info("Scheduler worker started")
 
         while self.is_running:
+            deployment_task = None
             try:
                 # Wait for deployment in queue (with timeout to check is_running)
                 try:
@@ -567,26 +606,28 @@ class DeploymentScheduler:
                 logger.info(f"Processing queued deployment: {deployment_task['deployment_id']}")
 
                 # Schedule deployment
-                result = await self.schedule_deployment(
-                    db=deployment_task['db'],
-                    deployment_id=deployment_task['deployment_id'],
-                    target_replicas=deployment_task['target_replicas'],
-                    cpu_cores=deployment_task['cpu_cores'],
-                    memory_mb=deployment_task['memory_mb'],
-                    gpu_units=deployment_task.get('gpu_units', 0),
-                    storage_gb=deployment_task.get('storage_gb', DEFAULT_STORAGE_GB)
-                )
+                async with AsyncSessionLocal() as db:
+                    result = await self.schedule_deployment(
+                        db=db,
+                        deployment_id=deployment_task['deployment_id'],
+                        target_replicas=deployment_task['target_replicas'],
+                        cpu_cores=deployment_task['cpu_cores'],
+                        memory_mb=deployment_task['memory_mb'],
+                        gpu_units=deployment_task.get('gpu_units', 0),
+                        storage_gb=deployment_task.get('storage_gb', DEFAULT_STORAGE_GB)
+                    )
 
                 if result['success']:
                     logger.info(f"Deployment {deployment_task['deployment_id']} scheduled successfully")
                 else:
                     logger.error(f"Deployment {deployment_task['deployment_id']} scheduling failed: {result.get('error')}")
 
-                self.queue.task_done()
-
             except Exception as e:
                 logger.error(f"Scheduler worker error: {e}", exc_info=True)
                 await asyncio.sleep(SCHEDULER_ERROR_SLEEP)
+            finally:
+                if deployment_task is not None:
+                    self.queue.task_done()
 
         logger.info("Scheduler worker stopped")
 

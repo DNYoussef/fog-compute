@@ -7,11 +7,13 @@ that reports unavailable instead of simulating anonymity.
 """
 
 import asyncio
+import base64
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import Enum
 import hashlib
 import hmac
+import json
 import logging
 import os
 from typing import TYPE_CHECKING, Any
@@ -610,18 +612,16 @@ class FogOnionCoordinator:
             return False
 
     async def _serialize_task(self, task: PrivacyAwareTask) -> bytes:
-        """Serialize task for network transmission."""
-        import pickle  # nosec B403 - Used for internal task serialization
-
-        return pickle.dumps(
-            {
-                "task_id": task.task_id,
-                "privacy_level": task.privacy_level.value,
-                "task_data": task.task_data,
-                "compute_requirements": task.compute_requirements,
-                "client_id": task.client_id,
-            }
-        )
+        """Serialize task for network transmission without executable payloads."""
+        payload = {
+            "format_version": 1,
+            "task_id": task.task_id,
+            "privacy_level": task.privacy_level.value,
+            "task_data_b64": base64.b64encode(task.task_data).decode("ascii"),
+            "compute_requirements": task.compute_requirements,
+            "client_id": task.client_id,
+        }
+        return json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
     async def _route_task_directly(self, task: PrivacyAwareTask) -> bool:
         """Route task directly through fog coordinator."""

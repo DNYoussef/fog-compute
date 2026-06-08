@@ -1,8 +1,9 @@
 """
-Fog Coordinator Implementation
+Legacy fog coordinator implementation.
 
-Concrete implementation of the fog network coordinator.
-Manages node registry, task routing, health monitoring, and failover.
+Concrete local coordinator retained for simulation and unit tests. It is no
+longer the authoritative request-path control plane; durable task ownership now
+lives in the backend control-plane service.
 """
 
 import asyncio
@@ -23,6 +24,7 @@ from .coordinator_interface import (
 )
 
 logger = logging.getLogger(__name__)
+LEGACY_NON_AUTHORITATIVE = True
 
 
 class FogCoordinator(IFogCoordinator):
@@ -102,18 +104,26 @@ class FogCoordinator(IFogCoordinator):
         # FOG-001: Extract node info while holding lock, then release before calling
         # handle_node_failure to avoid deadlock (it also acquires _node_lock)
         node_type_value = None
+        should_handle_failure = False
         async with self._node_lock:
             if node_id not in self._nodes:
                 logger.warning(f"Node {node_id} not found for unregistration")
                 return False
 
-            node = self._nodes.pop(node_id)
+            node = self._nodes[node_id]
             node_type_value = node.node_type.value
+            should_handle_failure = node.active_tasks > 0
+
+        if should_handle_failure:
+            await self.handle_node_failure(node_id)
+
+        async with self._node_lock:
+            removed = self._nodes.pop(node_id, None)
+            if removed is None:
+                logger.warning(f"Node {node_id} disappeared during unregistration")
+                return False
 
         logger.info(f"Unregistered node: {node_id} (type={node_type_value})")
-
-        # Handle any active tasks on this node (outside lock to prevent deadlock)
-        await self.handle_node_failure(node_id)
         return True
 
     async def update_node_status(self, node_id: str, status: NodeStatus) -> bool:

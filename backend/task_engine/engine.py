@@ -75,7 +75,6 @@ class TaskEngine:
         self._runner = TaskRunner(
             default_timeout_sec=self.config.default_timeout_sec,
             max_concurrent=self.config.max_concurrent_tasks,
-            on_task_complete=self._handle_task_complete,
         )
 
         # Task queue (priority queue as list of tuples: (priority, timestamp, spec))

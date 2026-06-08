@@ -365,10 +365,34 @@ class EnhancedServiceManager:
         """Initialize batch job scheduler (NSGA-II)"""
         try:
             from batch.placement import FogScheduler
-            self.services['scheduler'].instance = FogScheduler(reputation_engine=None)
+
+            scheduler = FogScheduler(reputation_engine=None)
+            missing_capabilities = []
+            for capability in (
+                "get_metrics",
+                "get_job_queue",
+                "submit_job",
+                "update_job_status",
+                "cancel_job",
+            ):
+                if not callable(getattr(scheduler, capability, None)):
+                    missing_capabilities.append(capability)
+            if not hasattr(scheduler, "nodes"):
+                missing_capabilities.append("nodes")
+
+            if missing_capabilities:
+                self.services['scheduler'].instance = None
+                raise RuntimeError(
+                    "Scheduler wiring mismatch: "
+                    f"{type(scheduler).__module__}.{type(scheduler).__name__} "
+                    f"missing route capabilities {sorted(missing_capabilities)}"
+                )
+
+            self.services['scheduler'].instance = scheduler
         except Exception as e:
             logger.error(f"Failed to initialize scheduler: {e}")
             self.services['scheduler'].instance = None
+            raise
 
     async def _init_edge(self) -> None:
         """Initialize edge manager"""

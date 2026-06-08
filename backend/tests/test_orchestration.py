@@ -5,7 +5,9 @@ Tests for service lifecycle, dependency resolution, health checks, and auto-rest
 import pytest
 import asyncio
 from datetime import datetime, timedelta
+from types import ModuleType
 from typing import Any
+import sys
 
 from server.services.dependencies import (
     DependencyGraph,
@@ -24,6 +26,7 @@ from server.services.registry import (
     ServiceStatus,
     ServiceMetadata
 )
+from server.services.enhanced_service_manager import EnhancedServiceManager
 
 
 # ============================================================================
@@ -425,6 +428,32 @@ async def test_auto_restart_on_failure():
     # This is a placeholder for integration test
     # Would test: service failure -> auto restart -> recovery
     pass
+
+
+@pytest.mark.asyncio
+async def test_enhanced_service_manager_rejects_mismatched_scheduler(monkeypatch):
+    """Scheduler initialization must fail when the wired implementation lacks route capabilities."""
+
+    placement_module = ModuleType("batch.placement")
+
+    class FakeFogScheduler:
+        def __init__(self, reputation_engine=None):
+            self.reputation_engine = reputation_engine
+
+    placement_module.FogScheduler = FakeFogScheduler
+
+    batch_module = ModuleType("batch")
+    batch_module.placement = placement_module
+
+    monkeypatch.setitem(sys.modules, "batch", batch_module)
+    monkeypatch.setitem(sys.modules, "batch.placement", placement_module)
+
+    manager = EnhancedServiceManager()
+
+    with pytest.raises(RuntimeError, match="Scheduler wiring mismatch"):
+        await manager._init_scheduler()
+
+    assert manager.services["scheduler"].instance is None
 
 
 @pytest.mark.asyncio

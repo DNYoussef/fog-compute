@@ -1,5 +1,5 @@
 from logging.config import fileConfig
-from sqlalchemy import engine_from_config
+from sqlalchemy import create_engine
 from sqlalchemy import pool
 from alembic import context
 import sys
@@ -10,6 +10,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 # Import Base metadata from our models
 from server.models.database import Base
+from server.models import control_plane as _control_plane_models  # noqa: F401
+from server.database_urls import (
+    get_database_runtime_settings_from_env,
+    get_sync_database_url,
+    get_sync_engine_options,
+)
 
 # this is the Alembic Config object
 config = context.config
@@ -21,9 +27,9 @@ if config.config_file_name is not None:
 # Set target metadata for autogenerate support
 target_metadata = Base.metadata
 
-# Override sqlalchemy.url from environment if available
-if os.getenv('DATABASE_URL'):
-    config.set_main_option('sqlalchemy.url', os.getenv('DATABASE_URL'))
+configured_database_url = config.get_main_option("sqlalchemy.url")
+db_settings = get_database_runtime_settings_from_env(default_database_url=configured_database_url)
+config.set_main_option("sqlalchemy.url", get_sync_database_url(db_settings["database_url"]))
 
 
 def run_migrations_offline() -> None:
@@ -42,10 +48,17 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
+    sync_database_url = get_sync_database_url(db_settings["database_url"])
+    engine_options = get_sync_engine_options(
+        sync_database_url,
+        connect_timeout_seconds=db_settings["connect_timeout_seconds"],
+        statement_timeout_seconds=db_settings["statement_timeout_seconds"],
+    )
+    connectable = create_engine(
+        sync_database_url,
         poolclass=pool.NullPool,
+        pool_pre_ping=True,
+        **engine_options,
     )
 
     with connectable.connect() as connection:

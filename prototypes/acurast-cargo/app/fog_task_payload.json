@@ -1,0 +1,11 @@
+{
+  "schema_version": "fog.acurast-cargo.task.v1",
+  "task_id": "wave10-acurast-cargo-local",
+  "operation": "sum",
+  "operands": [3, 5, 8, 13],
+  "expected_schema_version": "fog.acurast-cargo.result.v1",
+  "metadata": {
+    "created_by": "fog-compute-wave10",
+    "source": "issue-24"
+  }
+}
