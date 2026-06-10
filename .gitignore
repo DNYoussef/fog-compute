@@ -29,6 +29,9 @@ original_*/
 CLEANUP_BACKUP_*/
 
 # Test output
+.coverage
+.coverage.*
+coverage.xml
 tests/output/
 **/playwright-report/
 **/playwright-artifacts/
