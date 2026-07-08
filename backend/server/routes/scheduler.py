@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..services.enhanced_service_manager import enhanced_service_manager as service_manager
 from ..database import get_db
 from ..models.database import Job
+from ..middleware.api_key_auth import require_api_key
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/scheduler", tags=["batch-scheduler"])
@@ -182,7 +183,7 @@ async def get_jobs(status: Optional[str] = None, limit: int = 100) -> Dict[str, 
 
 
 @router.post("/jobs")
-async def submit_job(request: JobSubmitRequest, db: AsyncSession = Depends(get_db)) -> Dict[str, Any]:
+async def submit_job(request: JobSubmitRequest, db: AsyncSession = Depends(get_db), _auth: dict = Depends(require_api_key)) -> Dict[str, Any]:
     """
     Submit a new batch job
 
@@ -299,7 +300,7 @@ async def update_job(job_id: str, request: JobUpdateRequest) -> Dict[str, Any]:
 
 
 @router.delete("/jobs/{job_id}")
-async def cancel_job(job_id: str) -> Dict[str, Any]:
+async def cancel_job(job_id: str, _auth: dict = Depends(require_api_key)) -> Dict[str, Any]:
     """Cancel a pending or running job"""
     scheduler = _require_scheduler("cancel_job")
 
