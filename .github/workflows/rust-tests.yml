@@ -2,9 +2,10 @@ name: Rust Tests
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, 'integration/**' ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main, develop, 'integration/**' ]
+  workflow_dispatch:
 
 jobs:
   test:
@@ -68,11 +69,9 @@ jobs:
           -A clippy::missing_panics_doc \
           -A clippy::module_name_repetitions
       if: hashFiles('src/betanet/Cargo.toml') != ''
-      continue-on-error: true
 
     - name: Check code formatting
       run: |
         cd src/betanet
         cargo fmt -- --check
       if: hashFiles('src/betanet/Cargo.toml') != ''
-      continue-on-error: true

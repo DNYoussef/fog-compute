@@ -4,13 +4,14 @@ Betanet API Routes (Option B: backend owns all API contracts)
 SIN-003: Backend owns node CRUD, does not proxy to Rust /nodes.
 SIN-006: Status response matches canonical betanet-status.schema.json.
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 from typing import Dict, Any, List, Optional
 import logging
 
 from ..services.enhanced_service_manager import enhanced_service_manager as service_manager
 from ..constants import HEALTH_CHECK_TIMEOUT
+from ..middleware.api_key_auth import require_api_key
 import httpx
 
 logger = logging.getLogger(__name__)
@@ -151,7 +152,7 @@ async def get_betanet_status() -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 @router.post("/deploy")
-async def deploy_node(request: DeployNodeRequest) -> Dict[str, Any]:
+async def deploy_node(request: DeployNodeRequest, _auth: dict = Depends(require_api_key)) -> Dict[str, Any]:
     """Deploy a new Betanet node."""
     svc = _get_service()
 
@@ -182,7 +183,7 @@ async def list_nodes():
 
 
 @router.post("/nodes", response_model=NodeResponse, status_code=201)
-async def create_node(request: NodeCreateRequest):
+async def create_node(request: NodeCreateRequest, _auth: dict = Depends(require_api_key)):
     """Create a new Betanet node."""
     valid_types = ["mixnode", "gateway", "client"]
     if request.node_type not in valid_types:
@@ -210,7 +211,7 @@ async def get_node(node_id: str):
 
 
 @router.put("/nodes/{node_id}", response_model=NodeResponse)
-async def update_node(node_id: str, request: NodeUpdateRequest):
+async def update_node(node_id: str, request: NodeUpdateRequest, _auth: dict = Depends(require_api_key)):
     """Update a node's configuration."""
     updates = request.model_dump(exclude_none=True)
     if not updates:
@@ -224,7 +225,7 @@ async def update_node(node_id: str, request: NodeUpdateRequest):
 
 
 @router.delete("/nodes/{node_id}", status_code=204)
-async def delete_node(node_id: str):
+async def delete_node(node_id: str, _auth: dict = Depends(require_api_key)):
     """Delete a node."""
     svc = _get_service()
     deleted = await svc.delete_node(node_id)

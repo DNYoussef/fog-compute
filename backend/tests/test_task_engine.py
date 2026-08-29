@@ -623,7 +623,47 @@ class TestTaskEngine:
         await engine.execute_immediate(spec)
 
         # Callback should have been called
-        assert len(results) >= 1
+        assert len(results) == 1
+
+    @pytest.mark.asyncio
+    async def test_execute_immediate_does_not_duplicate_pending_results(self):
+        """Immediate execution should record exactly one completion result."""
+        engine = TaskEngine()
+
+        spec = TaskSpec(
+            task_id="pending-once-1",
+            task_type="compute",
+            payload={"operation": "add", "a": 2, "b": 3},
+        )
+
+        await engine.execute_immediate(spec)
+
+        results = engine.get_pending_results()
+        assert len(results) == 1
+        assert results[0].task_id == "pending-once-1"
+        assert results[0].status == TaskStatus.COMPLETED
+
+    @pytest.mark.asyncio
+    async def test_runner_cancel_tracks_running_task(self):
+        """Cancellation should target a real running task and return cancelled result."""
+        runner = TaskRunner()
+        spec = TaskSpec(
+            task_id="cancel-1",
+            task_type="script",
+            script="import time; time.sleep(5)",
+            timeout_sec=10,
+        )
+
+        execution = asyncio.create_task(runner.execute(spec))
+        await asyncio.sleep(0.1)
+
+        assert "cancel-1" in runner._running_tasks
+        cancelled = await runner.cancel("cancel-1")
+        result = await execution
+
+        assert cancelled is True
+        assert result.status == TaskStatus.CANCELLED
+        assert "cancel-1" not in runner._running_tasks
 
 
 # =============================================================================

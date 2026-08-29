@@ -173,6 +173,8 @@ class MeshService:
         profile: DeviceProfile,
         preferred_role: Optional[DeviceRole] = None,
         zone: str = "default",
+        public_key: Optional[str] = None,
+        owner_id: Optional[str] = None,
     ) -> tuple[str, str, DeviceRole, str]:
         """Register a device in mesh and return auth token material."""
         role = self._select_role(preferred_role)
@@ -208,6 +210,8 @@ class MeshService:
                     profile=profile,
                     role=role,
                     zone=zone,
+                    public_key=public_key,
+                    owner_id=owner_id,
                 )
                 await self._persistence.store_token(
                     device_id=device_id,
@@ -225,6 +229,7 @@ class MeshService:
         status: DeviceStatus,
         current_load: float,
         active_tasks: list[str],
+        pending_sync_count: int = 0,
     ) -> tuple[bool, list[dict[str, str]], bool, int]:
         """
         Process heartbeat and return coordination response tuple.
@@ -246,7 +251,7 @@ class MeshService:
         device.active_tasks = list(active_tasks)
         device.last_heartbeat = now
         device.last_heartbeat_monotonic = monotonic_now
-        device.pending_sync_count = 0
+        device.pending_sync_count = pending_sync_count
         device.consecutive_missed_heartbeats = 0
         device.consecutive_successful_heartbeats += 1
         device.last_heartbeat_latency_ms = latency_ms
@@ -263,7 +268,7 @@ class MeshService:
                         status=status,
                         current_load=current_load,
                         active_tasks=list(active_tasks),
-                        pending_sync_count=device.pending_sync_count,
+                        pending_sync_count=pending_sync_count,
                         latency_ms=latency_ms,
                     )
                 )
@@ -277,4 +282,15 @@ class MeshService:
             else self.heartbeat_interval_sec
         )
         return acknowledged, [], False, next_heartbeat_sec
+
+
+_mesh_service: Optional[MeshService] = None
+
+
+def get_mesh_service() -> MeshService:
+    """Get the process-wide mesh service instance."""
+    global _mesh_service
+    if _mesh_service is None:
+        _mesh_service = MeshService()
+    return _mesh_service
 

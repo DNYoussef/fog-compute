@@ -220,6 +220,9 @@ class DeviceAuthService:
         refresh_expires_at = datetime.now(UTC) + timedelta(days=self.refresh_token_expire_days)
 
         # Update credentials
+        if credentials.refresh_token:
+            self._refresh_tokens.pop(credentials.refresh_token, None)
+
         credentials.access_token = access_token
         credentials.refresh_token = refresh_token
         credentials.token_expires_at = token_expires_at
@@ -295,6 +298,10 @@ class DeviceAuthService:
             credentials = self._devices.get(device_id)
             if not credentials or credentials.is_revoked or not credentials.is_active:
                 logger.warning(f"Refresh failed: device invalid {device_id}")
+                return None
+
+            if credentials.refresh_token != refresh_token:
+                logger.warning(f"Refresh failed: token superseded for {device_id}")
                 return None
 
             # Generate new access token

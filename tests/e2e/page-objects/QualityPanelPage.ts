@@ -62,8 +62,9 @@ export class QualityPanelPage {
    * Select test suite from dropdown
    */
   async selectTestSuite(suite: 'all' | 'rust' | 'python') {
-    await this.testSuiteDropdown.selectOption(suite);
-    await this.page.waitForTimeout(500); // Debounce
+    await expect(this.testSuiteDropdown).toBeEnabled({ timeout: 5000 });
+    await this.testSuiteDropdown.selectOption({ value: suite });
+    await expect(this.testSuiteDropdown).toHaveValue(suite, { timeout: 5000 });
   }
 
   /**
@@ -275,6 +276,19 @@ export class QualityPanelPage {
     // Check focus is visible
     const focusedElement = await this.page.evaluateHandle(() => document.activeElement);
     return focusedElement;
+  }
+
+  /**
+   * Press Tab until the target receives focus.
+   */
+  async tabUntilFocused(target: Locator, maxTabs: number = 8) {
+    for (let i = 0; i < maxTabs; i++) {
+      if (await target.evaluate((el) => el === document.activeElement)) {
+        return;
+      }
+      await this.page.keyboard.press('Tab');
+    }
+    await expect(target).toBeFocused();
   }
 
   /**

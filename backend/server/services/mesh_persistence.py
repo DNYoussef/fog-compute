@@ -852,6 +852,10 @@ class MeshPersistenceService:
             owner_id=device.owner_id,
         )
 
+    def to_device_state(self, device: MeshDevice) -> DeviceState:
+        """Convert a persisted mesh device record to an API schema."""
+        return self._db_to_device_state(device)
+
 
 # Singleton instance
 _mesh_persistence: Optional[MeshPersistenceService] = None

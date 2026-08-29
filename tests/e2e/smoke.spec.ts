@@ -5,7 +5,10 @@ test.describe('control panel smoke', () => {
     await page.goto('/');
 
     await expect(page.getByRole('heading', { name: 'Fog Compute Dashboard' })).toBeVisible();
-    await expect(page.getByRole('navigation')).toBeVisible();
+    await expect(page.getByTestId('main-nav')).toBeVisible();
+    if ((page.viewportSize()?.width ?? 0) < 768) {
+      await expect(page.getByTestId('bottom-navigation')).toBeVisible();
+    }
     await expect(page.getByTestId('main-content')).toBeVisible();
   });
 

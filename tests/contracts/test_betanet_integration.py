@@ -202,6 +202,7 @@ class TestBetanetSyncFromRust:
         from backend.server.services.betanet import BetanetService
 
         mock_client = AsyncMock()
+        mock_client.deploy_node.return_value = {"success": False}
         svc = BetanetService(client=mock_client)
 
         # Create a node first

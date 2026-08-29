@@ -7,6 +7,12 @@ from pydantic import field_validator
 from typing import Optional
 import os
 
+from .database_urls import (
+    DEFAULT_DATABASE_CONNECT_TIMEOUT_SECONDS,
+    DEFAULT_DATABASE_STATEMENT_TIMEOUT_SECONDS,
+    DEFAULT_DATABASE_URL,
+)
+
 
 class Settings(BaseSettings):
     """Application settings with environment variable support"""
@@ -37,11 +43,14 @@ class Settings(BaseSettings):
     CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
 
     # Database
-    # Default uses standard postgres credentials and test database for easier local development
+    # Default uses the repo's local fog Postgres credentials for development.
     # Production should set DATABASE_URL environment variable
-    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/fog_compute_test"
+    DATABASE_URL: str = DEFAULT_DATABASE_URL
     DATABASE_POOL_SIZE: int = 10
     DATABASE_MAX_OVERFLOW: int = 20
+    DATABASE_CONNECT_TIMEOUT_SECONDS: int = DEFAULT_DATABASE_CONNECT_TIMEOUT_SECONDS
+    DATABASE_STATEMENT_TIMEOUT_SECONDS: int = DEFAULT_DATABASE_STATEMENT_TIMEOUT_SECONDS
+    ENABLE_DEV_DB_BOOTSTRAP: bool = os.getenv("ENABLE_DEV_DB_BOOTSTRAP", "false").lower() == "true"
 
     @field_validator('DATABASE_URL')
     @classmethod
@@ -75,6 +84,18 @@ class Settings(BaseSettings):
         elif v.startswith('postgres://'):
             return v.replace('postgres://', 'postgresql+asyncpg://', 1)
 
+        return v
+
+    @field_validator('ENABLE_DEV_DB_BOOTSTRAP')
+    @classmethod
+    def validate_dev_db_bootstrap(cls, v: bool) -> bool:
+        """Disallow dev schema bootstrap toggles in production."""
+        app_env = os.getenv("APP_ENV", "development")
+        if app_env == "production" and v:
+            raise ValueError(
+                "ENABLE_DEV_DB_BOOTSTRAP=true is forbidden in production "
+                "(APP_ENV=production). Run Alembic migrations instead."
+            )
         return v
 
     # Betanet (Rust service)

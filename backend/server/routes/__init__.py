@@ -18,7 +18,8 @@ from . import (
     deployment,
     usage,
     mfa,
-    fog_bridge
+    fog_bridge,
+    mesh,
 )
 
 __all__ = [
@@ -38,5 +39,6 @@ __all__ = [
     'deployment',
     'usage',
     'mfa',
-    'fog_bridge'
+    'fog_bridge',
+    'mesh',
 ]

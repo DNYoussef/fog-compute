@@ -448,11 +448,11 @@ class UnifiedDecentralizedSystem:
                 logger.error("Failed to initialize transports")
                 return False
 
-            # Start background tasks
-            self._start_background_tasks()
-
             self._running = True
             self.metrics["system_start_time"] = time.time()
+
+            # Start background tasks
+            self._start_background_tasks()
 
             logger.info("Unified decentralized system started successfully")
             logger.info(f"Active transports: {list(self.transports.keys())}")
@@ -465,7 +465,7 @@ class UnifiedDecentralizedSystem:
 
     async def stop(self) -> bool:
         """Stop the unified decentralized system and cleanup resources."""
-        if not self._running:
+        if not self._running and not self._background_tasks and not self.transports:
             return True
 
         logger.info("Stopping unified decentralized system...")
@@ -532,13 +532,13 @@ class UnifiedDecentralizedSystem:
                         display_name=self.device_name,
                         max_message_size=self.config["bitchat_max_message_size"],
                     )
-
-                    # Register message handler
-                    bitchat.register_message_handler(self._handle_bitchat_message)
-
-                    self.transports[DecentralizedTransportType.BITCHAT_BLE] = bitchat
+                    await self._start_transport(
+                        bitchat,
+                        DecentralizedTransportType.BITCHAT_BLE,
+                        self._handle_bitchat_message,
+                    )
                     success_count += 1
-                    logger.info("BitChat BLE transport initialized")
+                    logger.info("BitChat BLE transport initialized and running")
 
                 except Exception as e:
                     logger.warning(f"Failed to initialize BitChat: {e}")
@@ -555,13 +555,13 @@ class UnifiedDecentralizedSystem:
                         betanet_api_url=betanet_url,
                         device_name=self.device_name,
                     )
-
-                    # Register message handler
-                    betanet.register_message_handler(self._handle_betanet_message)
-
-                    self.transports[DecentralizedTransportType.BETANET_HTX] = betanet
+                    await self._start_transport(
+                        betanet,
+                        DecentralizedTransportType.BETANET_HTX,
+                        self._handle_betanet_message,
+                    )
                     success_count += 1
-                    logger.info("BetaNet HTX transport initialized")
+                    logger.info("BetaNet HTX transport initialized and running")
 
                 except Exception as e:
                     logger.warning(f"Failed to initialize BetaNet: {e}")
@@ -578,6 +578,35 @@ class UnifiedDecentralizedSystem:
         except Exception as e:
             logger.error(f"Error during transport initialization: {e}")
             return False
+
+    async def _start_transport(
+        self,
+        transport: Any,
+        transport_type: DecentralizedTransportType,
+        message_handler: Callable,
+    ) -> None:
+        """Start a transport and verify it reports a usable running state."""
+        try:
+            transport.register_message_handler(message_handler)
+
+            started = await transport.start()
+            if not started:
+                raise RuntimeError(f"{transport_type.value} start() returned False")
+
+            if not transport.is_available() or not transport.is_connected():
+                raise RuntimeError(
+                    f"{transport_type.value} reported unavailable after start: "
+                    f"available={transport.is_available()} connected={transport.is_connected()}"
+                )
+
+            self.transports[transport_type] = transport
+        except Exception:
+            if hasattr(transport, "stop"):
+                try:
+                    await transport.stop()
+                except Exception as stop_error:
+                    logger.warning(f"Failed stopping {transport_type.value} after startup error: {stop_error}")
+            raise
 
     def _get_transport_capabilities(self, transport_type: DecentralizedTransportType) -> "TransportCapabilities":
         """Get capabilities for specific transport type.
@@ -755,16 +784,24 @@ class UnifiedDecentralizedSystem:
         try:
             # Convert DecentralizedMessage to standard dict for transport
             transport_msg = {
+                "message_id": message.message_id,
                 "sender_id": message.sender_id,
                 "receiver_id": message.receiver_id,
                 "payload": message.payload,
                 "message_type": message.message_type,
                 "priority": message.priority.value,
+                "requires_ack": message.requires_ack,
+                "requires_privacy": message.requires_privacy,
+                "hop_limit": message.hop_limit,
+                "hop_count": message.hop_count,
+                "timestamp": message.timestamp,
+                "expires_at": message.expires_at,
                 "metadata": {
                     "message_id": message.message_id,
                     "hop_limit": message.hop_limit,
                     "hop_count": message.hop_count,
                     "requires_privacy": message.requires_privacy,
+                    "requires_ack": message.requires_ack,
                 },
             }
 
@@ -788,24 +825,7 @@ class UnifiedDecentralizedSystem:
         SIN-011: Accepts standard dict format from real BitChatTransport.
         """
         try:
-            # Real transports pass dict messages to handlers
-            payload = message_dict.get("payload", b"")
-            if isinstance(payload, str):
-                try:
-                    payload = bytes.fromhex(payload)
-                except ValueError:
-                    payload = payload.encode("utf-8")
-            elif not isinstance(payload, bytes):
-                payload = b""
-
-            decentralized_msg = DecentralizedMessage(
-                message_id=message_dict.get("message_id", f"recv_{secrets.token_hex(8)}"),
-                sender_id=message_dict.get("sender_id", ""),
-                receiver_id=message_dict.get("receiver_id", self.node_id),
-                message_type=message_dict.get("message_type", "data"),
-                payload=payload,
-                priority=MessagePriority.NORMAL,
-            )
+            decentralized_msg = self._deserialize_transport_message(message_dict)
 
             await self._process_received_message(decentralized_msg, DecentralizedTransportType.BITCHAT_BLE)
             self.metrics["bitchat_messages"] += 1
@@ -819,23 +839,9 @@ class UnifiedDecentralizedSystem:
         SIN-011: Accepts standard dict format from real BetaNetTransport.
         """
         try:
-            payload = message_dict.get("payload", b"")
-            if isinstance(payload, str):
-                try:
-                    payload = bytes.fromhex(payload)
-                except ValueError:
-                    payload = payload.encode("utf-8")
-            elif not isinstance(payload, bytes):
-                payload = b""
-
-            decentralized_msg = DecentralizedMessage(
-                message_id=message_dict.get("message_id", f"recv_{secrets.token_hex(8)}"),
-                sender_id=message_dict.get("sender_id", ""),
-                receiver_id=message_dict.get("receiver_id", self.node_id),
-                message_type=message_dict.get("message_type", "data"),
-                payload=payload,
-                priority=MessagePriority.NORMAL,
-                requires_privacy=True,
+            decentralized_msg = self._deserialize_transport_message(
+                message_dict,
+                default_requires_privacy=True,
             )
 
             await self._process_received_message(decentralized_msg, DecentralizedTransportType.BETANET_HTX)
@@ -843,6 +849,47 @@ class UnifiedDecentralizedSystem:
 
         except Exception as e:
             logger.error(f"Error handling BetaNet message: {e}")
+
+    def _deserialize_transport_message(
+        self,
+        message_dict: dict[str, Any],
+        *,
+        default_requires_privacy: bool = False,
+    ) -> DecentralizedMessage:
+        """Build a DecentralizedMessage from a transport dict using canonical fields first."""
+        metadata = message_dict.get("metadata") or {}
+        payload = message_dict.get("payload", b"")
+        if isinstance(payload, str):
+            try:
+                payload = bytes.fromhex(payload)
+            except ValueError:
+                payload = payload.encode("utf-8")
+        elif not isinstance(payload, bytes):
+            payload = b""
+
+        priority_value = message_dict.get("priority", MessagePriority.NORMAL.value)
+        try:
+            priority = priority_value if isinstance(priority_value, MessagePriority) else MessagePriority(priority_value)
+        except ValueError:
+            priority = MessagePriority.NORMAL
+
+        return DecentralizedMessage(
+            message_id=message_dict.get("message_id") or metadata.get("message_id") or f"recv_{secrets.token_hex(8)}",
+            sender_id=message_dict.get("sender_id", ""),
+            receiver_id=message_dict.get("receiver_id", self.node_id),
+            message_type=message_dict.get("message_type", "data"),
+            payload=payload,
+            priority=priority,
+            requires_privacy=message_dict.get(
+                "requires_privacy",
+                metadata.get("requires_privacy", default_requires_privacy),
+            ),
+            hop_limit=message_dict.get("hop_limit", metadata.get("hop_limit", 7)),
+            hop_count=message_dict.get("hop_count", metadata.get("hop_count", 0)),
+            requires_ack=message_dict.get("requires_ack", metadata.get("requires_ack", True)),
+            timestamp=message_dict.get("timestamp", time.time()),
+            expires_at=message_dict.get("expires_at", time.time() + 300),
+        )
 
     async def _process_received_message(
         self, message: DecentralizedMessage, transport_type: DecentralizedTransportType
