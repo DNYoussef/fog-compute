@@ -40,6 +40,10 @@ class TestQualityGateScripts:
         script = REPO_ROOT / "scripts" / "ci" / "check_placeholders.py"
         assert script.exists(), "check_placeholders.py not found"
 
+    def test_check_workflow_guards_script_exists(self):
+        script = REPO_ROOT / "scripts" / "ci" / "check_workflow_guards.py"
+        assert script.exists(), "check_workflow_guards.py not found"
+
     def test_check_prod_mocks_passes(self):
         """SIN-032: No mock violations in production code."""
         result = subprocess.run(
@@ -49,6 +53,16 @@ class TestQualityGateScripts:
             cwd=str(REPO_ROOT),
         )
         assert result.returncode == 0, f"Mock check failed:\n{result.stdout}\n{result.stderr}"
+
+    def test_check_workflow_guards_passes(self):
+        """CI commands must not hide dependency or test failures."""
+        result = subprocess.run(
+            [sys.executable, str(REPO_ROOT / "scripts" / "ci" / "check_workflow_guards.py")],
+            capture_output=True,
+            text=True,
+            cwd=str(REPO_ROOT),
+        )
+        assert result.returncode == 0, f"Workflow guard failed:\n{result.stdout}\n{result.stderr}"
 
     def test_python_ci_workflow_exists(self):
         workflow = REPO_ROOT / ".github" / "workflows" / "python-tests.yml"

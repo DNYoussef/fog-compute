@@ -2,9 +2,10 @@ name: Python Tests & Contract Validation
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, 'integration/**' ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main, develop, 'integration/**' ]
+  workflow_dispatch:
 
 jobs:
   contracts:
@@ -36,7 +37,7 @@ jobs:
         SECRET_KEY: "ci-test-secret-key-for-contract-tests-32chars!"
         DATABASE_URL: "postgresql+asyncpg://postgres:postgres@localhost:5432/fog_compute_test"
       run: |
-        python -m pytest tests/contracts/ -v --tb=short -p no:cacheprovider
+        python -m pytest tests/contracts/ -v --tb=short -p no:cacheprovider --no-cov -W error::RuntimeWarning
 
   quality-gate:
     name: Quality Gates
@@ -58,6 +59,10 @@ jobs:
       run: |
         python scripts/ci/check_placeholders.py
 
+    - name: CI workflow failure-mode guard
+      run: |
+        python scripts/ci/check_workflow_guards.py
+
   fog-coverage:
     name: Fog Coverage
     runs-on: ubuntu-latest
@@ -73,7 +78,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pip install -r requirements.txt 2>/dev/null || true
+        pip install -r requirements.txt
         pip install pytest pytest-asyncio pytest-cov
 
     - name: Run fog test suite with coverage gate
@@ -81,7 +86,7 @@ jobs:
         python -m pytest src/fog/tests/test_coordinator.py -v --tb=short --cov=src/fog --cov-report=term-missing --cov-report=xml:tests/output/coverage/coverage.xml --cov-fail-under=25
 
   backend-unit:
-    name: Backend Unit Tests
+    name: Backend Hermetic Regression Tests
     runs-on: ubuntu-latest
 
     steps:
@@ -95,7 +100,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pip install -r requirements.txt 2>/dev/null || true
+        pip install -r requirements.txt
         pip install pytest pytest-asyncio psutil pydantic
 
     - name: Run backend tests
@@ -104,4 +109,4 @@ jobs:
         ALLOW_MOCKS: "true"
         SECRET_KEY: "ci-test-secret-key-32chars-minimum!!"
       run: |
-        python -m pytest backend/tests/ -v --tb=short -p no:cacheprovider 2>/dev/null || echo "Backend tests directory may not exist yet"
+        python -m pytest backend/tests/test_mesh_routes.py backend/tests/test_heartbeat_jitter.py backend/tests/test_control_plane.py backend/tests/test_fog_bridge_control_plane.py -v --tb=short -p no:cacheprovider --no-cov

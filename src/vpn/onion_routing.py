@@ -209,7 +209,7 @@ class OnionRouter:
         )
 
     def _initialize_directory_authorities(self) -> list[OnionNode]:
-        """Initialize development-only generated directory authority placeholders."""
+        """Initialize development-only generated directory authority records."""
         # No real directory-authority list is configured in this module.
         authorities = []
         for i in range(5):

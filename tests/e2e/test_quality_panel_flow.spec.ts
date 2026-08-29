@@ -416,12 +416,12 @@ test.describe('UI-02: Quality Panel E2E Tests', () => {
       await qualityPanel.testSuiteDropdown.focus();
       await expect(qualityPanel.testSuiteDropdown).toBeFocused();
 
-      // Tab to run tests button
-      await page.keyboard.press('Tab');
+      // Tab to run tests button; browsers differ on native select focus handling.
+      await qualityPanel.tabUntilFocused(qualityPanel.runTestsButton);
       await expect(qualityPanel.runTestsButton).toBeFocused();
 
       // Tab to run benchmarks button
-      await page.keyboard.press('Tab');
+      await qualityPanel.tabUntilFocused(qualityPanel.runBenchmarksButton);
       await expect(qualityPanel.runBenchmarksButton).toBeFocused();
 
       // Should be able to activate with Enter or Space
