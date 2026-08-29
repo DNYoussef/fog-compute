@@ -1,0 +1,176 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic:
+    - status [ref=e7]: "Failed to load nodes: Failed to fetch nodes"
+    - status [ref=e13]: "Failed to load nodes: Failed to fetch nodes"
+  - generic [ref=e14]:
+    - navigation [ref=e15]:
+      - generic [ref=e17]:
+        - link "FC Fog Compute" [ref=e18]:
+          - /url: /
+          - generic [ref=e19]: FC
+          - generic [ref=e20]: Fog Compute
+        - generic [ref=e21]:
+          - link "D Dashboard" [ref=e22]:
+            - /url: /
+            - generic [ref=e23]: D
+            - generic [ref=e24]: Dashboard
+          - link "N Nodes" [ref=e25]:
+            - /url: /nodes
+            - generic [ref=e26]: "N"
+            - generic [ref=e27]: Nodes
+          - link "T Tasks" [ref=e28]:
+            - /url: /tasks
+            - generic [ref=e29]: T
+            - generic [ref=e30]: Tasks
+          - link "B Betanet" [ref=e31]:
+            - /url: /betanet
+            - generic [ref=e32]: B
+            - generic [ref=e33]: Betanet
+          - link "C BitChat" [ref=e34]:
+            - /url: /bitchat
+            - generic [ref=e35]: C
+            - generic [ref=e36]: BitChat
+          - link "P Benchmarks" [ref=e37]:
+            - /url: /benchmarks
+            - generic [ref=e38]: P
+            - generic [ref=e39]: Benchmarks
+          - link "Q Quality" [ref=e40]:
+            - /url: /quality
+            - generic [ref=e41]: Q
+            - generic [ref=e42]: Quality
+        - generic [ref=e44]:
+          - img [ref=e47]
+          - generic [ref=e52]: Reconnecting...
+          - generic [ref=e53]: Attempt 1/10
+        - button "Menu" [ref=e55] [cursor=pointer]:
+          - generic [ref=e56] [cursor=pointer]: Menu
+          - img [ref=e57] [cursor=pointer]
+    - generic [ref=e59]:
+      - complementary "Context rail" [ref=e60]
+      - main [ref=e61]:
+        - generic [ref=e63]:
+          - generic [ref=e65]:
+            - generic [ref=e66]:
+              - heading "Betanet Privacy Network" [level=1] [ref=e67]
+              - paragraph [ref=e68]: Real-time monitoring of mixnode topology and packet flow
+            - generic [ref=e69]:
+              - generic [ref=e70]: 67%
+              - generic [ref=e71]: Network Health
+          - generic [ref=e72]:
+            - generic [ref=e73]:
+              - generic [ref=e74]: "2"
+              - generic [ref=e75]: Active Mixnodes
+            - generic [ref=e76]:
+              - generic [ref=e77]: "3"
+              - generic [ref=e78]: Total Mixnodes
+            - generic [ref=e79]:
+              - generic [ref=e80]: 20.67ms
+              - generic [ref=e81]: Avg Latency
+            - generic [ref=e82]:
+              - generic [ref=e83]: 266,000
+              - generic [ref=e84]: Total Packets
+          - generic [ref=e86]:
+            - heading "Betanet Nodes" [level=2] [ref=e88]
+            - generic [ref=e89]:
+              - img [ref=e90]
+              - paragraph [ref=e92]: No nodes deployed yet
+              - paragraph [ref=e93]: Click the + button to add your first node
+            - button "Add new node" [ref=e94] [cursor=pointer]:
+              - img [ref=e95] [cursor=pointer]
+          - generic [ref=e96]:
+            - generic [ref=e97]:
+              - heading "Network Topology" [level=2] [ref=e98]
+              - generic [ref=e99]:
+                - button "Reset View" [ref=e100] [cursor=pointer]
+                - button "Zoom In" [ref=e101] [cursor=pointer]
+                - button "Auto Rotate" [ref=e102] [cursor=pointer]
+            - generic [ref=e105]:
+              - generic [ref=e106]:
+                - heading "Topology Map" [level=3] [ref=e107]
+                - paragraph [ref=e108]: WebGL is unavailable in this browser session.
+              - generic [ref=e109]:
+                - button "mixnode-e2e-... Reputation 98%" [ref=e110] [cursor=pointer]:
+                  - generic [ref=e113] [cursor=pointer]: mixnode-e2e-...
+                  - generic [ref=e114] [cursor=pointer]: Reputation 98%
+                - button "mixnode-e2e-... Reputation 94%" [ref=e115] [cursor=pointer]:
+                  - generic [ref=e118] [cursor=pointer]: mixnode-e2e-...
+                  - generic [ref=e119] [cursor=pointer]: Reputation 94%
+                - button "mixnode-e2e-... Reputation 76%" [ref=e120] [cursor=pointer]:
+                  - generic [ref=e123] [cursor=pointer]: mixnode-e2e-...
+                  - generic [ref=e124] [cursor=pointer]: Reputation 76%
+          - generic [ref=e125]:
+            - generic [ref=e126]:
+              - heading "Packet Flow Monitor" [level=2] [ref=e127]
+              - generic [ref=e128]:
+                - generic [ref=e129]:
+                  - generic [ref=e130]:
+                    - text: "Throughput:"
+                    - generic [ref=e131]: 0.00 Mbps
+                  - generic [ref=e132]:
+                    - text: "Packets:"
+                    - generic [ref=e133]: 0.0 pps
+                - generic [ref=e135]: Waiting for packet flows...
+            - generic [ref=e136]:
+              - heading "Mixnode Details" [level=2] [ref=e137]
+              - generic [ref=e138]:
+                - generic [ref=e139] [cursor=pointer]:
+                  - generic [ref=e140] [cursor=pointer]:
+                    - generic [ref=e143] [cursor=pointer]: mixnode-e2e-...
+                    - generic [ref=e144] [cursor=pointer]: ACTIVE
+                  - generic [ref=e145] [cursor=pointer]:
+                    - generic [ref=e146] [cursor=pointer]:
+                      - generic [ref=e147] [cursor=pointer]: "Packets:"
+                      - generic [ref=e148] [cursor=pointer]: 125,000
+                    - generic [ref=e149] [cursor=pointer]:
+                      - generic [ref=e150] [cursor=pointer]: "Latency:"
+                      - generic [ref=e151] [cursor=pointer]: 12.50ms
+                    - generic [ref=e152] [cursor=pointer]:
+                      - generic [ref=e153] [cursor=pointer]: "Uptime:"
+                      - generic [ref=e154] [cursor=pointer]: 24h
+                    - generic [ref=e155] [cursor=pointer]:
+                      - generic [ref=e156] [cursor=pointer]: "Rep:"
+                      - generic [ref=e157] [cursor=pointer]: 98%
+                - generic [ref=e158] [cursor=pointer]:
+                  - generic [ref=e159] [cursor=pointer]:
+                    - generic [ref=e162] [cursor=pointer]: mixnode-e2e-...
+                    - generic [ref=e163] [cursor=pointer]: ACTIVE
+                  - generic [ref=e164] [cursor=pointer]:
+                    - generic [ref=e165] [cursor=pointer]:
+                      - generic [ref=e166] [cursor=pointer]: "Packets:"
+                      - generic [ref=e167] [cursor=pointer]: 98,000
+                    - generic [ref=e168] [cursor=pointer]:
+                      - generic [ref=e169] [cursor=pointer]: "Latency:"
+                      - generic [ref=e170] [cursor=pointer]: 18.30ms
+                    - generic [ref=e171] [cursor=pointer]:
+                      - generic [ref=e172] [cursor=pointer]: "Uptime:"
+                      - generic [ref=e173] [cursor=pointer]: 17h
+                    - generic [ref=e174] [cursor=pointer]:
+                      - generic [ref=e175] [cursor=pointer]: "Rep:"
+                      - generic [ref=e176] [cursor=pointer]: 94%
+                - generic [ref=e177] [cursor=pointer]:
+                  - generic [ref=e178] [cursor=pointer]:
+                    - generic [ref=e181] [cursor=pointer]: mixnode-e2e-...
+                    - generic [ref=e182] [cursor=pointer]: DEGRADED
+                  - generic [ref=e183] [cursor=pointer]:
+                    - generic [ref=e184] [cursor=pointer]:
+                      - generic [ref=e185] [cursor=pointer]: "Packets:"
+                      - generic [ref=e186] [cursor=pointer]: 43,000
+                    - generic [ref=e187] [cursor=pointer]:
+                      - generic [ref=e188] [cursor=pointer]: "Latency:"
+                      - generic [ref=e189] [cursor=pointer]: 31.20ms
+                    - generic [ref=e190] [cursor=pointer]:
+                      - generic [ref=e191] [cursor=pointer]: "Uptime:"
+                      - generic [ref=e192] [cursor=pointer]: 8h
+                    - generic [ref=e193] [cursor=pointer]:
+                      - generic [ref=e194] [cursor=pointer]: "Rep:"
+                      - generic [ref=e195] [cursor=pointer]: 76%
+  - alert [ref=e196]
+  - generic [ref=e199] [cursor=pointer]:
+    - img [ref=e200] [cursor=pointer]
+    - generic [ref=e202] [cursor=pointer]: 1 error
+    - button "Hide Errors" [ref=e203] [cursor=pointer]:
+      - img [ref=e204] [cursor=pointer]
+```

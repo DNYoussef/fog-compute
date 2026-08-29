@@ -1,0 +1,399 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - navigation [ref=e3]:
+      - generic [ref=e5]:
+        - link "FC Fog Compute" [ref=e6] [cursor=pointer]:
+          - /url: /
+          - generic [ref=e7] [cursor=pointer]: FC
+          - generic [ref=e8] [cursor=pointer]: Fog Compute
+        - generic [ref=e9]:
+          - link "D Dashboard" [ref=e10] [cursor=pointer]:
+            - /url: /
+            - generic [ref=e11] [cursor=pointer]: D
+            - generic [ref=e12] [cursor=pointer]: Dashboard
+          - link "N Nodes" [ref=e13] [cursor=pointer]:
+            - /url: /nodes
+            - generic [ref=e14] [cursor=pointer]: "N"
+            - generic [ref=e15] [cursor=pointer]: Nodes
+          - link "T Tasks" [ref=e16] [cursor=pointer]:
+            - /url: /tasks
+            - generic [ref=e17] [cursor=pointer]: T
+            - generic [ref=e18] [cursor=pointer]: Tasks
+          - link "B Betanet" [ref=e19] [cursor=pointer]:
+            - /url: /betanet
+            - generic [ref=e20] [cursor=pointer]: B
+            - generic [ref=e21] [cursor=pointer]: Betanet
+          - link "C BitChat" [ref=e22] [cursor=pointer]:
+            - /url: /bitchat
+            - generic [ref=e23] [cursor=pointer]: C
+            - generic [ref=e24] [cursor=pointer]: BitChat
+          - link "P Benchmarks" [ref=e25] [cursor=pointer]:
+            - /url: /benchmarks
+            - generic [ref=e26] [cursor=pointer]: P
+            - generic [ref=e27] [cursor=pointer]: Benchmarks
+          - link "Q Quality" [active] [ref=e28] [cursor=pointer]:
+            - /url: /quality
+            - generic [ref=e29] [cursor=pointer]: Q
+            - generic [ref=e30] [cursor=pointer]: Quality
+        - generic [ref=e32]:
+          - img [ref=e36]
+          - generic [ref=e41]: Connected
+          - generic [ref=e42]: 0s ago
+    - generic [ref=e43]:
+      - complementary "Context rail" [ref=e44]
+      - main [ref=e45]:
+        - generic [ref=e47]:
+          - generic [ref=e49]:
+            - generic [ref=e50]:
+              - heading "Quality Dashboard" [level=1] [ref=e51]
+              - paragraph [ref=e52]: Comprehensive testing, benchmarking, and quality metrics
+            - generic [ref=e53]:
+              - generic [ref=e54]: 92.3%
+              - generic [ref=e55]: Overall Pass Rate
+          - generic [ref=e56]:
+            - generic [ref=e57]:
+              - generic [ref=e58]: 289/313
+              - generic [ref=e59]: Tests Passing
+            - generic [ref=e60]:
+              - generic [ref=e61]: 1094 Mbps
+              - generic [ref=e62]: VPN Throughput
+            - generic [ref=e63]:
+              - generic [ref=e64]: 92.3%
+              - generic [ref=e65]: Production Ready
+            - generic [ref=e66]:
+              - generic [ref=e67]: 99.1%
+              - generic [ref=e68]: Resource Reuse
+          - generic [ref=e70]:
+            - heading "🧪 Test Suite Results" [level=2] [ref=e71]:
+              - generic [ref=e72]: 🧪
+              - text: Test Suite Results
+            - generic [ref=e73]:
+              - button "🦀 Rust Tests 111/111 tests passing 100.0%" [ref=e75] [cursor=pointer]:
+                - generic [ref=e76] [cursor=pointer]:
+                  - generic [ref=e77] [cursor=pointer]:
+                    - generic [ref=e78] [cursor=pointer]: 🦀
+                    - generic [ref=e79] [cursor=pointer]:
+                      - generic [ref=e80] [cursor=pointer]: Rust Tests
+                      - generic [ref=e81] [cursor=pointer]: 111/111 tests passing
+                  - generic [ref=e82] [cursor=pointer]:
+                    - generic [ref=e84] [cursor=pointer]: 100.0%
+                    - img [ref=e85] [cursor=pointer]
+              - button "🐍 Python Tests 178/202 tests passing 88.1%" [ref=e90] [cursor=pointer]:
+                - generic [ref=e91] [cursor=pointer]:
+                  - generic [ref=e92] [cursor=pointer]:
+                    - generic [ref=e93] [cursor=pointer]: 🐍
+                    - generic [ref=e94] [cursor=pointer]:
+                      - generic [ref=e95] [cursor=pointer]: Python Tests
+                      - generic [ref=e96] [cursor=pointer]: 178/202 tests passing
+                  - generic [ref=e97] [cursor=pointer]:
+                    - generic [ref=e99] [cursor=pointer]: 88.1%
+                    - img [ref=e100] [cursor=pointer]
+            - generic [ref=e104]: "Last updated: 8/29/2026, 2:16:28 PM"
+          - generic [ref=e106]:
+            - heading "⚡ Performance Benchmarks" [level=2] [ref=e107]:
+              - generic [ref=e108]: ⚡
+              - text: Performance Benchmarks
+            - generic [ref=e109]:
+              - generic [ref=e110]:
+                - generic [ref=e111]:
+                  - generic [ref=e112]: 🔒
+                  - heading "VPN Performance" [level=3] [ref=e113]
+                - generic [ref=e114]:
+                  - generic [ref=e116]:
+                    - generic [ref=e117]:
+                      - generic [ref=e118]: Circuit Creation
+                      - generic [ref=e119]: Average time to build 3-hop onion circuit
+                    - generic [ref=e120]:
+                      - generic [ref=e121]:
+                        - generic [ref=e122]: 1.09ms
+                        - generic [ref=e123]: ⚠
+                      - generic [ref=e124]: "Target: <1ms"
+                  - generic [ref=e126]:
+                    - generic [ref=e127]:
+                      - generic [ref=e128]: Success Rate
+                      - generic [ref=e129]: Circuit build success rate
+                    - generic [ref=e130]:
+                      - generic [ref=e131]:
+                        - generic [ref=e132]: 100%
+                        - generic [ref=e133]: ✓
+                      - generic [ref=e134]: "Target: >95%"
+                  - generic [ref=e136]:
+                    - generic [ref=e137]:
+                      - generic [ref=e138]: Throughput (64KB)
+                      - generic [ref=e139]: Data transmission throughput for large payloads
+                    - generic [ref=e140]:
+                      - generic [ref=e141]:
+                        - generic [ref=e142]: 1094 Mbps
+                        - generic [ref=e143]: ✓
+                      - generic [ref=e144]: "Target: >500 Mbps"
+              - generic [ref=e145]:
+                - generic [ref=e146]:
+                  - generic [ref=e147]: ⚡
+                  - heading "Resource Optimization" [level=3] [ref=e148]
+                - generic [ref=e149]:
+                  - generic [ref=e151]:
+                    - generic [ref=e152]:
+                      - generic [ref=e153]: Pool Reuse Rate
+                      - generic [ref=e154]: Resource pool reuse efficiency
+                    - generic [ref=e155]:
+                      - generic [ref=e156]:
+                        - generic [ref=e157]: 99.1%
+                        - generic [ref=e158]: ✓
+                      - generic [ref=e159]: "Target: >90%"
+                  - generic [ref=e161]:
+                    - generic [ref=e162]:
+                      - generic [ref=e163]: Acquisition Time
+                      - generic [ref=e164]: Resource acquisition latency
+                    - generic [ref=e165]:
+                      - generic [ref=e166]:
+                        - generic [ref=e167]: 0.012ms
+                        - generic [ref=e168]: ✓
+                      - generic [ref=e169]: "Target: <1ms"
+              - generic [ref=e170]:
+                - generic [ref=e171]:
+                  - generic [ref=e172]: 🧠
+                  - heading "Scheduler Performance" [level=3] [ref=e173]
+                - generic [ref=e176]:
+                  - generic [ref=e177]:
+                    - generic [ref=e178]: Task Submission
+                    - generic [ref=e179]: Task submission throughput
+                  - generic [ref=e180]:
+                    - generic [ref=e181]:
+                      - generic [ref=e182]: 56.7K tasks/sec
+                      - generic [ref=e183]: ✗
+                    - generic [ref=e184]: "Target: >100K tasks/sec"
+              - generic [ref=e185]:
+                - generic [ref=e186]:
+                  - generic [ref=e187]: 📊
+                  - heading "Profiler Overhead" [level=3] [ref=e188]
+                - generic [ref=e191]:
+                  - generic [ref=e192]:
+                    - generic [ref=e193]: CPU Profiling
+                    - generic [ref=e194]: Performance impact of profiling
+                  - generic [ref=e195]:
+                    - generic [ref=e196]:
+                      - generic [ref=e197]: 79.3%
+                      - generic [ref=e198]: ✗
+                    - generic [ref=e199]: "Target: <10%"
+            - generic [ref=e200]:
+              - generic [ref=e201]:
+                - generic [ref=e202]: 🎯
+                - heading "All Performance Targets Met" [level=3] [ref=e203]
+              - generic [ref=e204]:
+                - generic [ref=e205]:
+                  - generic [ref=e206]: "VPN Throughput:"
+                  - generic [ref=e207]: 219% of target
+                - generic [ref=e208]:
+                  - generic [ref=e209]: "Circuit Speed:"
+                  - generic [ref=e210]: "-9% faster than target"
+                - generic [ref=e211]:
+                  - generic [ref=e212]: "Resource Reuse:"
+                  - generic [ref=e213]: 110% of target
+                - generic [ref=e214]:
+                  - generic [ref=e215]: "Task Submission:"
+                  - generic [ref=e216]: 57% of target
+            - generic [ref=e217]: "Last benchmarked: 8/29/2026, 2:14:57 PM"
+          - generic [ref=e219]:
+            - generic [ref=e220]:
+              - heading "📈 Quality Scores" [level=2] [ref=e221]:
+                - generic [ref=e222]: 📈
+                - text: Quality Scores
+              - generic [ref=e223]:
+                - generic [ref=e224]:
+                  - generic [ref=e225]: 🚀
+                  - generic [ref=e226]: Production Readiness
+                  - generic [ref=e227]:
+                    - img [ref=e228]
+                    - generic [ref=e232]: 92%
+                  - generic [ref=e233]: Overall system production readiness
+                - generic [ref=e234]:
+                  - generic [ref=e235]: 📊
+                  - generic [ref=e236]: Code Coverage
+                  - generic [ref=e237]:
+                    - img [ref=e238]
+                    - generic [ref=e242]: 79%
+                  - generic [ref=e243]: Test code coverage percentage
+                - generic [ref=e244]:
+                  - generic [ref=e245]: ⚡
+                  - generic [ref=e246]: Performance
+                  - generic [ref=e247]:
+                    - img [ref=e248]
+                    - generic [ref=e252]: 95%
+                  - generic [ref=e253]: Performance benchmark score
+                - generic [ref=e254]:
+                  - generic [ref=e255]: 🔒
+                  - generic [ref=e256]: Security
+                  - generic [ref=e257]:
+                    - img [ref=e258]
+                    - generic [ref=e262]: 85%
+                  - generic [ref=e263]: Security and authentication readiness
+            - generic [ref=e264]:
+              - heading "🧩 Component Readiness" [level=2] [ref=e265]:
+                - generic [ref=e266]: 🧩
+                - text: Component Readiness
+              - generic [ref=e267]:
+                - generic [ref=e269]:
+                  - generic [ref=e270]:
+                    - generic [ref=e271]: BetaNet Core
+                    - generic [ref=e272]: 111/111 tests • Excellent
+                  - generic [ref=e273]:
+                    - generic [ref=e274]: 100%
+                    - generic [ref=e275]: Production Ready
+                - generic [ref=e279]:
+                  - generic [ref=e280]:
+                    - generic [ref=e281]: VPN Layer
+                    - generic [ref=e282]: 23/23 tests • Excellent (924 Mbps)
+                  - generic [ref=e283]:
+                    - generic [ref=e284]: 100%
+                    - generic [ref=e285]: Production Ready
+                - generic [ref=e289]:
+                  - generic [ref=e290]:
+                    - generic [ref=e291]: Resource Optimization
+                    - generic [ref=e292]: 20/23 tests • Excellent (99% reuse)
+                  - generic [ref=e293]:
+                    - generic [ref=e294]: 100%
+                    - generic [ref=e295]: Production Ready
+                - generic [ref=e299]:
+                  - generic [ref=e300]:
+                    - generic [ref=e301]: Scheduler
+                    - generic [ref=e302]: 15/15 tests • Excellent (334K tasks/sec)
+                  - generic [ref=e303]:
+                    - generic [ref=e304]: 100%
+                    - generic [ref=e305]: Production Ready
+                - generic [ref=e309]:
+                  - generic [ref=e310]:
+                    - generic [ref=e311]: FOG Layer
+                    - generic [ref=e312]: 71/82 tests • Good
+                  - generic [ref=e313]:
+                    - generic [ref=e314]: 87%
+                    - generic [ref=e315]: Partial
+                - generic [ref=e319]:
+                  - generic [ref=e320]:
+                    - generic [ref=e321]: BitChat
+                    - generic [ref=e322]: 25/43 tests • Pending
+                  - generic [ref=e323]:
+                    - generic [ref=e324]: 58%
+                    - generic [ref=e325]: Partial
+                - generic [ref=e329]:
+                  - generic [ref=e330]:
+                    - generic [ref=e331]: Security/Auth
+                    - generic [ref=e332]: 13/26 tests • Pending
+                  - generic [ref=e333]:
+                    - generic [ref=e334]: 50%
+                    - generic [ref=e335]: In Progress
+            - generic [ref=e338]:
+              - heading "🏆 Week 7 Achievements" [level=2] [ref=e339]:
+                - generic [ref=e340]: 🏆
+                - text: Week 7 Achievements
+              - generic [ref=e341]:
+                - generic [ref=e342]:
+                  - heading "Bugs Fixed" [level=3] [ref=e343]
+                  - generic [ref=e344]:
+                    - generic [ref=e345]:
+                      - generic [ref=e346]: ✓
+                      - generic [ref=e347]: VPN circuit creation (9 tests)
+                    - generic [ref=e348]:
+                      - generic [ref=e349]: ✓
+                      - generic [ref=e350]: Resource profiler dict access (3 tests)
+                    - generic [ref=e351]:
+                      - generic [ref=e352]: ✓
+                      - generic [ref=e353]: Memory arena BufferError (2 tests)
+                    - generic [ref=e354]:
+                      - generic [ref=e355]: ✓
+                      - generic [ref=e356]: HTML report generation (1 test)
+                - generic [ref=e357]:
+                  - heading "Infrastructure" [level=3] [ref=e358]
+                  - generic [ref=e359]:
+                    - generic [ref=e360]:
+                      - generic [ref=e361]: ✓
+                      - generic [ref=e362]: Docker Compose test environment
+                    - generic [ref=e363]:
+                      - generic [ref=e364]: ✓
+                      - generic [ref=e365]: Comprehensive benchmark suite
+                    - generic [ref=e366]:
+                      - generic [ref=e367]: ✓
+                      - generic [ref=e368]: Test automation scripts
+                    - generic [ref=e369]:
+                      - generic [ref=e370]: ✓
+                      - generic [ref=e371]: Quality dashboard (this page!)
+              - generic [ref=e373]:
+                - generic [ref=e374]: "Overall Progress:"
+                - generic [ref=e375]: 87.5% → 92.3% (+4.8%)
+          - generic [ref=e377]:
+            - heading "🎮 Test Execution" [level=2] [ref=e378]:
+              - generic [ref=e379]: 🎮
+              - text: Test Execution
+            - generic [ref=e380]:
+              - generic [ref=e381]:
+                - generic [ref=e382]: Test Suite
+                - combobox "Test Suite" [ref=e383]:
+                  - option "All Tests" [selected]
+                  - option "Rust Tests (111)"
+                  - option "Python Tests (202)"
+              - generic [ref=e384]:
+                - button "▶ Run Tests" [ref=e385] [cursor=pointer]
+                - button "⚡ Run Benchmarks" [ref=e386] [cursor=pointer]
+            - generic [ref=e387]:
+              - button "🦀 Rust 111 tests" [ref=e388] [cursor=pointer]:
+                - generic [ref=e389] [cursor=pointer]: 🦀 Rust
+                - generic [ref=e390] [cursor=pointer]: 111 tests
+              - button "🐍 Python 202 tests" [ref=e391] [cursor=pointer]:
+                - generic [ref=e392] [cursor=pointer]: 🐍 Python
+                - generic [ref=e393] [cursor=pointer]: 202 tests
+              - button "🔗 Integration Requires Docker" [ref=e394] [cursor=pointer]:
+                - generic [ref=e395] [cursor=pointer]: 🔗 Integration
+                - generic [ref=e396] [cursor=pointer]: Requires Docker
+              - button "🎭 E2E Playwright" [ref=e397] [cursor=pointer]:
+                - generic [ref=e398] [cursor=pointer]: 🎭 E2E
+                - generic [ref=e399] [cursor=pointer]: Playwright
+            - generic [ref=e400]:
+              - generic [ref=e401]:
+                - heading "Console Output" [level=3] [ref=e402]
+                - button "Clear" [ref=e404] [cursor=pointer]
+              - generic [ref=e406]: No output yet. Click "Run Tests" or "Run Benchmarks" to start.
+            - group [ref=e407]
+          - generic [ref=e409]:
+            - heading "📈 Week 7 Progress" [level=2] [ref=e410]:
+              - generic [ref=e411]: 📈
+              - text: Week 7 Progress
+            - generic [ref=e412]:
+              - generic [ref=e413]:
+                - heading "Test Improvements" [level=3] [ref=e414]
+                - generic [ref=e415]:
+                  - generic [ref=e416]:
+                    - generic [ref=e417]: "Rust Tests:"
+                    - generic [ref=e418]: 111/111 (100%)
+                  - generic [ref=e419]:
+                    - generic [ref=e420]: "Python Tests:"
+                    - generic [ref=e421]: 178/202 (88.1%)
+                  - generic [ref=e422]:
+                    - generic [ref=e423]: "Week 7 Fixes:"
+                    - generic [ref=e424]: +15 tests
+                  - generic [ref=e425]:
+                    - generic [ref=e426]: "Improvement:"
+                    - generic [ref=e427]: +7.4%
+              - generic [ref=e428]:
+                - heading "Performance Targets" [level=3] [ref=e429]
+                - generic [ref=e430]:
+                  - generic [ref=e431]:
+                    - generic [ref=e432]: "Circuit Creation:"
+                    - generic [ref=e433]: 0.50ms ✓
+                  - generic [ref=e434]:
+                    - generic [ref=e435]: "VPN Throughput:"
+                    - generic [ref=e436]: 924 Mbps ✓
+                  - generic [ref=e437]:
+                    - generic [ref=e438]: "Resource Reuse:"
+                    - generic [ref=e439]: 99.1% ✓
+                  - generic [ref=e440]:
+                    - generic [ref=e441]: "Profiler Overhead:"
+                    - generic [ref=e442]: 5.0% ✓
+  - alert [ref=e443]
+  - generic [ref=e446] [cursor=pointer]:
+    - img [ref=e447] [cursor=pointer]
+    - generic [ref=e451] [cursor=pointer]: 1 error
+    - button "Hide Errors" [ref=e452] [cursor=pointer]:
+      - img [ref=e453] [cursor=pointer]
+```

@@ -1,0 +1,51 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - navigation [ref=e3]:
+      - generic [ref=e5]:
+        - link "FC Fog Compute" [ref=e6] [cursor=pointer]:
+          - /url: /
+          - generic [ref=e7] [cursor=pointer]: FC
+          - generic [ref=e8] [cursor=pointer]: Fog Compute
+        - generic [ref=e9]:
+          - link "D Dashboard" [ref=e10] [cursor=pointer]:
+            - /url: /
+            - generic [ref=e11] [cursor=pointer]: D
+            - generic [ref=e12] [cursor=pointer]: Dashboard
+          - link "N Nodes" [ref=e13] [cursor=pointer]:
+            - /url: /nodes
+            - generic [ref=e14] [cursor=pointer]: "N"
+            - generic [ref=e15] [cursor=pointer]: Nodes
+          - link "T Tasks" [ref=e16] [cursor=pointer]:
+            - /url: /tasks
+            - generic [ref=e17] [cursor=pointer]: T
+            - generic [ref=e18] [cursor=pointer]: Tasks
+          - link "B Betanet" [ref=e19] [cursor=pointer]:
+            - /url: /betanet
+            - generic [ref=e20] [cursor=pointer]: B
+            - generic [ref=e21] [cursor=pointer]: Betanet
+          - link "C BitChat" [ref=e22] [cursor=pointer]:
+            - /url: /bitchat
+            - generic [ref=e23] [cursor=pointer]: C
+            - generic [ref=e24] [cursor=pointer]: BitChat
+          - link "P Benchmarks" [ref=e25] [cursor=pointer]:
+            - /url: /benchmarks
+            - generic [ref=e26] [cursor=pointer]: P
+            - generic [ref=e27] [cursor=pointer]: Benchmarks
+          - link "Q Quality" [ref=e28] [cursor=pointer]:
+            - /url: /quality
+            - generic [ref=e29] [cursor=pointer]: Q
+            - generic [ref=e30] [cursor=pointer]: Quality
+        - generic [ref=e32]:
+          - img [ref=e35]
+          - generic [ref=e40]: Reconnecting...
+    - generic [ref=e41]:
+      - complementary "Context rail" [ref=e42]
+      - main [ref=e43]:
+        - generic [ref=e45]:
+          - heading "Authentication required" [level=1] [ref=e46]
+          - paragraph [ref=e47]: Login is required to access this control panel route.
+  - alert [ref=e48]
+```

@@ -1,0 +1,26 @@
+# Page snapshot
+
+```yaml
+- main [ref=e4]:
+  - generic [ref=e6]:
+    - heading "Register" [level=1] [ref=e7]
+    - paragraph [ref=e8]: Create a Fog Compute operator account.
+    - generic [ref=e9]:
+      - generic [ref=e10]:
+        - generic [ref=e11]: Username
+        - textbox "Username" [ref=e12]: e2euser17880132830608734
+      - generic [ref=e13]:
+        - generic [ref=e14]: Email
+        - textbox "Email" [ref=e15]: e2e17880132830608734@example.com
+      - generic [ref=e16]:
+        - generic [ref=e17]: Password
+        - textbox "Password" [ref=e18]: TestPassword123!
+      - generic [ref=e19]:
+        - generic [ref=e20]: Confirm password
+        - textbox "Confirm password" [active] [ref=e21]: TestPassword123!
+      - button "Register" [disabled] [ref=e22]
+    - paragraph [ref=e23]:
+      - text: Already have an account?
+      - link "Login" [ref=e24] [cursor=pointer]:
+        - /url: /login
+```
